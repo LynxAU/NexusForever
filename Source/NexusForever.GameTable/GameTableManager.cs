@@ -423,6 +423,8 @@ namespace NexusForever.GameTable
         [GameData]
         public GameTable<PetFlairEntry> PetFlair { get; private set; }
         public GameTable<PlayerNotificationTypeEntry> PlayerNotificationType { get; private set; }
+
+        [GameData]
         public GameTable<PositionalRequirementEntry> PositionalRequirement { get; private set; }
 
         [GameData]

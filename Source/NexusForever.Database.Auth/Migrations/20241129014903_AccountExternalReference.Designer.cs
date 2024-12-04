@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NexusForever.Database.Auth;
 
@@ -11,9 +12,11 @@ using NexusForever.Database.Auth;
 namespace NexusForever.Database.Auth.Migrations
 {
     [DbContext(typeof(AuthContext))]
-    partial class AuthContextModelSnapshot : ModelSnapshot
+    [Migration("20241129014903_AccountExternalReference")]
+    partial class AccountExternalReference
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -116,6 +119,9 @@ namespace NexusForever.Database.Auth.Migrations
 
                     b.HasKey("Id", "Type")
                         .HasName("PRIMARY");
+
+                    b.HasIndex("Type", "Value")
+                        .IsUnique();
 
                     b.ToTable("account_external_reference", (string)null);
                 });

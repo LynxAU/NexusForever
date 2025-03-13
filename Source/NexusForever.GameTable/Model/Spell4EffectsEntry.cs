@@ -37,7 +37,7 @@ namespace NexusForever.GameTable.Model
         public uint PrerequisiteIdTargetPersistence;
         public uint PrerequisiteIdTargetSuspend;
         [GameTableFieldArray(4)]
-        public uint[] ParameterType;
+        public SpellEffectParameterType[] ParameterType;
         [GameTableFieldArray(4)]
         public float[] ParameterValue;
         public uint PhaseFlags;

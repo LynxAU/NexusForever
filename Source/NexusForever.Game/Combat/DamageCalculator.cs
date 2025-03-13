@@ -149,34 +149,37 @@ namespace NexusForever.Game.Combat
             float value = 0f;
             for (int i = 0; i < 4; i++)
             {
+                float intermediateValue = 0f;
                 switch (entry.ParameterType[i])
                 {
-                    case 1:
-                        value += GetProperty(Property.Strength) * entry.ParameterValue[i];
+                    case SpellEffectParameterType.Brutality:
+                        intermediateValue = GetProperty(Property.Strength);
                         break;
-                    case 2:
-                        value += GetProperty(Property.Dexterity) * entry.ParameterValue[i];
+                    case SpellEffectParameterType.Finesse:
+                        intermediateValue = GetProperty(Property.Dexterity);
                         break;
-                    case 3:
-                        value += GetProperty(Property.Technology) * entry.ParameterValue[i];
+                    case SpellEffectParameterType.Tech:
+                        intermediateValue = GetProperty(Property.Technology);
                         break;
-                    case 4:
-                        value += GetProperty(Property.Magic) * entry.ParameterValue[i];
+                    case SpellEffectParameterType.Moxie:
+                        intermediateValue = GetProperty(Property.Magic);
                         break;
-                    case 5:
-                        value += GetProperty(Property.Wisdom) * entry.ParameterValue[i];
+                    case SpellEffectParameterType.Insight:
+                        intermediateValue = GetProperty(Property.Wisdom);
                         break;
-                    case 11:
-                        value += GetProperty(Property.Stamina) * entry.ParameterValue[i];
+                    case SpellEffectParameterType.Grit:
+                        intermediateValue = GetProperty(Property.Stamina);
                         break;
                     // client defaults to a value of 0.25f if the game table entry is missing
-                    case 12:
-                        value += GetProperty(Property.AssaultRating) * entry.ParameterValue[i] * forumulaEntry?.Datafloat0 ?? 0.25f;
+                    case SpellEffectParameterType.AssaultPower:
+                        intermediateValue = GetProperty(Property.AssaultRating) * forumulaEntry?.Datafloat0 ?? 0.25f;
                         break;
-                    case 13:
-                        value += GetProperty(Property.SupportRating) * entry.ParameterValue[i] * forumulaEntry?.Datafloat01 ?? 0.25f;
+                    case SpellEffectParameterType.SupportPower:
+                        intermediateValue = GetProperty(Property.SupportRating) * forumulaEntry?.Datafloat01 ?? 0.25f;
                         break;
                 }
+
+                value += intermediateValue * entry.ParameterValue[i];
             }
 
             if (value >= 0f)
@@ -190,29 +193,54 @@ namespace NexusForever.Game.Combat
             float value = 0f;
             for (int i = 0; i < 4; i++)
             {
+                float intermediateValue = 0f;
                 switch (entry.ParameterType[i])
                 {
-                    // cases in the client not implemented
-                    case 7:
-                    case 8:
-                    case 14:
-                    case 15:
-                    case 16:
-                    case 17:
-                    case 18:
-                    case 19:
-                    case 21:
-                    case 22:
-                    case 23:
-                    case 25:
-                    case 26:
+                    case SpellEffectParameterType.TargetMaxHealth:
+                        intermediateValue = target.MaxHealth;
                         break;
-                    case 10:
-                    {
-                        value += caster.Level * entry.ParameterValue[i];
+                    case SpellEffectParameterType.CasterMaxHealth:
+                        intermediateValue = caster.MaxHealth;
                         break;
-                    }
+                    case SpellEffectParameterType.CasterShieldCapacity:
+                        intermediateValue = caster.Shield;
+                        break;
+                    case SpellEffectParameterType.TargetShieldCapacity:
+                        intermediateValue = target.Shield;
+                        break;
+                    case SpellEffectParameterType.CasterMaxShieldCapacity:
+                        intermediateValue = caster.MaxShieldCapacity;
+                        break;
+                    case SpellEffectParameterType.TargetMaxShieldCapacity:
+                        intermediateValue = target.MaxShieldCapacity;
+                        break;
+                    case SpellEffectParameterType.ItemBudget:
+                        intermediateValue = entry.ParameterValue[i];
+                        break;
+                    case SpellEffectParameterType.TargetCurrentHealth:
+                        intermediateValue = target.Health;
+                        break;
+                    case SpellEffectParameterType.TargetMissingHealth:
+                        intermediateValue = (target.MaxHealth - target.Health);
+                        break;
+                    case SpellEffectParameterType.TargetMissingShields:
+                        intermediateValue = (target.MaxShieldCapacity - target.Shield);
+                        break;
+                    case SpellEffectParameterType.CasterCurrentHealth:
+                        intermediateValue = caster.Health;
+                        break;
+                    case SpellEffectParameterType.CasterMissingHealth:
+                        intermediateValue = (caster.MaxHealth - caster.Health);
+                        break;
+                    case SpellEffectParameterType.CasterMissingShields:
+                        intermediateValue = (caster.MaxShieldCapacity - caster.Shield);
+                        break;
+                    case SpellEffectParameterType.PerLevel:
+                        intermediateValue = caster.Level;
+                        break;
                 }
+
+                value += intermediateValue * entry.ParameterValue[i];
             }
 
             return value;

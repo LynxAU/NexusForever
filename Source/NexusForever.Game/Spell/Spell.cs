@@ -1,12 +1,11 @@
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Abstract.Spell.Event;
-using NexusForever.Game.Entity;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Spell.Event;
 using NexusForever.Game.Static.Spell;
-using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
+using NexusForever.Network.World.Combat;
 using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Model.Shared;
@@ -379,6 +378,8 @@ namespace NexusForever.Game.Spell
 
         private void SendSpellGo()
         {
+            List<ICombatLog> combatLogs = [];
+
             var serverSpellGo = new ServerSpellGo
             {
                 ServerUniqueId     = CastingId,
@@ -389,6 +390,12 @@ namespace NexusForever.Game.Spell
             foreach (ISpellTargetInfo targetInfo in targets
                 .Where(t => t.Effects.Count > 0))
             {
+                if (!targetInfo.Effects.Any(x => x.DropEffect == false))
+                {
+                    combatLogs.AddRange(targetInfo.Effects.SelectMany(i => i.CombatLogs));
+                    continue;
+                }
+
                 var networkTargetInfo = new TargetInfo
                 {
                     UnitId        = targetInfo.Entity.Guid,
@@ -399,6 +406,15 @@ namespace NexusForever.Game.Spell
 
                 foreach (ISpellTargetEffectInfo targetEffectInfo in targetInfo.Effects)
                 {
+                    if (targetEffectInfo.DropEffect)
+                    {
+                        combatLogs.AddRange(targetEffectInfo.CombatLogs);
+                        continue;
+                    }
+
+                    if (targetEffectInfo.Entry.EffectType == SpellEffectType.Proxy)
+                        continue;
+
                     var networkTargetEffectInfo = new TargetInfo.EffectInfo
                     {
                         Spell4EffectId = targetEffectInfo.Entry.Id,
@@ -418,12 +434,14 @@ namespace NexusForever.Game.Spell
                             AdjustedDamage     = targetEffectInfo.Damage.AdjustedDamage,
                             OverkillAmount     = targetEffectInfo.Damage.OverkillAmount,
                             KilledTarget       = targetEffectInfo.Damage.KilledTarget,
-                            CombatResult       = CombatResult.Hit,
+                            CombatResult       = targetEffectInfo.Damage.CombatResult,
                             DamageType         = targetEffectInfo.Damage.DamageType
                         };
                     }
 
                     networkTargetInfo.EffectInfoData.Add(networkTargetEffectInfo);
+
+                    combatLogs.AddRange(targetEffectInfo.CombatLogs);
                 }
 
                 serverSpellGo.TargetInfoData.Add(networkTargetInfo);
@@ -460,7 +478,16 @@ namespace NexusForever.Game.Spell
                 }
             }
 
+            foreach (ICombatLog combatLog in combatLogs)
+            {
+                Caster.EnqueueToVisible(new ServerCombatLog
+                {
+                    CombatLog = combatLog
+                }, true);
+            }
+
             Caster.EnqueueToVisible(serverSpellGo, true);
+
         }
 
         private void SendRemoveBuff(uint unitId)

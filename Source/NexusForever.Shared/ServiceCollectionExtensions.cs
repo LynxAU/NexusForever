@@ -9,8 +9,8 @@ namespace NexusForever.Shared
             where TInterface : class
             where TImplementation : class, TInterface
         {
-            sc.AddSingleton<TInterface, TImplementation>();
-            sc.AddSingleton(sp => (TImplementation)sp.GetService<TInterface>());
+            sc.AddSingleton<TImplementation>();
+            sc.AddSingleton<TInterface>(sp => sp.GetService<TImplementation>());
         }
 
         public static void AddTransientFactory<TInterface, TImplementation>(this IServiceCollection sc)

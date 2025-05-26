@@ -50,7 +50,10 @@ namespace NexusForever.Network.Message
         ServerPathExplorerPowerMapWaiting = 0x00FA,
         ServerCharacterFlagsUpdated     = 0x00FE,
         ServerResurrectionState         = 0x0100,
-        Server0104                      = 0x0104, // Galactic Archive
+        ServerGalacticArchiveRefresh    = 0x0102,
+        ClientGalacticArchiveUnlock     = 0x0103,
+        ServerGalacticArchiveUpdate     = 0x0104,
+        ClientGalacticArchiveViewed     = 0x0105,
         ServerGenericError              = 0x0106,
         ClientGuildHolomarkUpdate       = 0x010C,
         ServerHousingBasics             = 0x010E,

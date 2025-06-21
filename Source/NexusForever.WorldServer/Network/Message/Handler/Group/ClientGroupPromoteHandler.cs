@@ -1,4 +1,5 @@
-﻿using NexusForever.Game.Abstract.Group;
+﻿using NexusForever.Game;
+using NexusForever.Game.Abstract.Group;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
 
@@ -23,7 +24,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Group
             GroupHelper.AssertGroupId(session, groupPromote.GroupId);
 
             IGroup group = groupManager.GetGroupById(groupPromote.GroupId);
-            group.Promote(groupPromote.TargetedPlayer);
+            group.Promote(groupPromote.TargetedPlayer.ToGame());
         }
     }
 }

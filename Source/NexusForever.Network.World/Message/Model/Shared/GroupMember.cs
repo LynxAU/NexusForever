@@ -44,7 +44,7 @@ namespace NexusForever.Network.World.Message.Model.Shared
         public UnknownStruct0[] SomeStatList = new UnknownStruct0[5];
         public List<UnknownStruct1> UnknownStruct1List { get; set; } = new List<UnknownStruct1>();
 
-        public TargetPlayerIdentity MentoringTarget { get; set; }
+        public Identity MentoringTarget { get; set; }
 
         public uint Unknown10 { get; set; }
         public ushort Unknown11 { get; set; }

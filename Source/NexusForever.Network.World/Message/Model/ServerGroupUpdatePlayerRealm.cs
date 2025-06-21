@@ -7,7 +7,7 @@ namespace NexusForever.Network.World.Message.Model
     public class ServerGroupUpdatePlayerRealm : IWritable
     {
         public ulong GroupId { get; set; }
-        public TargetPlayerIdentity TargetPlayerIdentity { get; set; }
+        public Identity TargetPlayerIdentity { get; set; }
         public uint RealmId { get; set; }
         public uint ZoneId { get; set; }
         public uint MapId { get; set; }

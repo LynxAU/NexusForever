@@ -15,7 +15,7 @@ namespace NexusForever.Network.World.Message.Model.Shared
         public LootThreshold LootThreshold { get; set; }
         public HarvestLootRule LootRuleHarvest { get; set; }
 
-        public TargetPlayerIdentity LeaderIdentity { get; set; } = new TargetPlayerIdentity();
+        public Identity LeaderIdentity { get; set; } = new();
         public ushort RealmId { get; set; }     //< Why again? Tf?
 
         public GroupMarkerInfo MarkerInfo { get; set; }

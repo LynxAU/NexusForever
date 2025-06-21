@@ -8,7 +8,7 @@ namespace NexusForever.Network.World.Message.Model
     {
         public ulong GroupId { get; set; }
 
-        public TargetPlayerIdentity Invoker { get; set; }
+        public Identity Invoker { get; set; }
 
         public string Message { get; set; }
 

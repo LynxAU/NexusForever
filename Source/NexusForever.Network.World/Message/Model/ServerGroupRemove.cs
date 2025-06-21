@@ -13,7 +13,7 @@ namespace NexusForever.Network.World.Message.Model
     {
         public ulong GroupId { get; set; }
         public uint Unk0 { get; set; }
-        public TargetPlayerIdentity TargetPlayer { get; set; } = new TargetPlayerIdentity();
+        public Identity TargetPlayer { get; set; } = new();
         public RemoveReason Reason { get; set; }
 
         public void Write(GamePacketWriter writer)

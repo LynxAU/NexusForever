@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NexusForever.Database;
@@ -13,6 +12,7 @@ using NexusForever.Game.Abstract.Matching.Queue;
 using NexusForever.Game.Achievement;
 using NexusForever.Game.Character;
 using NexusForever.Game.Cinematic;
+using NexusForever.Game.Combat;
 using NexusForever.Game.Customisation;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Group;
@@ -39,7 +39,6 @@ using NexusForever.Shared;
 using NexusForever.Shared.Configuration;
 using NexusForever.WorldServer.Command;
 using NexusForever.WorldServer.Network;
-using NexusForever.WorldServer.Network.Message.Handler.Character;
 
 namespace NexusForever.WorldServer
 {
@@ -140,10 +139,6 @@ namespace NexusForever.WorldServer
             ShutdownManager.Instance.Initialise(WorldServer.Shutdown);
 
             matchingManager.Initialise();
-
-            // TODO: fix this, really need to move the character packet generation to a manager and not a packet handler...
-            CharacterListHandler handler = LegacyServiceProvider.Provider.GetService<CharacterListHandler>();
-            loginQueueManager.Initialise(handler.SendCharacterListPackets);
 
             messageManager.RegisterNetworkManagerMessagesAndHandlers();
             messageManager.RegisterNetworkManagerWorldMessages();

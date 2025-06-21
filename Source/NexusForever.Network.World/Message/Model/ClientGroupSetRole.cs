@@ -9,7 +9,7 @@ namespace NexusForever.Network.World.Message.Model
     {
         public ulong GroupId { get; set; }
 
-        public TargetPlayerIdentity TargetedPlayer { get; set; } = new TargetPlayerIdentity();
+        public Identity TargetedPlayer { get; set; } = new();
 
         public GroupMemberInfoFlags CurrentFlags { get; set; }
 

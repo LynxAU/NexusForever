@@ -1,4 +1,5 @@
-﻿using NexusForever.Game.Abstract.Group;
+﻿using NexusForever.Game;
+using NexusForever.Game.Abstract.Group;
 using NexusForever.Game.Static.Group;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
@@ -37,7 +38,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Group
             if (group.MemberCount == 2 && group.IsOpenWorld)
                 group.Disband();
             else
-                group.KickMember(groupKick.TargetedPlayer);
+                group.KickMember(groupKick.TargetedPlayer.ToGame());
         }
     }
 }

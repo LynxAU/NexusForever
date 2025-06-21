@@ -5,6 +5,7 @@ using NexusForever.Game.Static.Group;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Model.Shared;
 using NetworkGroupMember = NexusForever.Network.World.Message.Model.Shared.GroupMember;
+using NetworkIdentity = NexusForever.Network.World.Message.Model.Shared.Identity;
 
 namespace NexusForever.Game.Group
 {
@@ -130,9 +131,9 @@ namespace NexusForever.Game.Group
         {
             return new GroupMemberInfo
             {
-                MemberIdentity = new TargetPlayerIdentity
+                MemberIdentity = new NetworkIdentity
                 {
-                    CharacterId = CharacterId,
+                    Id = CharacterId,
                     RealmId = RealmContext.Instance.RealmId
                 },
                 Flags = Flags,
@@ -170,9 +171,9 @@ namespace NexusForever.Game.Group
             {
                 GroupId = Group.Id,
                 GroupMemberId = (ushort)Id,
-                TargetPlayer = new TargetPlayerIdentity
+                TargetPlayer = new NetworkIdentity
                 {
-                    CharacterId = CharacterId,
+                    Id = CharacterId,
                     RealmId = RealmContext.Instance.RealmId
                 },
                 Level = (byte)targetPlayer.Level,

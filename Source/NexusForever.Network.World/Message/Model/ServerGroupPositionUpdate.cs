@@ -9,7 +9,7 @@ namespace NexusForever.Network.World.Message.Model
     {
         public class UnknownStruct0
         {
-            public TargetPlayerIdentity Identity { get; set; }
+            public Identity Identity { get; set; }
             public Position Position { get; set; }
             public uint Unknown0 { get; set; } //afaict this is never used in the client.
             public uint Flags { get; set; } = 0; // bInCombatPvp = 1, bIInCombatPve = 2, InCombat = 3

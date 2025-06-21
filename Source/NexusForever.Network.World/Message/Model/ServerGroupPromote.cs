@@ -10,7 +10,7 @@ namespace NexusForever.Network.World.Message.Model
 
         public uint LeaderIndex { get; set; }
 
-        public TargetPlayerIdentity NewLeader { get; set; }
+        public Identity NewLeader { get; set; }
 
         public void Write(GamePacketWriter writer)
         {

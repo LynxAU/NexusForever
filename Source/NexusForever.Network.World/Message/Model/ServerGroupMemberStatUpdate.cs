@@ -7,7 +7,7 @@ namespace NexusForever.Network.World.Message.Model
     public class ServerGroupMemberStatUpdate : IWritable
     {
         public ulong GroupId { get; set; }
-        public TargetPlayerIdentity TargetPlayer { get; set; }
+        public Identity TargetPlayer { get; set; }
 
         public byte Level { get; set; }
         public byte EffectiveLevel { get; set; }

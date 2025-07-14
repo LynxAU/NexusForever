@@ -1,8 +1,10 @@
 ﻿using NexusForever.Game;
-using NexusForever.Game.Abstract.Group;
-using NexusForever.Game.Static.Group;
+using NexusForever.Network.Internal;
+using NexusForever.Network.Internal.Message.Group;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Shared;
+using NexusForever.WorldServer.Network.Internal;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Group
 {
@@ -10,35 +12,24 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Group
     {
         #region Dependency Injection
 
-        private readonly IGroupManager groupManager;
+        private readonly IInternalMessagePublisher messagePublisher;
 
         public ClientGroupKickHandler(
-            IGroupManager groupManager)
+            IInternalMessagePublisher messagePublisher)
         {
-            this.groupManager = groupManager;
+            this.messagePublisher = messagePublisher;
         }
 
         #endregion
 
         public void HandleMessage(IWorldSession session, ClientGroupKick groupKick)
         {
-            GroupHelper.AssertGroupId(session, groupKick.GroupId);
-            GroupHelper.AssertPermission(session, groupKick.GroupId, GroupMemberInfoFlags.CanKick);
-
-            IGroup group = groupManager.GetGroupById(groupKick.GroupId);
-            if (group == null)
+            messagePublisher.PublishAsync(new GroupMemberKickMessage
             {
-                GroupHelper.SendGroupResult(session, GroupResult.GroupNotFound, groupKick.GroupId, session.Player.Name);
-                return;
-            }
-
-            // I never want to leave a group with only 1 member; So as with the Leave if there would be 1 member left after this operation
-            // Just .Disband() the group.
-            // TODO: If WoW is anything to go by; instance groups do NOT disband like this; once the instance is closed the group will be cleaned up.
-            if (group.MemberCount == 2 && group.IsOpenWorld)
-                group.Disband();
-            else
-                group.KickMember(groupKick.TargetedPlayer.ToGame());
+                GroupId = groupKick.GroupId,
+                Kicker  = session.Player.Identity.ToInternalIdentity(),
+                Kicked  = groupKick.TargetedPlayer.ToInternalIdentity(),
+            }).FireAndForgetAsync();
         }
     }
 }

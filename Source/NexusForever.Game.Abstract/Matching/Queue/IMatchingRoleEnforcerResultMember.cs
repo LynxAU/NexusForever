@@ -4,7 +4,7 @@ namespace NexusForever.Game.Abstract.Matching.Queue
 {
     public interface IMatchingRoleEnforcerResultMember
     {
-        ulong CharacterId { get; init; }
+        IIdentity Identity { get; init; }
         Role Role { get; set; }
     }
 }

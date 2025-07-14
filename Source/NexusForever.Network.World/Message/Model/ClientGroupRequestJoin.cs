@@ -6,12 +6,12 @@ namespace NexusForever.Network.World.Message.Model
     public class ClientGroupRequestJoin : IReadable
     {
         public string Name { get; set; }
-        public string UnknownString { get; set; }
+        public string RealmName { get; set; }
 
         public void Read(GamePacketReader reader)
         {
-            Name = reader.ReadWideString();
-            UnknownString = reader.ReadWideString();
+            Name      = reader.ReadWideString();
+            RealmName = reader.ReadWideString();
         }
     }
 }

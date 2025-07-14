@@ -8,7 +8,7 @@ namespace NexusForever.Network.World.Message.Model
     {
         public ulong GroupId { get; set; }
 
-        public GroupMemberInfo MemberInfo { get; set; }
+        public GroupMember MemberInfo { get; set; }
 
         public void Write(GamePacketWriter writer)
         {

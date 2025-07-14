@@ -315,6 +315,7 @@ namespace NexusForever.Network.Message
         ServerGroupLootRulesChange      = 0x042F,
         ClientGroupMarkUnit             = 0x0432,
         ServerGroupMemberFlagsChanged   = 0x0437,
+        ServerGroupActionResult         = 0x0443,
         ClientGroupPromote              = 0x0446,
         ServerGroupPromote              = 0x0447,
         ClientGroupSendReadyCheck       = 0x044A,

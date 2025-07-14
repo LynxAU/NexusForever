@@ -10,7 +10,7 @@ namespace NexusForever.Network.World.Message.Model
         public uint LeaderIndex { get; set; }
         public uint InviterIndex { get; set; }
 
-        public List<GroupMember> Members = new List<GroupMember>();
+        public List<GroupCharacter> Members = new List<GroupCharacter>();
 
         public void Write(GamePacketWriter writer)
         {

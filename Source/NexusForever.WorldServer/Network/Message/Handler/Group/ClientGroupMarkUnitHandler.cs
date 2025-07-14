@@ -1,7 +1,9 @@
-﻿using NexusForever.Game.Abstract.Group;
-using NexusForever.Game.Static.Group;
+﻿using NexusForever.Game;
+using NexusForever.Network.Internal;
+using NexusForever.Network.Internal.Message.Group;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Shared;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Group
 {
@@ -9,29 +11,24 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Group
     {
         #region Dependency Injection
 
-        private readonly IGroupManager groupManager;
+        private readonly IInternalMessagePublisher messagePublisher;
 
         public ClientGroupMarkUnitHandler(
-            IGroupManager groupManager)
+            IInternalMessagePublisher messagePublisher)
         {
-            this.groupManager = groupManager;
+            this.messagePublisher = messagePublisher;
         }
 
         #endregion
 
         public void HandleMessage(IWorldSession session, ClientGroupMark groupMark)
         {
-            // Players can only mark for their Active group.
-            ulong groupId = session.Player.GroupMembership1.Group.Id;
-            IGroup group = groupManager.GetGroupById(groupId);
-            if (group == null)
+            messagePublisher.PublishAsync(new GroupMarkerMessage
             {
-                GroupHelper.SendGroupResult(session, GroupResult.GroupNotFound, groupId, session.Player.Name);
-                return;
-            }
-
-            GroupHelper.AssertPermission(session, groupId, GroupMemberInfoFlags.CanMark);
-            group.MarkUnit(groupMark.UnitId, groupMark.Marker);
+                MarkerIndentity = session.Player.Identity.ToInternalIdentity(),
+                GroupMarker     = groupMark.Marker,
+                UnitId          = groupMark.UnitId != 0 ? groupMark.UnitId : null,
+            }).FireAndForgetAsync();
         }
     }
 }

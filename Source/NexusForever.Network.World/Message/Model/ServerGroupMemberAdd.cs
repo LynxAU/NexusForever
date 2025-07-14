@@ -8,13 +8,13 @@ namespace NexusForever.Network.World.Message.Model
     {
         public ulong GroupId { get; set; }
         public uint Unknown0 { get; set; }
-        public GroupMemberInfo AddedMemberInfo { get; set; }
+        public GroupMember AddedMember { get; set; }
 
         public void Write(GamePacketWriter writer)
         {
             writer.Write(GroupId);
             writer.Write(Unknown0);
-            AddedMemberInfo.Write(writer);
+            AddedMember.Write(writer);
         }
     }
 }

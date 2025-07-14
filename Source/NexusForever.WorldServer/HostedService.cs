@@ -12,10 +12,8 @@ using NexusForever.Game.Abstract.Matching.Queue;
 using NexusForever.Game.Achievement;
 using NexusForever.Game.Character;
 using NexusForever.Game.Cinematic;
-using NexusForever.Game.Combat;
 using NexusForever.Game.Customisation;
 using NexusForever.Game.Entity;
-using NexusForever.Game.Group;
 using NexusForever.Game.Guild;
 using NexusForever.Game.Housing;
 using NexusForever.Game.Map;
@@ -160,7 +158,6 @@ namespace NexusForever.WorldServer
                 loginQueueManager.Update(lastTick);
                 matchingManager.Update(lastTick);
                 matchManager.Update(lastTick);
-                GroupManager.Instance.Update(lastTick);
 
                 scriptManager.Update(lastTick);
 

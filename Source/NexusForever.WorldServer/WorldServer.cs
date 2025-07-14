@@ -13,6 +13,8 @@ using NexusForever.Game;
 using NexusForever.Game.Configuration.Model;
 using NexusForever.GameTable;
 using NexusForever.Network.Configuration.Model;
+using NexusForever.Network.Internal;
+using NexusForever.Network.Internal.Configuration;
 using NexusForever.Script;
 using NexusForever.Script.Configuration.Model;
 using NexusForever.Shared;
@@ -52,6 +54,7 @@ namespace NexusForever.WorldServer
                 {
                     // register world server service first since it needs to execute before the web host
                     sc.AddHostedService<HostedService>();
+                    sc.AddHostedService<NetworkInternalHostedService>();
 
                     sc.AddOptions<NetworkConfig>()
                         .Bind(hb.Configuration.GetSection("Network"));
@@ -59,6 +62,10 @@ namespace NexusForever.WorldServer
                         .Bind(hb.Configuration.GetSection("Realm"));
                     sc.AddOptions<ScriptConfig>()
                         .Bind(hb.Configuration.GetSection("Script"));
+
+                    sc.AddNetworkInternal();
+                    sc.AddNetworkInternalBroker(hb.Configuration.GetSection("Network:Internal").Get<BrokerConfig>());
+                    sc.AddNetworkInternalHandlers();
 
                     sc.AddSingletonLegacy<ISharedConfiguration, SharedConfiguration>();
                     sc.AddDatabase();

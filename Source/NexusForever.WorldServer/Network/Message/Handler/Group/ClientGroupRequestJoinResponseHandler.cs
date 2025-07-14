@@ -1,7 +1,9 @@
-﻿using NexusForever.Game.Abstract.Group;
-using NexusForever.Game.Static.Group;
+﻿using NexusForever.Game;
+using NexusForever.Network.Internal;
+using NexusForever.Network.Internal.Message.Group;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Shared;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Group
 {
@@ -9,32 +11,25 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Group
     {
         #region Dependency Injection
 
-        private readonly IGroupManager groupManager;
+        private readonly IInternalMessagePublisher messagePublisher;
 
         public ClientGroupRequestJoinResponseHandler(
-            IGroupManager groupManager)
+            IInternalMessagePublisher messagePublisher)
         {
-            this.groupManager = groupManager;
+            this.messagePublisher = messagePublisher;
         }
 
         #endregion
 
         public void HandleMessage(IWorldSession session, ClientGroupRequestJoinResponse groupRequestJoinResponse)
         {
-            // This comes from the leader / assist of the group, assert they are part of the correct group.
-            GroupHelper.AssertGroupId(session, groupRequestJoinResponse.GroupId);
-
-            IGroup group = groupManager.GetGroupById(groupRequestJoinResponse.GroupId);
-            if (group == null)
+            messagePublisher.PublishAsync(new GroupMemberRequestReponseMessage
             {
-                GroupHelper.SendGroupResult(session, GroupResult.GroupNotFound);
-                return;
-            }
-
-            if (groupRequestJoinResponse.AcceptedRequest)
-                group.AcceptInvite(groupRequestJoinResponse.InviteeName);
-            else
-                group.DeclineInvite(groupRequestJoinResponse.InviteeName);
+                GroupId     = groupRequestJoinResponse.GroupId,
+                Identity    = session.Player.Identity.ToInternalIdentity(),
+                InviteeName = groupRequestJoinResponse.InviteeName,
+                Response    = groupRequestJoinResponse.AcceptedRequest,
+            }).FireAndForgetAsync();
         }
     }
 }

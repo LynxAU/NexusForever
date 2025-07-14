@@ -53,6 +53,11 @@ namespace NexusForever.Database.Character
             this.config = config;
         }
 
+        public CharacterContext(DbContextOptions<CharacterContext> options)
+            : base(options)
+        {
+        }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (!optionsBuilder.IsConfigured)

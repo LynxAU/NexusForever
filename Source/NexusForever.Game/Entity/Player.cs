@@ -9,7 +9,6 @@ using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Achievement;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
-using NexusForever.Game.Abstract.Group;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Housing;
 using NexusForever.Game.Abstract.Map;
@@ -22,7 +21,6 @@ using NexusForever.Game.Abstract.Social;
 using NexusForever.Game.Achievement;
 using NexusForever.Game.Character;
 using NexusForever.Game.Configuration.Model;
-using NexusForever.Game.Group;
 using NexusForever.Game.Guild;
 using NexusForever.Game.Housing;
 using NexusForever.Game.Map;
@@ -39,6 +37,8 @@ using NexusForever.Game.Static.Social;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
+using NexusForever.Network.Internal;
+using NexusForever.Network.Internal.Message.Player;
 using NexusForever.Network.Session;
 using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Entity.Model;
@@ -47,11 +47,11 @@ using NexusForever.Network.World.Message.Model.Shared;
 using NexusForever.Network.World.Message.Static;
 using NexusForever.Script;
 using NexusForever.Script.Template;
+using NexusForever.Shared;
 using NexusForever.Shared.Configuration;
 using NexusForever.Shared.Game;
 using NexusForever.Shared.Game.Events;
 using NLog;
-using NetworkGroupMember = NexusForever.Network.World.Message.Model.Shared.GroupMember;
 using Path = NexusForever.Game.Static.Entity.Path;
 
 namespace NexusForever.Game.Entity
@@ -194,6 +194,11 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public uint? VanityPetGuid { get; set; }
 
+        /// <summary>
+        /// Id of the primary group that <see cref="IPlayer"/> is associated with.
+        /// </summary>
+        public ulong GroupAssociation { get; set; }
+
         public bool IsSitting => currentChairGuid != null;
         private uint? currentChairGuid;
 
@@ -234,10 +239,6 @@ namespace NexusForever.Game.Entity
         public IAppearanceManager AppearanceManager { get; private set; }
         public IResurrectionManager ResurrectionManager { get; private set; }
 
-        public IGroupMember GroupMembership1 { get; private set; }
-        public IGroupMember GroupMembership2 { get; private set; }
-        public IGroupInvite GroupInvite { get; set; }
-
         public IVendorInfo SelectedVendorInfo { get; set; } // TODO unset this when too far away from vendor
 
         private UpdateTimer saveTimer = new(SaveDuration);
@@ -245,23 +246,28 @@ namespace NexusForever.Game.Entity
 
         private Dictionary<Property, Dictionary<ItemSlot, /*value*/float>> itemProperties = new();
 
+        private UpdateTimer relocationTimer = new(TimeSpan.FromSeconds(1));
+
         #region Dependency Injection
 
+        private readonly IInternalMessagePublisher messagePublisher;
         private readonly IEntityFactory entityFactory;
         private readonly IMatchingManager matchingManager;
         private readonly IMatchManager matchManager;
 
         public Player(
             IMovementManager movementManager,
+            IInternalMessagePublisher messagePublisher,
             IEntityFactory entityFactory,
             IMatchingManager matchingManager,
             IMatchManager matchManager,
             ICurrencyManager currencyManager)
             : base(movementManager)
         {
-            this.entityFactory   = entityFactory;
-            this.matchingManager = matchingManager;
-            this.matchManager    = matchManager;
+            this.messagePublisher = messagePublisher;
+            this.entityFactory    = entityFactory;
+            this.matchingManager  = matchingManager;
+            this.matchManager     = matchManager;
 
             // managers
             CurrencyManager = currencyManager;
@@ -297,8 +303,12 @@ namespace NexusForever.Game.Entity
             TimePlayedLevel   = model.TimePlayedLevel;
 
             foreach (CharacterStatModel statModel in model.Stat)
-                stats.Add((Stat)statModel.Stat, new StatValue(statModel));
+            {
+                var statValue = new StatValue(statModel);
+                stats.Add((Stat)statModel.Stat, statValue);
+            }
 
+            //SetStat(Stat.Health, 1);
             SetStat(Stat.Sheathed, 1u);
             // temp
             SetStat(Stat.Dash, 200F);
@@ -372,6 +382,23 @@ namespace NexusForever.Game.Entity
             SpellManager.Update(lastTick);
             CostumeManager.Update(lastTick);
             QuestManager.Update(lastTick);
+
+            relocationTimer.Update(lastTick);
+            if (relocationTimer.HasElapsed)
+            {
+                messagePublisher.PublishAsync(new PlayerPositionUpdatedMessage
+                {
+                    Identity = Identity.ToInternalIdentity(),
+                    Position = new Network.Internal.Message.Shared.Position
+                    {
+                        X = Position.X,
+                        Y = Position.Y,
+                        Z = Position.Z
+                    }
+                }).FireAndForgetAsync();
+
+                relocationTimer.Reset(false);
+            }
 
             saveTimer.Update(lastTick);
             if (saveTimer.HasElapsed)
@@ -574,7 +601,7 @@ namespace NexusForever.Game.Entity
                 PvPFlag   = PvPFlag.Disabled,
 
                 // We use Group 1 as the "dominant group"
-                GroupId   = GroupMembership1 == null ? 0 : GroupMembership1.Group.Id
+                GroupId   = GroupAssociation
             };
         }
 
@@ -617,6 +644,12 @@ namespace NexusForever.Game.Entity
 
             if (PreviousMap == null)
                 OnLogin();
+
+            messagePublisher.PublishAsync(new PlayerWorldUpdatedMessage
+            {
+                Identity    = Identity.ToInternalIdentity(),
+                WorldId     = Map.Entry.Id
+            }).FireAndForgetAsync();
         }
 
         public override void OnRelocate(Vector3 vector)
@@ -625,6 +658,9 @@ namespace NexusForever.Game.Entity
             saveMask |= PlayerSaveMask.Location;
 
             ZoneMapManager.OnRelocate(vector);
+
+            if (!relocationTimer.IsTicking)
+                relocationTimer.Resume();
         }
 
         protected override void OnZoneUpdate()
@@ -650,6 +686,12 @@ namespace NexusForever.Game.Entity
             }
 
             ZoneMapManager.OnZoneUpdate();
+
+            messagePublisher.PublishAsync(new PlayerWorldZoneUpdatedMessage
+            {
+                Identity    = Identity.ToInternalIdentity(),
+                WorldZoneId = (ushort)Zone?.Id,
+            }).FireAndForgetAsync();
         }
 
         private void SendPacketsAfterAddToMap()
@@ -726,14 +768,18 @@ namespace NexusForever.Game.Entity
             Account.RewardPropertyManager.SendInitialPackets();
             ResurrectionManager.SendInitialPackets();
 
-            GroupManager.Instance.RestoreGroupsForPlayer(this);
+            //GroupManager.Instance.RestoreGroupsForPlayer(this);
 
             Session.EnqueueMessageEncrypted(new ServerPlayerInnate
             {
                 InnateIndex = InnateIndex
             });
 
-            Session.EnqueueMessage(new ServerPhaseVisibilityWorldLocation());
+            Session.EnqueueMessageEncrypted(new ServerPhaseVisibilityWorldLocation
+            {
+                PhasesIPerceive = 1,
+                PhasesThatPerceiveMe = 1
+            });
 
             log.Trace($"Player {Name} took {(DateTime.UtcNow - start).TotalMilliseconds}ms to send packets after add to map.");
         }
@@ -900,6 +946,11 @@ namespace NexusForever.Game.Entity
 
             matchingManager.OnLogin(this);
             matchManager.OnLogin(this);
+
+            messagePublisher.PublishAsync(new PlayerLoggedInMessage
+            {
+                Identity = Identity.ToInternalIdentity()
+            }).FireAndForgetAsync();
         }
 
         private void OnLogout()
@@ -910,6 +961,11 @@ namespace NexusForever.Game.Entity
 
             matchingManager.OnLogout(this);
             matchManager.OnLogout(this);
+
+            messagePublisher.PublishAsync(new PlayerLoggedOutMessage
+            {
+                Identity = Identity.ToInternalIdentity()
+            }).FireAndForgetAsync();
 
             scriptCollection.Invoke<IPlayerScript>(s => s.OnLogout());
         }
@@ -1328,6 +1384,32 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Invoked when <see cref="IPlayer"/> has a <see cref="Property"/> updated.
+        /// </summary>
+        protected override void OnPropertyUpdate(IPropertyValue propertyValue)
+        {
+            messagePublisher.PublishAsync(new PlayerPropertyUpdatedMessage
+            {
+                Identity = Identity.ToInternalIdentity(),
+                Property = propertyValue.Property,
+                Value    = propertyValue.Value
+            }).FireAndForgetAsync();
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IWorldEntity"/> has a <see cref="Stat"/> updated.
+        /// </summary>
+        protected override void OnStatUpdate(IStatValue statValue)
+        {
+            messagePublisher.PublishAsync(new PlayerStatUpdatedMessage
+            {
+                Identity = Identity.ToInternalIdentity(),
+                Stat     = statValue.Stat,
+                Value    = statValue.Value
+            }).FireAndForgetAsync();
+        }
+
+        /// <summary>
         /// Determine if this <see cref="IPlayer"/> can attack supplied <see cref="IUnitEntity"/>.
         /// </summary>
         public override bool CanAttack(IUnitEntity target)
@@ -1397,76 +1479,6 @@ namespace NexusForever.Game.Entity
         {
             DeathState = null;
             RemoveControlUnit();
-        }
-
-        /// </summary>
-        /// <param name="membership"></param>
-        /// <returns></returns>
-        public void AddToGroup(IGroupMember membership)
-        {
-            if (GroupMembership2 != null)
-                throw new InvalidOperationException("Player cannot be a member of more than two groups.");
-
-            if (GroupMembership1 != null)
-                GroupMembership2 = GroupMembership1;
-
-            GroupMembership1 = membership;
-            EnqueueToVisible(membership.BuildGroupAssociation());
-        }
-
-        /// <summary>
-        ///
-        /// </summary>
-        /// <param name="membership"></param>
-        public void RemoveFromGroup(IGroupMember membership)
-        {
-            if (GroupMembership2 != null && membership.Group.Id == GroupMembership2.Group.Id)
-            {
-                // We are being removed from group 2
-                // No need to send a ServerEntityGroupAssociation packet, we already know we are a member of group 1 over this.
-                GroupMembership2 = null;
-            }
-            else if (membership.Group.Id == GroupMembership1.Group.Id)
-            {
-                // We are being removed from Group 1
-                if (GroupMembership2 != null)
-                {
-                    GroupMembership1 = GroupMembership2;
-                    GroupMembership2 = null;
-                    EnqueueToVisible(membership.BuildGroupAssociation());
-                }
-                else
-                {
-                    GroupMembership1 = null;
-                    EnqueueToVisible(new ServerEntityGroupAssociation { UnitId = Guid, GroupId = 0 });
-                }
-            }
-            else
-            {
-                throw new InvalidOperationException("Player is not a member of the group you want to remove them from.");
-            }
-        }
-
-        /// <summary>
-        /// Build the <see cref="GroupMember"/> instance for the <see cref="Player"/>
-        /// </summary>
-        public NetworkGroupMember BuildGroupMember()
-        {
-            return new NetworkGroupMember
-            {
-                Name            = Name,
-                Faction         = Faction1,
-                Race            = Race,
-                Class           = Class,
-                Sex             = Sex,
-                Level           = (byte)Level,
-                EffectiveLevel  = (byte)Level,
-                Path            = Path,
-                Realm           = RealmContext.Instance.RealmId,
-                WorldZoneId     = (ushort)Zone.Id,
-                MapId           = Map.Entry.Id,
-                SyncedToGroup   = true
-            };
         }
     }
 }

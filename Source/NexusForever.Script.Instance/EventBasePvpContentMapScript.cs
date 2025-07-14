@@ -38,7 +38,7 @@ namespace NexusForever.Script.Instance
             if (map.Match == null)
                 return;
 
-            IMatchTeam team = map.Match.GetTeam(player.CharacterId);
+            IMatchTeam team = map.Match.GetTeam(player.Identity);
             if (team == null)
                 return;
 

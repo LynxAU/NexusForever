@@ -1,6 +1,9 @@
-﻿using NexusForever.Game.Abstract.Group;
+﻿using NexusForever.Game;
+using NexusForever.Network.Internal;
+using NexusForever.Network.Internal.Message.Group;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Shared;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Group
 {
@@ -8,23 +11,27 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Group
     {
         #region Dependency Injection
 
-        private readonly IGroupManager groupManager;
+        private readonly IInternalMessagePublisher messagePublisher;
 
         public ClientGroupLootRulesChangeHandler(
-            IGroupManager groupManager)
+            IInternalMessagePublisher messagePublisher)
         {
-            this.groupManager = groupManager;
+            this.messagePublisher = messagePublisher;
         }
 
         #endregion
 
         public void HandleMessage(IWorldSession session, ClientGroupLootRulesChange groupLootRulesChange)
         {
-            GroupHelper.AssertGroupId(session, groupLootRulesChange.GroupId);
-            GroupHelper.AssertGroupLeader(session, groupLootRulesChange.GroupId);
-
-            IGroup group = groupManager.GetGroupById(groupLootRulesChange.GroupId);
-            group.UpdateLootRules(groupLootRulesChange.LootRulesUnderThreshold, groupLootRulesChange.LootRulesThresholdAndOver, groupLootRulesChange.Threshold, groupLootRulesChange.HarvestingRule);
+            messagePublisher.PublishAsync(new GroupLootRulesUpdateMessage
+            {
+                GroupId          = groupLootRulesChange.GroupId,
+                Identity         = session.Player.Identity.ToInternalIdentity(),
+                NormalRule       = groupLootRulesChange.LootRulesUnderThreshold,
+                ThresholdRule    = groupLootRulesChange.LootRulesThresholdAndOver,
+                ThresholdQuality = groupLootRulesChange.Threshold,
+                HarvestRule      = groupLootRulesChange.HarvestingRule
+            }).FireAndForgetAsync();
         }
     }
 }

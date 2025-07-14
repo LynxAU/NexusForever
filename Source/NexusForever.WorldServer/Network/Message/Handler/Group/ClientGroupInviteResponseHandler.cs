@@ -1,6 +1,6 @@
-﻿using NexusForever.Game.Abstract.Group;
-using NexusForever.Game.Group;
-using NexusForever.Game.Static.Group;
+﻿using NexusForever.Game;
+using NexusForever.Network.Internal;
+using NexusForever.Network.Internal.Message.Group;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
 
@@ -8,30 +8,26 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Group
 {
     public class ClientGroupInviteResponseHandler : IMessageHandler<IWorldSession, ClientGroupInviteResponse>
     {
+        #region Dependency Injection
+
+        private readonly IInternalMessagePublisher messagePublisher;
+
+        public ClientGroupInviteResponseHandler(
+            IInternalMessagePublisher messagePublisher)
+        {
+            this.messagePublisher = messagePublisher;
+        }
+
+        #endregion
+
         public void HandleMessage(IWorldSession session, ClientGroupInviteResponse groupInviteResponse)
         {
-            IGroup joinedGroup = GroupManager.Instance.GetGroupById(groupInviteResponse.GroupId);
-            if (joinedGroup == null)
+            messagePublisher.PublishAsync(new GroupPlayerInviteRespondedMessage
             {
-                GroupHelper.SendGroupResult(session, GroupResult.GroupNotFound, groupInviteResponse.GroupId, session.Player.Name);
-                return;
-            }
-
-            // Check if the targeted player declined the group invite.
-            if (groupInviteResponse.Result == GroupInviteResult.Declined)
-            {
-                joinedGroup.DeclineInvite(session.Player.GroupInvite);
-                return;
-            }
-
-            // Check if the Player can join the group
-            if (!joinedGroup.CanJoinGroup(out GroupResult result))
-            {
-                GroupHelper.SendGroupResult(session, result, joinedGroup.Id, session.Player.Name);
-                return;
-            }
-
-            joinedGroup.AcceptInvite(session.Player.GroupInvite);
+                Identity = session.Player.Identity.ToInternalIdentity(),
+                GroupId  = groupInviteResponse.GroupId,
+                Response = groupInviteResponse.Response
+            });
         }
     }
 }

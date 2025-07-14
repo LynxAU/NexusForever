@@ -1,7 +1,12 @@
 {
     "Network": {
         "Host": "0.0.0.0",
-        "Port": 24000
+        "Port": 24000,
+        "Internal": {
+            "Broker": "RabbitMQ",
+            "ConnectionString": "amqp://guest:guest@localhost:5672",
+            "InputQueue": "WorldServer_1"
+        }
     },
     "Database": {
         "Auth": {

@@ -10,7 +10,7 @@ namespace NexusForever.Network.World.Message.Model
 
         public string Name { get; set; }
 
-        public GroupResult Result { get; set; }
+        public GroupInviteResult Result { get; set; }
 
         public bool IsJoin { get; set; }
 

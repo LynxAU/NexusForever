@@ -3,7 +3,7 @@ namespace NexusForever.Game.Static.Group
     /// <summary>
     /// Indicates how person is joining the group
     /// </summary>
-    public enum GroupInviteType
+    public enum GroupInviteType : byte
     {
         /// <summary>
         /// Person is being invited into group by raid lead / assistant

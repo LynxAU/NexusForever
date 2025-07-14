@@ -733,6 +733,8 @@ namespace NexusForever.Game.Entity
                     }
                 }, true);
             }
+
+            OnStatUpdate(statValue);
         }
 
         /// <summary>
@@ -765,6 +767,8 @@ namespace NexusForever.Game.Entity
                     }
                 }, true);
             }
+
+            OnStatUpdate(statValue);
         }
 
         /// <summary>
@@ -773,6 +777,14 @@ namespace NexusForever.Game.Entity
         protected void SetStat<T>(Stat stat, T value) where T : Enum, IConvertible
         {
             SetStat(stat, value.ToUInt32(null));
+        }
+
+        /// <summary>
+        /// Invoked when <see cref="IWorldEntity"/> has a <see cref="Stat"/> updated.
+        /// </summary>
+        protected virtual void OnStatUpdate(IStatValue statValue)
+        {
+            // deliberately empty
         }
 
         /// <summary>

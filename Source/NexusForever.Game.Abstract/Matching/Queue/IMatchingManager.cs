@@ -17,12 +17,12 @@ namespace NexusForever.Game.Abstract.Matching.Queue
         /// <remarks>
         /// Will return a new <see cref="IMatchingCharacter"/> if one does not exist.
         /// </remarks>
-        IMatchingCharacter GetMatchingCharacter(ulong characterId);
+        IMatchingCharacter GetMatchingCharacter(IIdentity identity);
 
         /// <summary>
         /// Return <see cref="IMatchingRoleCheck"/> for supplied character id.
         /// </summary>
-        IMatchingRoleCheck GetMatchingRoleCheck(ulong characterId);
+        IMatchingRoleCheck GetMatchingRoleCheck(IIdentity identity);
 
         /// <summary>
         /// Attempt to join a matching queue.

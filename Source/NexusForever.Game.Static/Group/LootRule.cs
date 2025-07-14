@@ -1,6 +1,6 @@
 namespace NexusForever.Game.Static.Group
 {
-    public enum LootRule
+    public enum LootRule : byte
     {
         FreeForAll      = 0,
         RoundRobin      = 1,

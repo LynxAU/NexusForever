@@ -35,7 +35,7 @@ namespace NexusForever.Game.Abstract.Matching.Match
         /// <summary>
         /// Return <see cref="IMatchTeam"/> for supplied character.
         /// </summary>
-        IMatchTeam GetTeam(ulong characterId);
+        IMatchTeam GetTeam(IIdentity identity);
 
         /// <summary>
         /// Return a collection containing <see cref="IMatchTeam"/> in the match.
@@ -55,7 +55,7 @@ namespace NexusForever.Game.Abstract.Matching.Match
         /// <summary>
         /// Remove character from match.
         /// </summary>
-        void MatchLeave(ulong characterId);
+        void MatchLeave(IIdentity identity);
 
         /// <summary>
         /// Finish the match.
@@ -65,7 +65,7 @@ namespace NexusForever.Game.Abstract.Matching.Match
         /// <summary>
         /// Teleport supplied character to the match.
         /// </summary>
-        void MatchTeleport(ulong characterId);
+        void MatchTeleport(IIdentity identity);
 
         /// <summary>
         /// Get return <see cref="IMapPosition"/> for <see cref="IPlayer"/>.

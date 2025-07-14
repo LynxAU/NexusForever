@@ -11,7 +11,7 @@ namespace NexusForever.Network.World.Message.Model
         {
             public Identity Identity { get; set; }
             public Position Position { get; set; }
-            public uint Unknown0 { get; set; } //afaict this is never used in the client.
+            public uint WorldZoneId { get; set; }
             public uint Flags { get; set; } = 0; // bInCombatPvp = 1, bIInCombatPve = 2, InCombat = 3
         }
 
@@ -27,7 +27,7 @@ namespace NexusForever.Network.World.Message.Model
             writer.Write((uint)Updates.Count);
             Updates.ForEach(update => update.Identity.Write(writer));
             Updates.ForEach(update => update.Position.Write(writer));
-            Updates.ForEach(update => writer.Write(update.Unknown0));
+            Updates.ForEach(update => writer.Write(update.WorldZoneId));
             Updates.ForEach(update => writer.Write(update.Flags));
         }
     }

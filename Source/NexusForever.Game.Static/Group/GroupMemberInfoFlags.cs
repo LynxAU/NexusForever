@@ -1,10 +1,9 @@
-using System;
-
 namespace NexusForever.Game.Static.Group
 {
     [Flags]
-    public enum GroupMemberInfoFlags
+    public enum GroupMemberInfoFlags : uint
     {
+        None                = 0,
         CanInvite           = 1 << 1,
         CanKick             = 1 << 2,
         Disconnected        = 1 << 3,

@@ -1,6 +1,6 @@
 namespace NexusForever.Game.Static.Group
 {
-    public enum LootThreshold
+    public enum LootThreshold : byte
     {
         Inferior        = 1,
         Average         = 2,

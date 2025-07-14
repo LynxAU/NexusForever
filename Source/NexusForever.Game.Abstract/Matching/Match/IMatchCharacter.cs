@@ -2,14 +2,14 @@
 {
     public interface IMatchCharacter
     {
-        ulong CharacterId { get; }
+        IIdentity Identity { get; }
         IMatchProposal MatchProposal { get; }
         IMatch Match { get; }
 
         /// <summary>
         /// Initialise <see cref="IMatchCharacter"/> with supplied character id.
         /// </summary>
-        void Initialise(ulong characterId);
+        void Initialise(IIdentity identity);
 
         /// <summary>
         /// Add the <see cref="IMatchProposal"/> for the character.

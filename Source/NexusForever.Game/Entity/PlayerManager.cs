@@ -53,9 +53,8 @@ namespace NexusForever.Game.Entity
             return GetPlayer(character.CharacterId);
         }
 
-
         /// <summary>
-        /// Returns <see cref="IPlayer"/> with supplied character id.
+        /// Returns <see cref="IPlayer"/> with supplied identity.
         /// </summary>
         public IPlayer GetPlayer(IIdentity identity)
         {

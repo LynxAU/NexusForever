@@ -4,12 +4,12 @@ namespace NexusForever.Game.Abstract.Matching.Queue
 {
     public interface IMatchingCharacter
     {
-        ulong CharacterId { get; }
+        IIdentity Identity { get; }
 
         /// <summary>
         /// Initialise <see cref="IMatchingCharacter"/> with supplied character id.
         /// </summary>
-        void Initialise(ulong characterId);
+        void Initialise(IIdentity identity);
 
         /// <summary>
         /// Return <see cref="IMatchingCharacterQueue"/> containing the information on queue status for supplied <see cref="Static.Matching.MatchType"/>.

@@ -7,12 +7,12 @@ namespace NexusForever.Network.World.Message.Model
     public class ServerGroupJoin : IWritable
     {
         public Identity TargetPlayer { get; set; } = new();
-        public GroupInfo GroupInfo { get; set; } = new GroupInfo();
+        public Group Group { get; set; } = new Group();
 
         public void Write(GamePacketWriter writer)
         {
             TargetPlayer.Write(writer);
-            GroupInfo.Write(writer);
+            Group.Write(writer);
         }
     }
 }

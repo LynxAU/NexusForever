@@ -1,7 +1,9 @@
-﻿using NexusForever.Game.Abstract.Entity;
-using NexusForever.Game.Abstract.Group;
+﻿using NexusForever.Game;
+using NexusForever.Network.Internal;
+using NexusForever.Network.Internal.Message.Group;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Shared;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Group
 {
@@ -9,42 +11,27 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Group
     {
         #region Dependency Injection
 
-        private readonly IPlayerManager playerManager;
-        private readonly IGroupManager groupManager;
+        private readonly IInternalMessagePublisher messagePublisher;
 
         public ClientGroupRequestJoinHandler(
-            IPlayerManager playerManager,
-            IGroupManager groupManager)
+            IInternalMessagePublisher messagePublisher)
         {
-            this.playerManager = playerManager;
-            this.groupManager  = groupManager;
+            this.messagePublisher = messagePublisher;
         }
 
         #endregion
 
         public void HandleMessage(IWorldSession session, ClientGroupRequestJoin joinRequest)
         {
-            if (session.Player.GroupMembership1 != null) // player who did /join is already in a group. This has no effect.
-                return;
-
-            IPlayer targetedPlayer = playerManager.GetPlayer(joinRequest.Name);
-            if (targetedPlayer == null)
-                return;
-
-            if (targetedPlayer.GroupMembership1 == null)
+            messagePublisher.PublishAsync(new GroupMemberRequestMessage
             {
-                // Player and Target are not part of a group - create one for them both so /join acts as /invite.
-                IGroup newGroup = groupManager.CreateGroup(session.Player);
-                newGroup.Invite(session.Player, targetedPlayer);
-            }
-            else
-            {
-                IGroup group = targetedPlayer.GroupMembership1.Group;
-                if (targetedPlayer.GroupMembership1.IsPartyLeader)  // /Join was on the leader - so just do a std Join request.
-                    group.HandleJoinRequest(session.Player);
-                else  //target player is not the leader of the group, so this acts as a referral
-                    group.ReferMember(session.Player.GroupMembership1, targetedPlayer);
-            }
+                Requester = session.Player.Identity.ToInternalIdentity(),
+                Requestee = new NexusForever.Network.Internal.Message.Shared.IdentityName
+                {
+                    Name      = joinRequest.Name,
+                    RealmName = joinRequest.RealmName
+                }
+            }).FireAndForgetAsync();
         }
     }
 }

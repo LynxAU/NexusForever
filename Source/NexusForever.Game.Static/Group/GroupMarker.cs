@@ -1,11 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
-
 namespace NexusForever.Game.Static.Group
 {
     public enum GroupMarker
     {
+        None        = 0,
         Bomb        = 1,
         Ghost       = 2,
         Wrestler    = 3,

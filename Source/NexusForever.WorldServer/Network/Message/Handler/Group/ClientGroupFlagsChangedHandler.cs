@@ -1,5 +1,6 @@
-﻿using NexusForever.Game.Abstract.Group;
-using NexusForever.Game.Static.Group;
+﻿using NexusForever.Game;
+using NexusForever.Network.Internal;
+using NexusForever.Network.Internal.Message.Group;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
 
@@ -9,29 +10,24 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Group
     {
         #region Dependency Injection
 
-        private readonly IGroupManager groupManager;
+        private readonly IInternalMessagePublisher messagePublisher;
 
         public ClientGroupFlagsChangedHandler(
-            IGroupManager groupManager)
+            IInternalMessagePublisher messagePublisher)
         {
-            this.groupManager = groupManager;
+            this.messagePublisher = messagePublisher;
         }
 
         #endregion
 
         public void HandleMessage(IWorldSession session, ClientGroupFlagsChanged groupFlagsChanged)
         {
-            GroupHelper.AssertGroupId(session, groupFlagsChanged.GroupId);
-            GroupHelper.AssertGroupLeader(session, groupFlagsChanged.GroupId);
-
-            IGroup group = groupManager.GetGroupById(groupFlagsChanged.GroupId);
-            if (group == null)
+            messagePublisher.PublishAsync(new GroupFlagsUpdateMessage
             {
-                GroupHelper.SendGroupResult(session, GroupResult.GroupNotFound, groupFlagsChanged.GroupId, session.Player.Name);
-                return;
-            }
-
-            group.SetGroupFlags(groupFlagsChanged.NewFlags);
+                GroupId  = groupFlagsChanged.GroupId,
+                Identity = session.Player.Identity.ToInternalIdentity(),
+                Flags    = groupFlagsChanged.NewFlags
+            });
         }
     }
 }

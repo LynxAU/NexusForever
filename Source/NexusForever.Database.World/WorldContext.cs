@@ -33,6 +33,11 @@ namespace NexusForever.Database.World
             this.config = config;
         }
 
+        public WorldContext(DbContextOptions<WorldContext> options)
+            : base(options)
+        {
+        }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (!optionsBuilder.IsConfigured)

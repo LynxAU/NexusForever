@@ -24,7 +24,8 @@ namespace NexusForever.API.Character
             string basePath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
             builder.Configuration
                 .SetBasePath(basePath)
-                .AddJsonFile("CharacterAPI.json", false);
+                .AddJsonFile("CharacterAPI.json", false)
+                .AddEnvironmentVariables();
 
             builder.Services
                 .AddAuthDatabase(

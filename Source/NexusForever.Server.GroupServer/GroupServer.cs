@@ -41,7 +41,8 @@ namespace NexusForever.Server.GroupServer
                 .ConfigureAppConfiguration(cb =>
                 {
                     cb.SetBasePath(basePath)
-                        .AddJsonFile("GroupServer.json", false);
+                        .AddJsonFile("GroupServer.json", false)
+                        .AddEnvironmentVariables();
                 })
                 .ConfigureServices((hb, sc) =>
                 {

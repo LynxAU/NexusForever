@@ -8,7 +8,7 @@ namespace NexusForever.Game.Matching.Queue
 {
     public class MatchingRoleCheckMember : IMatchingRoleCheckMember
     {
-        public IIdentity Identity { get; private set; }
+        public Identity Identity { get; private set; }
         public Role? Roles { get; private set; }
 
         #region Dependency Injection
@@ -29,7 +29,7 @@ namespace NexusForever.Game.Matching.Queue
         /// <summary>
         /// Initialise <see cref="IMatchingRoleCheckMember"/> with supplied character id.
         /// </summary>
-        public void Initialise(IIdentity identity)
+        public void Initialise(Identity identity)
         {
             if (Identity != null)
                 throw new InvalidOperationException();

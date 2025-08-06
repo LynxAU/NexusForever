@@ -132,7 +132,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Update deathmatch pool for the team the character is on.
         /// </summary>
-        public void UpdatePool(IIdentity identity)
+        public void UpdatePool(Abstract.Identity identity)
         {
             if (MatchingMap.GameTypeEntry.MatchingRulesEnum != MatchRules.DeathmatchPool)
                 return;

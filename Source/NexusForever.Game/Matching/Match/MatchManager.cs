@@ -14,7 +14,7 @@ namespace NexusForever.Game.Matching.Match
         private readonly HashSet<IMatchProposal> matchProposals = [];
         private readonly Dictionary<Guid, IMatch> matches = [];
 
-        private readonly Dictionary<IIdentity, IMatchCharacter> characters = [];
+        private readonly Dictionary<Identity, IMatchCharacter> characters = [];
 
         #region Dependency Injection
 
@@ -214,7 +214,7 @@ namespace NexusForever.Game.Matching.Match
         /// <remarks>
         /// Will return a new <see cref="IMatchCharacter"/> if one does not exist.
         /// </remarks>
-        public IMatchCharacter GetMatchCharacter(IIdentity identity)
+        public IMatchCharacter GetMatchCharacter(Identity identity)
         {
             if (!characters.TryGetValue(identity, out IMatchCharacter characterInfo))
             {

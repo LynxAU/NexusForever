@@ -292,6 +292,12 @@ namespace NexusForever.Server.GroupServer.Group
             if (member.Identity == Leader)
             {
                 GroupMember newLeader = _members.FirstOrDefault(m => m.Key != member.Identity).Value;
+                if (newLeader == null)
+                {
+                    await DisbandAsync();
+                    return;
+                }
+                
                 await PromoteMemberAsync(newLeader);
             }
 

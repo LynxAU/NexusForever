@@ -11,7 +11,7 @@ namespace NexusForever.Game.Map.Lock
         public MapLockType Type { get; private set; }
         public uint WorldId { get; private set; }
 
-        private readonly HashSet<IIdentity> characters = [];
+        private readonly HashSet<Identity> characters = [];
 
         #region Dependency Injection
 
@@ -43,7 +43,7 @@ namespace NexusForever.Game.Map.Lock
         /// <summary>
         /// Add a character to the map lock.
         /// </summary>
-        public void AddCharacer(IIdentity identity)
+        public void AddCharacer(Identity identity)
         {
             characters.Add(identity);
             log.LogTrace($"Added character {identity} to map lock {InstanceId}");
@@ -52,7 +52,7 @@ namespace NexusForever.Game.Map.Lock
         /// <summary>
         /// Remove a character from the map lock.
         /// </summary>
-        public void RemoveCharacter(IIdentity identity)
+        public void RemoveCharacter(Identity identity)
         {
             characters.Remove(identity);
             log.LogTrace($"Removed character {identity} from map lock {InstanceId}");

@@ -11,7 +11,7 @@ namespace NexusForever.Game.Map.Lock
     // legacy singleton still required for guild operations which don't use dependency injection yet...
     public class MapLockManager : Singleton<IMapLockManager>, IMapLockManager
     {
-        private readonly ConcurrentDictionary<IIdentity, IMapLockCollection> soloLocks = [];
+        private readonly ConcurrentDictionary<Identity, IMapLockCollection> soloLocks = [];
         private readonly ConcurrentDictionary<Guid, IMapLockCollection> matchLocks = [];
         private readonly ConcurrentDictionary<ulong, IResidenceMapLock> residenceLocks = [];
 
@@ -38,7 +38,7 @@ namespace NexusForever.Game.Map.Lock
         /// <summary>
         /// Create a new solo <see cref="IMapLock"/> for supplied character id and world id.
         /// </summary>
-        public IMapLock CreateSoloLock(IIdentity identity, uint worldId)
+        public IMapLock CreateSoloLock(Identity identity, uint worldId)
         {
             IMapLock mapLock = CreateLock<IMapLock>(MapLockType.Solo, worldId);
             mapLock.AddCharacer(identity);
@@ -84,7 +84,7 @@ namespace NexusForever.Game.Map.Lock
         /// <summary>
         /// Return <see cref="IMapLock"/> for supplied character id and world id.
         /// </summary>
-        public IMapLock GetSoloLock(IIdentity identity, uint worldId)
+        public IMapLock GetSoloLock(Identity identity, uint worldId)
         {
             return soloLocks.TryGetValue(identity, out IMapLockCollection mapLockCollection)
                 ? mapLockCollection.GetMapLock<IMapLock>(worldId)

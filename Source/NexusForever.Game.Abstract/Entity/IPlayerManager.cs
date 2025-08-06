@@ -25,6 +25,6 @@
         /// <summary>
         /// Returns <see cref="IPlayer"/> with supplied identity.
         /// </summary>
-        IPlayer GetPlayer(IIdentity identity);
+        IPlayer GetPlayer(Identity identity);
     }
 }

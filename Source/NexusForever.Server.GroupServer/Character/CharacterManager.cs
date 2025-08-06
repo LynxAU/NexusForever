@@ -35,7 +35,6 @@ namespace NexusForever.Server.GroupServer.Character
         /// If the character does not exist in the database it will not be fetched from the API.
         /// </remarks>
         /// <param name="identity">Identity of the character to return.</param>
-
         public async Task<Character> GetCharacterAsync(Identity identity)
         {
             if (_characterCache.TryGetValue(identity, out Character cachedCharacter))
@@ -63,7 +62,7 @@ namespace NexusForever.Server.GroupServer.Character
             CharacterModel characterModel = await _characterRepository.GetCharacterAsync(identity.Id, identity.RealmId);
             if (characterModel == null)
             {
-                API.Model.Character.Character apiCharacter = await _characterApiClient.GetCharacterAsync(identity.ToAPIIdentity());
+                API.Model.Character.Character apiCharacter = await _characterApiClient.GetCharacterAsync(identity.ToAPIdentity());
                 if (apiCharacter == null)
                     return null;
 
@@ -89,7 +88,7 @@ namespace NexusForever.Server.GroupServer.Character
             CharacterModel characterModel = await _characterRepository.GetCharacterAsync(identity.Name, identity.RealmName);
             if (characterModel == null)
             {
-                API.Model.Character.Character apiCharacter = await _characterApiClient.GetCharacterAsync(identity.ToAPIIdentityName());
+                API.Model.Character.Character apiCharacter = await _characterApiClient.GetCharacterAsync(identity.ToAPIdentityName());
                 if (apiCharacter == null)
                     return null;
 

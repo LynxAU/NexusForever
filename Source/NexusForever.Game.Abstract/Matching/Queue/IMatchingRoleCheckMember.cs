@@ -6,13 +6,13 @@ namespace NexusForever.Game.Matching.Queue
 {
     public interface IMatchingRoleCheckMember
     {
-        IIdentity Identity { get; }
+        Identity Identity { get; }
         Role? Roles { get; }
 
         /// <summary>
         /// Initialise <see cref="IMatchingRoleCheckMember"/> with supplied character id.
         /// </summary>
-        void Initialise(IIdentity identity);
+        void Initialise(Identity identity);
 
         /// <summary>
         /// Set <see cref="Role"/> for member.

@@ -13,7 +13,7 @@ namespace NexusForever.Game.Matching.Match
 {
     public class MatchTeamMember : IMatchTeamMember
     {
-        public IIdentity Identity { get; private set; }
+        public Identity Identity { get; private set; }
         public Role Roles { get; private set; }
         public bool InMatch { get; private set; }
         public IMapPosition ReturnPosition { get; private set; }
@@ -34,7 +34,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Initialise new <see cref="IMatchTeamMember"/> with supplied character id.
         /// </summary>
-        public void Initialise(IIdentity identity, Role roles)
+        public void Initialise(Identity identity, Role roles)
         {
             if (Identity != null)
                 throw new InvalidOperationException();

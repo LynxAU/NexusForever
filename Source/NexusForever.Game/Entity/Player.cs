@@ -9,6 +9,7 @@ using NexusForever.Game.Abstract.Account;
 using NexusForever.Game.Abstract.Achievement;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Abstract.Entity.Movement.Spline;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Housing;
 using NexusForever.Game.Abstract.Map;
@@ -17,15 +18,14 @@ using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Abstract.Matching.Queue;
 using NexusForever.Game.Abstract.Reputation;
-using NexusForever.Game.Abstract.Social;
 using NexusForever.Game.Achievement;
 using NexusForever.Game.Character;
+using NexusForever.Game.Chat;
 using NexusForever.Game.Configuration.Model;
 using NexusForever.Game.Guild;
 using NexusForever.Game.Housing;
 using NexusForever.Game.Map;
 using NexusForever.Game.Reputation;
-using NexusForever.Game.Social;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Guild;
@@ -84,7 +84,7 @@ namespace NexusForever.Game.Entity
 
         public IAccount Account { get; private set; }
 
-        public IIdentity Identity { get; private set; }
+        public Abstract.Identity Identity { get; private set; }
 
         public ulong CharacterId { get => Identity.Id; }
 
@@ -209,6 +209,8 @@ namespace NexusForever.Game.Entity
 
         public IGameSession Session { get; private set; }
 
+        public bool IsOnline { get; private set; }
+
         /// <summary>
         /// Returns if <see cref="IPlayer"/>'s client is currently in a loading screen.
         /// </summary>
@@ -231,7 +233,6 @@ namespace NexusForever.Game.Entity
         public IXpManager XpManager { get; private set; }
         public IReputationManager ReputationManager { get; private set; }
         public IGuildManager GuildManager { get; private set; }
-        public IChatManager ChatManager { get; private set; }
         public IResidenceManager ResidenceManager { get; private set; }
         public ICinematicManager CinematicManager { get; private set; }
         public ICharacterEntitlementManager EntitlementManager { get; private set; }
@@ -241,6 +242,7 @@ namespace NexusForever.Game.Entity
 
         public IVendorInfo SelectedVendorInfo { get; set; } // TODO unset this when too far away from vendor
 
+        private bool forceSave;
         private UpdateTimer saveTimer = new(SaveDuration);
         private PlayerSaveMask saveMask;
 
@@ -285,7 +287,7 @@ namespace NexusForever.Game.Entity
             Session           = session;
 
             Account           = account;
-            Identity          = new Identity{ Id = model.Id, RealmId = RealmContext.Instance.RealmId };
+            Identity          = new Abstract.Identity { Id = model.Id, RealmId = RealmContext.Instance.RealmId };
             Name              = model.Name;
             sex               = (Sex)model.Sex;
             race              = (Race)model.Race;
@@ -341,7 +343,6 @@ namespace NexusForever.Game.Entity
             XpManager               = new XpManager(this, model);
             ReputationManager       = new ReputationManager(this, model);
             GuildManager            = new GuildManager(this, model);
-            ChatManager             = new ChatManager(this);
             ResidenceManager        = new ResidenceManager(this);
             CinematicManager        = new CinematicManager(this);
 
@@ -401,8 +402,10 @@ namespace NexusForever.Game.Entity
             }
 
             saveTimer.Update(lastTick);
-            if (saveTimer.HasElapsed)
+            if (saveTimer.HasElapsed || forceSave)
             {
+                forceSave = false;
+
                 double timeSinceLastSave = GetTimeSinceLastSave();
                 TimePlayedSession += timeSinceLastSave;
                 TimePlayedLevel += timeSinceLastSave;
@@ -552,8 +555,15 @@ namespace NexusForever.Game.Entity
             entity.Property(p => p.TimePlayedLevel).IsModified = true;
             model.TimePlayedTotal = (uint)TimePlayedTotal;
             entity.Property(p => p.TimePlayedTotal).IsModified = true;
-            model.LastOnline = DateTime.UtcNow;
-            entity.Property(p => p.LastOnline).IsModified = true;
+
+            model.IsOnline = IsOnline;
+            entity.Property(p => p.IsOnline).IsModified = true;
+
+            if (!IsOnline)
+            {
+                model.LastOnline = DateTime.UtcNow;
+                entity.Property(p => p.LastOnline).IsModified = true;
+            }
 
             foreach (IStatValue stat in stats.Values)
                 stat.SaveCharacter(CharacterId, context);
@@ -939,13 +949,14 @@ namespace NexusForever.Game.Entity
                 GlobalChatManager.Instance.SendMessage(Session, motd, "MOTD", ChatChannelType.Realm);
 
             GuildManager.OnLogin();
-            ChatManager.OnLogin();
-            GlobalChatManager.Instance.JoinDefaultChatChannels(this);
 
             ShutdownManager.Instance.OnLogin(this);
 
             matchingManager.OnLogin(this);
             matchManager.OnLogin(this);
+
+            IsOnline = true;
+            forceSave = true;
 
             messagePublisher.PublishAsync(new PlayerLoggedInMessage
             {
@@ -956,11 +967,11 @@ namespace NexusForever.Game.Entity
         private void OnLogout()
         {
             GuildManager.OnLogout();
-            ChatManager.OnLogout();
-            GlobalChatManager.Instance.LeaveDefaultChatChannels(this);
 
             matchingManager.OnLogout(this);
             matchManager.OnLogout(this);
+
+            IsOnline = false;
 
             messagePublisher.PublishAsync(new PlayerLoggedOutMessage
             {

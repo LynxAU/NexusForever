@@ -13,7 +13,7 @@ namespace NexusForever.Game.Entity
     {
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
 
-        private readonly ConcurrentDictionary<IIdentity, IPlayer> players = new();
+        private readonly ConcurrentDictionary<Identity, IPlayer> players = new();
 
         /// <summary>
         /// Add new <see cref="IPlayer"/>.
@@ -56,7 +56,7 @@ namespace NexusForever.Game.Entity
         /// <summary>
         /// Returns <see cref="IPlayer"/> with supplied identity.
         /// </summary>
-        public IPlayer GetPlayer(IIdentity identity)
+        public IPlayer GetPlayer(Identity identity)
         {
             return players.TryGetValue(identity, out IPlayer player) ? player : null;
         }

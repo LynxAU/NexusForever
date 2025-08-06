@@ -7,7 +7,7 @@ namespace NexusForever.Game.Abstract.Matching.Match
 {
     public interface IMatchTeamMember
     {
-        IIdentity Identity { get; }
+        Identity Identity { get; }
         bool InMatch { get; }
         Role Roles { get; }
         IMapPosition ReturnPosition { get; }
@@ -16,7 +16,7 @@ namespace NexusForever.Game.Abstract.Matching.Match
         /// <summary>
         /// Initialise new <see cref="IMatchTeamMember"/> with supplied character id.
         /// </summary>
-        void Initialise(IIdentity identity, Role roles);
+        void Initialise(Identity identity, Role roles);
 
         /// <summary>
         /// Invoked when member enters the match.

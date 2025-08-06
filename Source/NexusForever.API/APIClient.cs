@@ -24,6 +24,9 @@ namespace NexusForever.API
                 return await result.Content.ReadFromJsonAsync<T>(cancellationToken);
             else
             {
+                if (result.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    return default;
+
                 if (result.Content.Headers.ContentType?.MediaType == "application/problem+json")
                 {
                     var problemDetails = await result.Content.ReadFromJsonAsync<ProblemDetails>(cancellationToken);

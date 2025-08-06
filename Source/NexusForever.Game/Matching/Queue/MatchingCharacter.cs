@@ -11,7 +11,7 @@ namespace NexusForever.Game.Matching.Queue
 {
     public class MatchingCharacter : IMatchingCharacter
     {
-        public IIdentity Identity { get; private set; }
+        public Identity Identity { get; private set; }
 
         private readonly Dictionary<Static.Matching.MatchType, IMatchingCharacterQueue> matchingCharacterGroups = [];
 
@@ -36,7 +36,7 @@ namespace NexusForever.Game.Matching.Queue
         /// <summary>
         /// Initialise <see cref="IMatchingCharacter"/> with supplied character id.
         /// </summary>
-        public void Initialise(IIdentity identity)
+        public void Initialise(Identity identity)
         {
             if (Identity != null)
                 throw new InvalidOperationException();

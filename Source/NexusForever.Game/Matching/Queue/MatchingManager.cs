@@ -18,10 +18,10 @@ namespace NexusForever.Game.Matching.Queue
 
         private readonly ConcurrentQueue<IMatchingQueueProposal> incomingMatchingQueueProposals = [];
 
-        private readonly Dictionary<IIdentity, IMatchingCharacter> characters = [];
+        private readonly Dictionary<Identity, IMatchingCharacter> characters = [];
 
         private readonly List<IMatchingRoleCheck> matchingRoleChecks = [];
-        private readonly Dictionary<IIdentity, IMatchingRoleCheck> characterMatchingRoleChecks = [];
+        private readonly Dictionary<Identity, IMatchingRoleCheck> characterMatchingRoleChecks = [];
 
         #region Dependency Injection
 
@@ -160,7 +160,7 @@ namespace NexusForever.Game.Matching.Queue
         /// <remarks>
         /// Will return a new <see cref="IMatchingCharacter"/> if one does not exist.
         /// </remarks>
-        public IMatchingCharacter GetMatchingCharacter(IIdentity identity)
+        public IMatchingCharacter GetMatchingCharacter(Identity identity)
         {
             if (!characters.TryGetValue(identity, out IMatchingCharacter characterInfo))
             {
@@ -175,7 +175,7 @@ namespace NexusForever.Game.Matching.Queue
         /// <summary>
         /// Return <see cref="IMatchingRoleCheck"/> for supplied character id.
         /// </summary>
-        public IMatchingRoleCheck GetMatchingRoleCheck(IIdentity identity)
+        public IMatchingRoleCheck GetMatchingRoleCheck(Identity identity)
         {
             return characterMatchingRoleChecks.TryGetValue(identity, out IMatchingRoleCheck matchingRoleCheck) ? matchingRoleCheck : null;
         }
@@ -230,7 +230,7 @@ namespace NexusForever.Game.Matching.Queue
 
             // blame Max for this...
             // since we don't have party support yet, just do a sneaky grid search for players
-            List<IIdentity> identities = player.Map
+            List<Identity> identities = player.Map
                 .Search(player.Position, 10f, new SearchCheckRange<IPlayer>(player.Position, 10f))
                 .Select(p => p.Identity)
                 .ToList();
@@ -239,7 +239,7 @@ namespace NexusForever.Game.Matching.Queue
             matchingRoleCheck.Initialise(matchingQueueProposal, identities);
 
             matchingRoleChecks.Add(matchingRoleCheck);
-            foreach (IIdentity identity in identities)
+            foreach (Identity identity in identities)
                 characterMatchingRoleChecks.Add(identity, matchingRoleCheck);
 
             log.LogTrace($"Role check {matchingRoleCheck.Guid} added to store.");

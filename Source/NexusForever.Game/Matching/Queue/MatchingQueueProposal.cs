@@ -25,7 +25,7 @@ namespace NexusForever.Game.Matching.Queue
         /// </summary>
         public bool IsParty => members.Count > 1;
 
-        private readonly Dictionary<IIdentity, IMatchingQueueProposalMember> members = [];
+        private readonly Dictionary<Identity, IMatchingQueueProposalMember> members = [];
         private readonly Dictionary<uint, IMatchingMap> maps = [];
 
         private IMatchingQueueGroup matchingQueueGroup;
@@ -92,7 +92,7 @@ namespace NexusForever.Game.Matching.Queue
         /// <summary>
         /// Add a new member to the <see cref="IMatchingQueueProposal"/> with supplied character id and <see cref="Role"/>.
         /// </summary>
-        public void AddMember(IIdentity identity, Role roles)
+        public void AddMember(Identity identity, Role roles)
         {
             IMatchingQueueProposalMember matchingQueueProposalMember = memberFactory.Resolve();
             matchingQueueProposalMember.Initialise(this, identity, roles);
@@ -104,7 +104,7 @@ namespace NexusForever.Game.Matching.Queue
         /// <summary>
         /// Return <see cref="IMatchingQueueProposalMember"/> for the supplied character id.
         /// </summary>
-        public IMatchingQueueProposalMember GetMember(IIdentity identity)
+        public IMatchingQueueProposalMember GetMember(Identity identity)
         {
             return members.TryGetValue(identity, out IMatchingQueueProposalMember member) ? member : null;
         }

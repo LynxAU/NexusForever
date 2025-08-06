@@ -135,6 +135,9 @@ namespace NexusForever.Database.Character
                     .HasColumnType("tinyint(4)")
                     .HasDefaultValue(0);
 
+                entity.Property(e => e.IsOnline)
+                    .HasColumnName("isOnline");
+
                 entity.Property(e => e.LastOnline)
                     .HasColumnName("lastOnline")
                     .HasColumnType("datetime");

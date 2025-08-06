@@ -17,6 +17,8 @@ namespace NexusForever.API.Model.Character
         public ushort RealmId { get; set; }
         public ushort WorldZoneId { get; set; }
         public uint WorldId { get; set; }
+        public bool IsOnline { get; set; }
+        public DateTime? LastOnline { get; set; }
         public Position Position { get; set; }
         public List<CharacterStat> Stats { get; set; }
     }

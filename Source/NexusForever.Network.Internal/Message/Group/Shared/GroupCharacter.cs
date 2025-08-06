@@ -7,6 +7,7 @@ namespace NexusForever.Network.Internal.Message.Group.Shared
     public class GroupCharacter
     {
         public string Name { get; set; }
+        public string RealmName { get; set; }
         public Faction Faction { get; set; }
         public Race Race { get; set; }
         public Class Class { get; set; }

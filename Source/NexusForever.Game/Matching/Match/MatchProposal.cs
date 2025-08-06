@@ -20,7 +20,7 @@ namespace NexusForever.Game.Matching.Match
         public IMatchingMapSelectorResult MatchingMapSelectorResult { get; private set; }
 
         private readonly List<IMatchProposalTeam> teams = [];
-        private readonly Dictionary<IIdentity, IMatchProposalTeam> characterTeams = [];
+        private readonly Dictionary<Identity, IMatchProposalTeam> characterTeams = [];
 
         private UpdateTimer expiryTimer;
 

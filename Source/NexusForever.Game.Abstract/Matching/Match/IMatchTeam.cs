@@ -26,7 +26,7 @@ namespace NexusForever.Game.Abstract.Matching.Match
         /// <summary>
         /// Return <see cref="IMatchTeamMember"/> for supplied characterId.
         /// </summary>
-        IMatchTeamMember GetMember(IIdentity identity);
+        IMatchTeamMember GetMember(Identity identity);
 
         /// <summary>
         /// Return collection of all <see cref="IMatchTeamMember"/>'s in <see cref="IMatchTeam"/>.
@@ -41,27 +41,27 @@ namespace NexusForever.Game.Abstract.Matching.Match
         /// <summary>
         /// Add character to team.
         /// </summary>
-        void MatchJoin(IIdentity identity, Role roles);
+        void MatchJoin(Identity identity, Role roles);
 
         /// <summary>
         /// Invoked when character enters the match.
         /// </summary>
-        void MatchEnter(IIdentity identity, IMatchingMap matchingMap);
+        void MatchEnter(Identity identity, IMatchingMap matchingMap);
 
         /// <summary>
         /// Invoked when character exist the match.
         /// </summary>
-        void MatchExit(IIdentity identity, bool teleport);
+        void MatchExit(Identity identity, bool teleport);
 
         /// <summary>
         /// Invoked when character leaves the match.
         /// </summary>
-        void MatchLeave(IIdentity identity);
+        void MatchLeave(Identity identity);
 
         /// <summary>
         /// Teleport character to match.
         /// </summary>
-        void MatchTeleport(IIdentity identity);
+        void MatchTeleport(Identity identity);
 
         /// <summary>
         /// Get return <see cref="IMapPosition"/> for character.
@@ -69,7 +69,7 @@ namespace NexusForever.Game.Abstract.Matching.Match
         /// <remarks>
         /// Return position is the position of the character before entering the match.
         /// </remarks>
-        IMapPosition GetReturnPosition(IIdentity identity);
+        IMapPosition GetReturnPosition(Identity identity);
 
         /// <summary>
         /// Broadcast <see cref="IWritable"/> to all members.

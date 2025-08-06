@@ -27,7 +27,7 @@ namespace NexusForever.Game.Abstract.Matching.Match
         /// <remarks>
         /// Will return a new <see cref="IMatchCharacter"/> if one does not exist.
         /// </remarks>
-        IMatchCharacter GetMatchCharacter(IIdentity identity);
+        IMatchCharacter GetMatchCharacter(Identity identity);
 
         IMatch GetMatch(Guid guid);
     }

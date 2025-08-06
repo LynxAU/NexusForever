@@ -26,7 +26,7 @@ namespace NexusForever.Game.Matching.Match
         protected IContentMapInstance map;
 
         private readonly List<IMatchTeam> teams = [];
-        private readonly Dictionary<IIdentity, IMatchTeam> characterTeams = [];
+        private readonly Dictionary<Identity, IMatchTeam> characterTeams = [];
 
         private UpdateTimer closeTimer;
 
@@ -102,7 +102,7 @@ namespace NexusForever.Game.Matching.Match
                 MatchJoin(matchTeam, matchingQueueProposalMember.Identity, matchingQueueProposalMember.Roles);
         }
 
-        private void MatchJoin(IMatchTeam matchTeam, IIdentity identity, Role roles)
+        private void MatchJoin(IMatchTeam matchTeam, Identity identity, Role roles)
         {
             matchTeam.MatchJoin(identity, roles);
             characterTeams.Add(identity, matchTeam);
@@ -188,7 +188,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Return <see cref="IMatchTeam"/> for supplied character.
         /// </summary>
-        public IMatchTeam GetTeam(IIdentity identity)
+        public IMatchTeam GetTeam(Identity identity)
         {
             return characterTeams.TryGetValue(identity, out IMatchTeam team) ? team : null;
         }
@@ -244,7 +244,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Remove character from match.
         /// </summary>
-        public void MatchLeave(IIdentity identity)
+        public void MatchLeave(Identity identity)
         {
             IMatchTeam team = GetTeam(identity);
             if (team == null)
@@ -291,7 +291,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Teleport supplied character to the match.
         /// </summary>
-        public void MatchTeleport(IIdentity identity)
+        public void MatchTeleport(Identity identity)
         {
             IMatchTeam team = GetTeam(identity);
             if (team == null)

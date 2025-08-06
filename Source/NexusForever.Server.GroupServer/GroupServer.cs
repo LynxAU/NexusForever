@@ -16,6 +16,7 @@ using NexusForever.Server.GroupServer.Group;
 using NexusForever.Server.GroupServer.Job;
 using NexusForever.Server.GroupServer.Network.Internal;
 using NLog.Extensions.Logging;
+using Quartz;
 
 namespace NexusForever.Server.GroupServer
 {

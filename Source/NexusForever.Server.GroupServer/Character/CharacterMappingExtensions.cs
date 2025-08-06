@@ -9,6 +9,7 @@ namespace NexusForever.Server.GroupServer.Character
             return new GroupCharacter
             {
                 Name               = character.IdentityName.Name,
+                RealmName          = character.IdentityName.RealmName,
                 Faction            = character.Faction,
                 Race               = character.Race,
                 Class              = character.Class,

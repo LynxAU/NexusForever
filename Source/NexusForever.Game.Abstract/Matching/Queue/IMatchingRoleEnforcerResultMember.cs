@@ -4,7 +4,7 @@ namespace NexusForever.Game.Abstract.Matching.Queue
 {
     public interface IMatchingRoleEnforcerResultMember
     {
-        IIdentity Identity { get; init; }
+        Identity Identity { get; init; }
         Role Role { get; set; }
     }
 }

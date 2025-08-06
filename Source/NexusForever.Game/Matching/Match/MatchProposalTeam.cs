@@ -13,7 +13,7 @@ namespace NexusForever.Game.Matching.Match
         public bool TeamReady { get; private set; }
 
         private IMatchingQueueGroupTeam team;
-        private readonly Dictionary<IIdentity, IMatchProposalTeamMember> members = [];
+        private readonly Dictionary<Identity, IMatchProposalTeamMember> members = [];
 
         #region Dependency Injection
 
@@ -54,7 +54,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Update response for character id.
         /// </summary>
-        public void Respond(IIdentity identity, bool response)
+        public void Respond(Identity identity, bool response)
         {
             if (!members.TryGetValue(identity, out IMatchProposalTeamMember matchProposalTeamMember))
                 return;

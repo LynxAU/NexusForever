@@ -6,7 +6,7 @@ namespace NexusForever.Game.Matching.Match
 {
     public class MatchCharacter : IMatchCharacter
     {
-        public IIdentity Identity { get; private set; }
+        public Identity Identity { get; private set; }
         public IMatchProposal MatchProposal { get; private set; }
         public IMatch Match { get; private set; }
 
@@ -25,7 +25,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Initialise <see cref="IMatchCharacter"/> with supplied character id.
         /// </summary>
-        public void Initialise(IIdentity identity)
+        public void Initialise(Identity identity)
         {
             if (Identity != null)
                 throw new InvalidOperationException();

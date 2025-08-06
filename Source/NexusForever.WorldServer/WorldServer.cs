@@ -20,6 +20,8 @@ using NexusForever.Script.Configuration.Model;
 using NexusForever.Shared;
 using NexusForever.Shared.Configuration;
 using NexusForever.WorldServer.Network;
+using NexusForever.WorldServer.Network.Internal.Handler;
+using NexusForever.WorldServer.Service;
 using NLog;
 using NLog.Extensions.Logging;
 
@@ -55,7 +57,8 @@ namespace NexusForever.WorldServer
                 {
                     // register world server service first since it needs to execute before the web host
                     sc.AddHostedService<HostedService>();
-                    sc.AddHostedService<NetworkInternalHostedService>();
+                    sc.AddHostedService<NetworkInternalHandlerHostedService>();
+                    sc.AddHostedService<OnlineHostedService>();
 
                     sc.AddOptions<NetworkConfig>()
                         .Bind(hb.Configuration.GetSection("Network"));
@@ -71,7 +74,8 @@ namespace NexusForever.WorldServer
                     sc.AddSingletonLegacy<ISharedConfiguration, SharedConfiguration>();
                     sc.AddDatabase();
                     sc.AddGame();
-                    sc.AddGameTable();
+                    sc.AddGameTable(
+                        hb.Configuration.GetSection("GameTable"));
                     sc.AddWorldNetwork();
                     sc.AddScript();
                     sc.AddShared();

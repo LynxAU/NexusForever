@@ -10,7 +10,7 @@ namespace NexusForever.Game.Matching.Queue
     {
         public IMatchingQueueProposal MatchingQueueProposal { get; private set; }
 
-        public IIdentity Identity { get; private set; }
+        public Identity Identity { get; private set; }
         public Role Roles { get; private set; }
 
         #region Dependency Injection
@@ -28,7 +28,7 @@ namespace NexusForever.Game.Matching.Queue
         /// <summary>
         /// Initialise <see cref="IMatchingQueueProposalMember"/>.
         /// </summary>
-        public void Initialise(IMatchingQueueProposal matchingQueueProposal, IIdentity identity, Role roles)
+        public void Initialise(IMatchingQueueProposal matchingQueueProposal, Identity identity, Role roles)
         {
             if (MatchingQueueProposal != null)
                 throw new InvalidOperationException();

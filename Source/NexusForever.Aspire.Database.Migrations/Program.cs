@@ -2,8 +2,10 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using NexusForever.Aspire.Database.Migrations.Service;
 using NexusForever.Database.Auth;
 using NexusForever.Database.Character;
+using NexusForever.Database.Chat;
 using NexusForever.Database.Group;
 using NexusForever.Database.World;
 
@@ -20,7 +22,8 @@ namespace NexusForever.Aspire.Database.Migrations
                 })
                 .ConfigureServices((hb, sc) =>
                 {
-                    sc.AddHostedService<HostedService>();
+                    sc.AddHostedService<DatabaseMigrationHostedService>();
+                    sc.AddHostedService<FinishHostedService>();
 
                     sc.AddScoped(sp =>
                     {
@@ -56,6 +59,11 @@ namespace NexusForever.Aspire.Database.Migrations
                     sc.AddDbContext<GroupContext>(options =>
                     {
                         var connectionString = hb.Configuration.GetConnectionString("groupdb");
+                        options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+                    });
+                    sc.AddDbContext<ChatContext>(options =>
+                    {
+                        var connectionString = hb.Configuration.GetConnectionString("chatdb");
                         options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
                     });
                 });

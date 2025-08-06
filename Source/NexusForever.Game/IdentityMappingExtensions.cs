@@ -6,7 +6,7 @@ namespace NexusForever.Game
 {
     public static class IdentityMappingExtensions
     {
-        public static NetworkIdentity ToNetworkIdentity(this IIdentity identity)
+        public static NetworkIdentity ToNetworkIdentity(this Identity identity)
         {
             return new NetworkIdentity
             {
@@ -15,7 +15,7 @@ namespace NexusForever.Game
             };
         }
 
-        public static IIdentity ToGameIdentity(this NetworkIdentity identity)
+        public static Identity ToGameIdentity(this NetworkIdentity identity)
         {
             return new Identity
             {
@@ -24,7 +24,7 @@ namespace NexusForever.Game
             };
         }
 
-        public static InternalIdentity ToInternalIdentity(this IIdentity identity)
+        public static InternalIdentity ToInternalIdentity(this Identity identity)
         {
             return new InternalIdentity
             {
@@ -33,7 +33,7 @@ namespace NexusForever.Game
             };
         }
 
-        public static IIdentity ToGameIdentity(this InternalIdentity identity)
+        public static Identity ToGameIdentity(this InternalIdentity identity)
         {
             return new Identity
             {

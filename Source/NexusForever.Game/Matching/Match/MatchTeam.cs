@@ -27,7 +27,7 @@ namespace NexusForever.Game.Matching.Match
 
         private IMatch match;
 
-        private readonly Dictionary<IIdentity, IMatchTeamMember> members = [];
+        private readonly Dictionary<Identity, IMatchTeamMember> members = [];
         private IMapEntrance mapEntrance;
 
         #region Dependency Injection
@@ -66,7 +66,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Return <see cref="IMatchTeamMember"/> for supplied characterId.
         /// </summary>
-        public IMatchTeamMember GetMember(IIdentity identity)
+        public IMatchTeamMember GetMember(Identity identity)
         {
             return members.TryGetValue(identity, out IMatchTeamMember matchTeamMember) ? matchTeamMember : null;
         }
@@ -91,7 +91,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Add character to team.
         /// </summary>
-        public void MatchJoin(IIdentity identity, Role roles)
+        public void MatchJoin(Identity identity, Role roles)
         {
             if (members.ContainsKey(identity))
                 throw new InvalidOperationException();
@@ -116,7 +116,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Invoked when character enters the match.
         /// </summary>
-        public void MatchEnter(IIdentity identity, IMatchingMap matchingMap)
+        public void MatchEnter(Identity identity, IMatchingMap matchingMap)
         {
             IMatchTeamMember matchTeamMember = GetMember(identity);
             matchTeamMember?.MatchEnter(matchingMap);
@@ -125,7 +125,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Invoked when character exist the match.
         /// </summary>
-        public void MatchExit(IIdentity identity, bool teleport)
+        public void MatchExit(Identity identity, bool teleport)
         {
             IMatchTeamMember matchTeamMember = GetMember(identity);
             matchTeamMember?.MatchExit(teleport);
@@ -134,7 +134,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Invoked when character leaves the match.
         /// </summary>
-        public void MatchLeave(IIdentity identity)
+        public void MatchLeave(Identity identity)
         {
             IMatchTeamMember matchTeamMember = GetMember(identity);
             if (matchTeamMember != null)
@@ -154,7 +154,7 @@ namespace NexusForever.Game.Matching.Match
         /// <summary>
         /// Teleport character to match.
         /// </summary>
-        public void MatchTeleport(IIdentity identity)
+        public void MatchTeleport(Identity identity)
         {
             IMatchTeamMember matchTeamMember = GetMember(identity);
             matchTeamMember?.TeleportToMatch(mapEntrance);
@@ -166,7 +166,7 @@ namespace NexusForever.Game.Matching.Match
         /// <remarks>
         /// Return position is the position of the character before entering the match.
         /// </remarks>
-        public IMapPosition GetReturnPosition(IIdentity identity)
+        public IMapPosition GetReturnPosition(Identity identity)
         {
             IMatchTeamMember matchTeamMember = GetMember(identity);
             return matchTeamMember?.ReturnPosition;

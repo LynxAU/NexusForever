@@ -2,7 +2,7 @@
     "Network": {
         "Internal": {
             "Broker": "RabbitMQ",
-            "ConnectionString": "amqp://guest:guest@localhost:5672",
+            "ConnectionString": "amqp://nexusforever:nexusforever@localhost:5672",
             "InputQueue": "GroupServer"
         }
     },

@@ -23,6 +23,7 @@
     <ProjectReference Include="..\NexusForever.AuthServer\NexusForever.AuthServer.csproj" />
     <ProjectReference Include="..\NexusForever.Database\NexusForever.Database.csproj" IsAspireProjectResource="false" />
     <ProjectReference Include="..\NexusForever.Network.Internal\NexusForever.Network.Internal.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="..\NexusForever.Server.ChatServer\NexusForever.Server.ChatServer.csproj" />
     <ProjectReference Include="..\NexusForever.Server.GroupServer\NexusForever.Server.GroupServer.csproj" />
     <ProjectReference Include="..\NexusForever.StsServer\NexusForever.StsServer.csproj" />
     <ProjectReference Include="..\NexusForever.WorldServer\NexusForever.WorldServer.csproj" />

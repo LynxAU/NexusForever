@@ -3,16 +3,20 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NexusForever.Database;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
+using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Character;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Static.Guild;
+using NexusForever.Network.Internal;
+using NexusForever.Network.Internal.Message.Guild;
 using NexusForever.Network.Message;
 using NexusForever.Network.Message.Model.Shared;
 using NexusForever.Network.Session;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Model.Shared;
+using NexusForever.Shared;
 using NLog;
 using NetworkGuildMember = NexusForever.Network.World.Message.Model.Shared.GuildMember;
 using NetworkGuildRank = NexusForever.Network.World.Message.Model.Shared.GuildRank;
@@ -38,9 +42,9 @@ namespace NexusForever.Game.Guild
 
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
 
-        public ulong Id { get; }
-        public GuildType Type { get; }
-        public DateTime CreateTime { get; }
+        public ulong Id { get; private set; }
+        public abstract GuildType Type { get; }
+        public DateTime CreateTime { get; private set; }
 
         public string Name
         {
@@ -98,13 +102,27 @@ namespace NexusForever.Game.Guild
         protected readonly Dictionary</*characterId*/ulong, IGuildMember> members = new();
         protected readonly List</*characterId*/ulong> onlineMembers = new();
 
+        #region Dependency Injection
+
+        private readonly IRealmContext realmContext;
+        private readonly IInternalMessagePublisher messagePublisher;
+
+        public GuildBase(
+            IRealmContext realmContext,
+            IInternalMessagePublisher messagePublisher)
+        {
+            this.realmContext     = realmContext;
+            this.messagePublisher = messagePublisher;
+        }
+
+        #endregion
+
         /// <summary>
         /// Create a new <see cref="IGuildBase"/> from an existing database model.
         /// </summary>
-        protected GuildBase(GuildModel model)
+        public virtual void Initialise(GuildModel model)
         {
             Id         = model.Id;
-            Type       = (GuildType)model.Type;
             Name       = model.Name;
             Flags      = (GuildFlag)model.Flags;
             LeaderId   = model.LeaderId;
@@ -129,15 +147,20 @@ namespace NexusForever.Game.Guild
         /// <summary>
         /// Create a new <see cref="IGuildBase"/> using supplied parameters.
         /// </summary>
-        protected GuildBase(GuildType type, string guildName, string leaderRankName, string councilRankName, string memberRankName)
+        public virtual void Initialise(string guildName, string leaderRankName, string councilRankName, string memberRankName)
         {
             Id         = GlobalGuildManager.Instance.NextGuildId;
-            Type       = type;
             Name       = guildName;
             Flags      = GuildFlag.None;
             CreateTime = DateTime.Now;
 
             InitialiseRanks(leaderRankName, councilRankName, memberRankName);
+
+            messagePublisher.PublishAsync(new GuildCreatedMessage
+            {
+                GuildId = Id,
+                Type    = Type
+            }).FireAndForgetAsync();
 
             saveMask = GuildBaseSaveMask.Create;
         }
@@ -492,6 +515,11 @@ namespace NexusForever.Game.Guild
                     LeaveGuild(member, true);
             }
 
+            messagePublisher.PublishAsync(new GuildDisbandedMessage
+            {
+                GuildId = Id,
+            }).FireAndForgetAsync();
+
             saveMask |= GuildBaseSaveMask.Delete;
             log.Trace($"Guild {Id} was disbanded.");
         }
@@ -612,6 +640,20 @@ namespace NexusForever.Game.Guild
             member.Rank.RemoveMember(member);
             newRank.AddMember(member);
             member.Rank = newRank;
+
+            // TODO: replace once GuildServer is implemented
+            messagePublisher.PublishAsync(new GuildMemberRankUpdatedMessage
+            {
+                GuildId = Id,
+                Type    = Type,
+                Member  = new Network.Internal.Message.Shared.Identity
+                {
+                    Id      = member.CharacterId,
+                    RealmId = realmContext.RealmId
+                },
+                Rank        = newRank.Index,
+                Permissions = newRank.Permissions
+            }).FireAndForgetAsync();
         }
 
         /// <summary>
@@ -655,6 +697,15 @@ namespace NexusForever.Game.Guild
                 members.Add(player.CharacterId, member);
             }
 
+            messagePublisher.PublishAsync(new GuildMemberAddedMessage
+            {
+                GuildId     = Id,
+                Type        = Type,
+                Member      = player.Identity.ToInternalIdentity(),
+                Rank        = guildRank.Index,
+                Permissions = guildRank.Permissions
+            }).FireAndForgetAsync();
+
             MemberOnline(member);
             guildRank.AddMember(member);
 
@@ -678,6 +729,18 @@ namespace NexusForever.Game.Guild
                 else
                     member.EnqueueDelete(true);
             }
+
+            messagePublisher.PublishAsync(new GuildMemberRemovedMessage
+            {
+                GuildId = Id,
+                Type    = Type,
+                // TODO: replace once GuildServer is implemented
+                Member  = new Network.Internal.Message.Shared.Identity
+                {
+                    Id      = characterId,
+                    RealmId = realmContext.RealmId
+                }
+            }).FireAndForgetAsync();
 
             MemberOffline(member);
             member.Rank.RemoveMember(member);

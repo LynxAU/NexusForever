@@ -1,13 +1,17 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using NexusForever.Aspire.Database.Migrations.Configuration.Model;
 using NexusForever.Aspire.Database.Migrations.Service;
 using NexusForever.Database.Auth;
 using NexusForever.Database.Character;
 using NexusForever.Database.Chat;
 using NexusForever.Database.Group;
 using NexusForever.Database.World;
+using NLog.Extensions.Logging;
 
 namespace NexusForever.Aspire.Database.Migrations
 {
@@ -15,14 +19,31 @@ namespace NexusForever.Aspire.Database.Migrations
     {
         static async Task Main(string[] args)
         {
+            string basePath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+
             var builder = new HostBuilder()
-                .ConfigureAppConfiguration(c =>
+                .ConfigureAppConfiguration(cb =>
                 {
-                    c.AddEnvironmentVariables();
+                    cb.SetBasePath(basePath)
+                        .AddJsonFile("AspireMigrations.json", false)
+                        .AddEnvironmentVariables();
+                })
+                .ConfigureLogging(l =>
+                {
+                    l.ClearProviders();
+                    l.AddNLog();
                 })
                 .ConfigureServices((hb, sc) =>
                 {
+                    sc.AddOptions<AccountCreationOptions>()
+                        .Bind(hb.Configuration.GetSection("AccountCreation"));
+
+                    sc.AddOptions<WorldDatabaseOptions>()
+                        .Bind(hb.Configuration.GetSection("WorldDatabase"));
+
                     sc.AddHostedService<DatabaseMigrationHostedService>();
+                    sc.AddHostedService<AccountCreationHostedService>();
+                    sc.AddHostedService<WorldDatabaseHostedService>();
                     sc.AddHostedService<FinishHostedService>();
 
                     sc.AddScoped(sp =>

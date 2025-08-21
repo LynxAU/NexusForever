@@ -31,6 +31,7 @@ namespace NexusForever.Server.GroupServer
         internal static async Task Main()
         {
             string basePath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+            Directory.SetCurrentDirectory(basePath);
 
             var builder = new HostBuilder()
                 .ConfigureLogging(c =>

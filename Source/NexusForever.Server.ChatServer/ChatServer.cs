@@ -32,6 +32,7 @@ namespace NexusForever.Server.ChatServer
         internal static async Task Main(string[] args)
         {
             string basePath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+            Directory.SetCurrentDirectory(basePath);
 
             var builder = new HostBuilder()
                 .ConfigureLogging(c =>

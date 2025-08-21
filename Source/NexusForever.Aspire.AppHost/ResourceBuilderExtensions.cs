@@ -7,7 +7,7 @@ namespace NexusForever.Aspire.AppHost
     {
         public static IResourceBuilder<T> WithNexusForeverDatabase<T>(this IResourceBuilder<T> builder, string database, DatabaseProvider databaseProvider, IResourceWithConnectionString resource) where T : IResourceWithEnvironment
         {
-            builder.WithEnvironment("Database:{database}:Provider", databaseProvider.ToString());
+            builder.WithEnvironment($"Database:{database}:Provider", databaseProvider.ToString());
             builder.WithEnvironment(c =>
             {
                 c.EnvironmentVariables[$"Database:{database}:ConnectionString"] = new ConnectionStringReference(resource, false);

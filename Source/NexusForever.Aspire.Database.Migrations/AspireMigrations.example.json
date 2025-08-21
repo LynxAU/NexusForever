@@ -4,6 +4,6 @@
         "Password": "nexusforever"
     },
     "WorldDatabase": {
-        "Path": "C:\\Path\\To\\NexusForever.WorldDatabaseRepo"
+        "Path": "C:\\nexusforever-database"
     }
 }

@@ -19,10 +19,4 @@
     <PackageReference Include="NLog" Version="5.4.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="nlog.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>

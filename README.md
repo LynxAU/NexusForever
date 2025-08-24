@@ -5,7 +5,7 @@
 A server emulator for WildStar written in C# that supports build 16042.
 
 ### Getting Started
-[Server Setup Guide](https://www.emulator.ws/installation/server-install-guide-windows)
+[Server Setup Guide](https://www.emulator.ws/installation/server-guide)
 
 ### Requirements
  * Visual Studio 2022 (.NET 9 and C# 13 support required)

@@ -8,6 +8,7 @@ using NexusForever.GameTable.Text.Filter;
 using NexusForever.GameTable.Text.Static;
 using NexusForever.Network;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Network.World.Message.Model.Pet;
 
 namespace NexusForever.Game.Entity
 {

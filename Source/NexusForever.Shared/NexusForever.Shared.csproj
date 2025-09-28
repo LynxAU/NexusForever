@@ -18,10 +18,4 @@
     <PackageReference Include="NLog" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="nlog.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>

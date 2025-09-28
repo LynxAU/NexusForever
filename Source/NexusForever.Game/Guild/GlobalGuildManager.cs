@@ -41,6 +41,18 @@ namespace NexusForever.Game.Guild
 
         private readonly UpdateTimer saveTimer = new(SaveDuration);
 
+        #region Dependency Injection
+
+        private readonly IGuildFactory guildFactory;
+
+        public GlobalGuildManager(
+            IGuildFactory guildFactory)
+        {
+            this.guildFactory = guildFactory;
+        }
+
+        #endregion
+
         /// <summary>
         /// Initialise the <see cref="IGlobalGuildManager"/>, and build cache of all existing guilds.
         /// </summary>
@@ -61,39 +73,16 @@ namespace NexusForever.Game.Guild
         {
             foreach (GuildModel model in DatabaseManager.Instance.GetDatabase<CharacterDatabase>().GetGuilds())
             {
-                IGuildBase guild;
-                switch ((GuildType)model.Type)
-                {
-                    case GuildType.Guild:
-                        guild = new Guild(model);
-                        break;
-                    case GuildType.Circle:
-                        guild = new Circle(model);
-                        break;
-                    case GuildType.ArenaTeam2v2:
-                    case GuildType.ArenaTeam3v3:
-                    case GuildType.ArenaTeam5v5:
-                        guild = new ArenaTeam(model);
-                        break;
-                    case GuildType.WarParty:
-                        guild = new WarParty(model);
-                        break;
-                    case GuildType.Community:
-                        guild = new Community(model);
-                        break;
-                    default:
-                        throw new DatabaseDataException($"Guild type not recognised {(GuildType)model.Type} for guild {model.Id}!");
-                }
-
-                guilds.Add(guild.Id, guild);
-                guildNameCache.Add((guild.Type, guild.Name), guild.Id);
+                IGuildBase baseGuild = guildFactory.CreateGuild(model);
+                guilds.Add(baseGuild.Id, baseGuild);
+                guildNameCache.Add((baseGuild.Type, baseGuild.Name), baseGuild.Id);
 
                 // cache character guilds for faster lookup on character login
-                List<IGuildMember> members = guild.ToList();
+                List<IGuildMember> members = baseGuild.ToList();
                 foreach (IGuildMember member in members)
-                    TrackCharacterGuild(member.CharacterId, guild.Id);
+                    TrackCharacterGuild(member.CharacterId, baseGuild.Id);
 
-                log.Trace($"Initialised guild {guild.Name}({guild.Id}) with {members.Count} members.");
+                log.Trace($"Initialised guild {baseGuild.Name}({baseGuild.Id}) with {members.Count} members.");
             }
 
             log.Info($"Initialized {guilds.Count} guilds from the database.");
@@ -210,28 +199,6 @@ namespace NexusForever.Game.Guild
         }
 
         /// <summary>
-        /// Validate all <see cref="ICommunity"/> to make sure they have a corresponding residence.
-        /// </summary>
-        /// <remarks>
-        /// This function is mainly here for migrating communities created before the implementation of community plots.
-        /// If this happens normally there could be a bigger issue.
-        /// </remarks>
-        public void ValidateCommunityResidences()
-        {
-            foreach (IGuildBase guild in guilds.Values)
-            {
-                if (guild is not Community community)
-                    continue;
-
-                if (community.Residence != null)
-                    continue;
-
-                community.Residence = GlobalResidenceManager.Instance.CreateCommunity(community);
-                log.Warn($"Created new residence {community.Residence.Id} for Community {community.Id} which was missing a residence!");
-            }
-        }
-
-        /// <summary>
         /// Returns <see cref="IGuildBase"/> with supplied id.
         /// </summary>
         public IGuildBase GetGuild(ulong guildId)
@@ -313,37 +280,10 @@ namespace NexusForever.Game.Guild
         /// </remarks>
         public IGuildBase RegisterGuild(GuildType type, string name, string leaderRankName, string councilRankName, string memberRankName, IGuildStandard standard = null)
         {
-            IGuildBase guild;
-            switch (type)
-            {
-                case GuildType.Guild:
-                    guild = new Guild(name, leaderRankName, councilRankName, memberRankName, standard);
-                    break;
-                case GuildType.Circle:
-                    guild = new Circle(name, leaderRankName, councilRankName, memberRankName);
-                    break;
-                case GuildType.WarParty:
-                    guild = new WarParty(name, leaderRankName, councilRankName, memberRankName);
-                    break;
-                case GuildType.ArenaTeam2v2:
-                case GuildType.ArenaTeam3v3:
-                case GuildType.ArenaTeam5v5:
-                    guild = new ArenaTeam(type, name, leaderRankName, councilRankName, memberRankName);
-                    break;
-                case GuildType.Community:
-                {
-                    var community = new Community(name, leaderRankName, councilRankName, memberRankName);
-                    community.Residence = GlobalResidenceManager.Instance.CreateCommunity(community);
-                    guild = community;
-                    break;
-                }
-                default:
-                    throw new ArgumentException();
-            }
-
-            guilds.Add(guild.Id, guild);
-            guildNameCache.Add((guild.Type, guild.Name), guild.Id);
-            return guild;
+            IGuildBase baseGuild = guildFactory.CreateGuild(type, name, leaderRankName, councilRankName, memberRankName, standard);
+            guilds.Add(baseGuild.Id, baseGuild);
+            guildNameCache.Add((baseGuild.Type, baseGuild.Name), baseGuild.Id);
+            return baseGuild;
         }
 
         /// <summary>

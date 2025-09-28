@@ -35,12 +35,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NexusForever.Game\NexusForever.Game.csproj" />
+    <ProjectReference Include="..\NexusForever.Network.Internal\NexusForever.Network.Internal.csproj" />
     <ProjectReference Include="..\NexusForever.Network.World\NexusForever.Network.World.csproj" />
     <ProjectReference Include="..\NexusForever.Script\NexusForever.Script.csproj" />
     <ProjectReference Include="..\NexusForever.Shared\NexusForever.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="nlog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="WorldServer.example.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

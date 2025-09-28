@@ -2,10 +2,10 @@
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Entity;
-using NexusForever.Game.Static.TextFilter;
-using NexusForever.Game.Text.Filter;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
+using NexusForever.GameTable.Text.Filter;
+using NexusForever.GameTable.Text.Static;
 using NexusForever.Network;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Model.Pet;

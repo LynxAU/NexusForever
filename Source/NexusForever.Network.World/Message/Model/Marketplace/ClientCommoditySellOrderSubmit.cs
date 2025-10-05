@@ -3,8 +3,8 @@
 namespace NexusForever.Network.World.Message.Model.Marketplace
 {
     // Sent from ConfirmButtonType == MarketplaceCommoditiesSubmit
-    [Message(GameMessageOpcode.ClientMarketplaceCommoditiesSubmitted)]
-    public class ClientMarketplaceCommoditiesSubmitted : IReadable
+    [Message(GameMessageOpcode.ClientCommoditySellOrderSubmit)]
+    public class ClientCommoditySellOrderSubmit : IReadable
     {
         public CommodityOrder Order { get; private set; } = new();
 

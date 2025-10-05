@@ -11,19 +11,19 @@ namespace NexusForever.Game.Chat.Format.Formatter
     {
         public IChatChannelTextFormatModel ToInternal(IPlayer player, ChatFormatItemGuid format)
         {
-            IItem item = player.Inventory.GetItem(format.Guid);
-            return new ChatChannelTextItemIdFormat
+            IItem item = player.Inventory.GetItem(format.ItemGuid);
+            return new ChatChannelTextItemGuidFormat
             {
-                ItemId = item.Id
+                ItemGuid = item.Guid
             };
         }
 
         public IChatFormatModel ToLocal(IPlayer player, ChatFormatItemGuid format)
         {
-            IItem item = player.Inventory.GetItem(format.Guid);
-            return new ChatFormatItemId
+            IItem item = player.Inventory.GetItem(format.ItemGuid);
+            return new ChatFormatItemGuid
             {
-                ItemId = item.Id
+                ItemGuid = item.Guid
             };
         }
     }

@@ -1,5 +1,5 @@
 ﻿using System.Text.Json.Serialization;
-using NexusForever.Game.Static.Social;
+using NexusForever.Game.Static.Chat;
 using NexusForever.Network.Internal.Message.Chat.Shared.Format.Model;
 
 namespace NexusForever.Network.Internal.Message.Chat.Shared.Format

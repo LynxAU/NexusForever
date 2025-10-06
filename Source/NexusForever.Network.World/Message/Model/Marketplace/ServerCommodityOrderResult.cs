@@ -5,8 +5,8 @@ namespace NexusForever.Network.World.Message.Model.Marketplace
 {
     // Fires whenever the player attempts to post a buy or sell order on the commodities exchange.
     // Informs the player if the order was successfully placed or an error was thrown.
-    [Message(GameMessageOpcode.ServerPostCommodityOrderResult)]
-    public class ServerPostCommodityOrderResult : IWritable
+    [Message(GameMessageOpcode.ServerCommodityOrderResult)]
+    public class ServerCommodityOrderResult : IWritable
     {
         public GenericError Result { get; set; }
         public CommodityOrder OrderPosted { get; set; }

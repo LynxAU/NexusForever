@@ -1190,6 +1190,11 @@ namespace NexusForever.Game.Entity
                 {
                     ChatChannelId = ChatChannelType.System
                 },
+                From = new Network.World.Message.Model.Shared.Identity
+                {
+                    Id = 0,
+                    RealmId = 0,
+                },
                 Text = text
             });
         }

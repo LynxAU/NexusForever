@@ -318,6 +318,11 @@ namespace NexusForever.Game.Guild
                     {
                         ChatChannelId = ChatChannelType.Debug
                     },
+                    From = new Network.World.Message.Model.Shared.Identity
+                    {
+                        Id = 0,
+                        RealmId = 0,
+                    },
                     FromName = "GlobalGuildManager",
                     Text     = $"{operation.Operation} not implemented!",
                 });

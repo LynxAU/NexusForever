@@ -9,7 +9,7 @@ internal class Program
     {
         var builder = DistributedApplication.CreateBuilder(args);
 
-        builder.AddDockerComposeEnvironment("nexus-forever");
+        //builder.AddDockerComposeEnvironment("nexus-forever");
 
         var rmq = builder.AddRabbitMQ("rmq")
             .WithManagementPlugin();

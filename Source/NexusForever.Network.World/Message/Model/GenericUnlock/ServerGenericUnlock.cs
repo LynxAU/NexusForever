@@ -1,8 +1,8 @@
 ﻿using NexusForever.Network.Message;
 
-namespace NexusForever.Network.World.Message.Model
+namespace NexusForever.Network.World.Message.Model.GenericUnlock
 {
-    [Message(GameMessageOpcode.ServerGenericUnlock)]
+    [Message(GameMessageOpcode.ServerGenericUnlockAccount)]
     public class ServerGenericUnlock : IWritable
     {
         public ushort GenericUnlockEntryId { get; set; }

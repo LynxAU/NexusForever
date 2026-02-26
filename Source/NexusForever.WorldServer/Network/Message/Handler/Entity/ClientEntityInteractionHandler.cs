@@ -77,7 +77,11 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                     session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, entity.CreatureId, 1u);
                     // Also check for ActivateTargetGroup if this entity is part of a target group
                     foreach (uint targetGroupId in assetManager.GetTargetGroupsForCreatureId(entity.CreatureId) ?? Enumerable.Empty<uint>())
+                    {
                         session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroup, targetGroupId, 1u);
+                        // ActivateTargetGroupChecklist is similar but for creatures with Activate spell effect
+                        session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroupChecklist, targetGroupId, 1u);
+                    }
                 }
             }
 

@@ -92,10 +92,41 @@ namespace NexusForever.Game.Abstract.Entity
         void TakeDamage(IUnitEntity attacker, IDamageDescription damageDescription);
 
         /// <summary>
+        /// Current temporary damage absorption pool consumed by incoming damage after shield mitigation.
+        /// </summary>
+        uint DamageAbsorptionPool { get; }
+
+        /// <summary>
+        /// Current temporary healing absorption pool consumed by incoming healing.
+        /// </summary>
+        uint HealingAbsorptionPool { get; }
+
+        /// <summary>
+        /// Add to the temporary damage absorption pool.
+        /// </summary>
+        void AddDamageAbsorption(uint amount);
+
+        /// <summary>
+        /// Add to the temporary healing absorption pool.
+        /// </summary>
+        void AddHealingAbsorption(uint amount);
+
+        /// <summary>
+        /// Consume from the temporary damage absorption pool and return the amount consumed.
+        /// </summary>
+        uint ConsumeDamageAbsorption(uint amount);
+
+        /// <summary>
+        /// Consume from the temporary healing absorption pool and return the amount consumed.
+        /// </summary>
+        uint ConsumeHealingAbsorption(uint amount);
+
+        /// <summary>
         /// Modify the health of this <see cref="IUnitEntity"/> by the supplied amount.
         /// </summary>
         /// <remarks>
         /// If the <see cref="DamageType"/> is <see cref="DamageType.Heal"/> amount is added to current health otherwise subtracted.
+        /// Incoming healing can be reduced by the temporary healing absorption pool.
         /// </remarks>
         void ModifyHealth(uint amount, DamageType type, IUnitEntity source);
 

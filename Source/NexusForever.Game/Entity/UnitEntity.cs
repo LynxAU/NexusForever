@@ -86,8 +86,13 @@ namespace NexusForever.Game.Entity
         private UpdateTimer statUpdateTimer = new UpdateTimer(0.25); // TODO: Long-term this should be absorbed into individual timers for each Stat regeneration method
 
         private readonly List<ISpell> pendingSpells = new();
+        private uint damageAbsorptionPool;
+        private uint healingAbsorptionPool;
 
         private Dictionary<Property, Dictionary</*spell4Id*/uint, ISpellPropertyModifier>> spellProperties = new();
+
+        public uint DamageAbsorptionPool => damageAbsorptionPool;
+        public uint HealingAbsorptionPool => healingAbsorptionPool;
 
         #region Dependency Injection
 
@@ -392,8 +397,51 @@ namespace NexusForever.Game.Entity
             // Use post-mitigation applied damage for threat (shield absorbed + health damage).
             ThreatManager.UpdateThreat(attacker, (int)(damageDescription.ShieldAbsorbAmount + damageDescription.AdjustedDamage));
 
+            uint absorbedAmount = ConsumeDamageAbsorption(damageDescription.AdjustedDamage);
+            if (absorbedAmount != 0u)
+            {
+                damageDescription.AbsorbedAmount = (uint)Math.Min((ulong)uint.MaxValue, (ulong)damageDescription.AbsorbedAmount + absorbedAmount);
+                damageDescription.AdjustedDamage -= absorbedAmount;
+            }
+
             Shield = Shield > damageDescription.ShieldAbsorbAmount ? Shield - damageDescription.ShieldAbsorbAmount : 0u;
             ModifyHealth(damageDescription.AdjustedDamage, damageDescription.DamageType, attacker);
+        }
+
+        public void AddDamageAbsorption(uint amount)
+        {
+            if (amount == 0u)
+                return;
+
+            damageAbsorptionPool = (uint)Math.Min((ulong)uint.MaxValue, (ulong)damageAbsorptionPool + amount);
+        }
+
+        public void AddHealingAbsorption(uint amount)
+        {
+            if (amount == 0u)
+                return;
+
+            healingAbsorptionPool = (uint)Math.Min((ulong)uint.MaxValue, (ulong)healingAbsorptionPool + amount);
+        }
+
+        public uint ConsumeDamageAbsorption(uint amount)
+        {
+            if (amount == 0u || damageAbsorptionPool == 0u)
+                return 0u;
+
+            uint consumedAmount = Math.Min(amount, damageAbsorptionPool);
+            damageAbsorptionPool -= consumedAmount;
+            return consumedAmount;
+        }
+
+        public uint ConsumeHealingAbsorption(uint amount)
+        {
+            if (amount == 0u || healingAbsorptionPool == 0u)
+                return 0u;
+
+            uint consumedAmount = Math.Min(amount, healingAbsorptionPool);
+            healingAbsorptionPool -= consumedAmount;
+            return consumedAmount;
         }
 
         /// <summary>
@@ -406,7 +454,10 @@ namespace NexusForever.Game.Entity
         {
             long newHealth = Health;
             if (type == DamageType.Heal)
+            {
+                amount -= ConsumeHealingAbsorption(amount);
                 newHealth += amount;
+            }
             else
                 newHealth -= amount;
 
@@ -428,6 +479,8 @@ namespace NexusForever.Game.Entity
 
             GenerateRewards();
             ThreatManager.ClearThreatList();
+            damageAbsorptionPool = 0u;
+            healingAbsorptionPool = 0u;
 
             deathState = EntityDeathState.Dead;
         }

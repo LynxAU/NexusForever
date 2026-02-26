@@ -3,6 +3,7 @@ using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Abstract.Spell.Event;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Spell.Event;
+using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Combat;
@@ -88,6 +89,7 @@ namespace NexusForever.Game.Spell
             if (result != CastResult.Ok)
             {
                 SendSpellCastResult(result);
+                status = SpellStatus.Finished;
                 return;
             }
 
@@ -226,8 +228,16 @@ namespace NexusForever.Game.Spell
             log.Trace($"Spell {Parameters.SpellInfo.Entry.Id} has started executing.");
 
             if (Caster is IPlayer player)
+            {
                 if (Parameters.SpellInfo.Entry.SpellCoolDown != 0u)
                     player.SpellManager.SetSpellCooldown(Parameters.SpellInfo.Entry.Id, Parameters.SpellInfo.Entry.SpellCoolDown / 1000d);
+
+                // Update SpellSuccess quest objectives when spell is cast
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess, Parameters.SpellInfo.Entry.Id, 1u);
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess2, Parameters.SpellInfo.Entry.Id, 1u);
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess3, Parameters.SpellInfo.Entry.Id, 1u);
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess4, Parameters.SpellInfo.Entry.Id, 1u);
+            }
 
             SelectTargets();
             ExecuteEffects();
@@ -283,8 +293,15 @@ namespace NexusForever.Game.Spell
                         var info = new SpellTargetInfo.SpellTargetEffectInfo(effectId, spell4EffectsEntry);
                         effectTarget.Effects.Add(info);
 
-                        // TODO: if there is an unhandled exception in the handler, there will be an infinite loop on Execute()
-                        handler.Invoke(this, effectTarget.Entity, info);
+                        try
+                        {
+                            handler.Invoke(this, effectTarget.Entity, info);
+                        }
+                        catch (Exception e)
+                        {
+                            info.DropEffect = true;
+                            log.Error(e, $"Unhandled exception in spell effect handler {(SpellEffectType)spell4EffectsEntry.EffectType} for spell {Parameters.SpellInfo.Entry.Id}.");
+                        }
                     }
                 }
             }
@@ -315,11 +332,15 @@ namespace NexusForever.Game.Spell
 
         private void SendSpellStart()
         {
+            IUnitEntity primaryTarget = Parameters.PrimaryTargetId > 0
+                ? Caster.GetVisible<IUnitEntity>(Parameters.PrimaryTargetId)
+                : null;
+
             var spellStart = new ServerSpellStart
             {
                 CastingId              = CastingId,
                 CasterId               = Caster.Guid,
-                PrimaryTargetId        = Caster.Guid,
+                PrimaryTargetId        = primaryTarget?.Guid ?? Caster.Guid,
                 Spell4Id               = Parameters.SpellInfo.Entry.Id,
                 RootSpell4Id           = Parameters.RootSpellInfo?.Entry.Id ?? 0,
                 ParentSpell4Id         = Parameters.ParentSpellInfo?.Entry.Id ?? 0,
@@ -331,8 +352,8 @@ namespace NexusForever.Game.Spell
             };
 
             var unitsCasting = new List<IUnitEntity>();
-            if (Parameters.PrimaryTargetId > 0)
-                unitsCasting.Add(Caster.GetVisible<IUnitEntity>(Parameters.PrimaryTargetId));
+            if (primaryTarget != null)
+                unitsCasting.Add(primaryTarget ?? Caster);
             else
                 unitsCasting.Add(Caster);
 

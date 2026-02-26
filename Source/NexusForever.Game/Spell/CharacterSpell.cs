@@ -161,7 +161,8 @@ namespace NexusForever.Game.Spell
             {
                 CharacterSpell         = this,
                 SpellInfo              = SpellInfo,
-                UserInitiatedSpellCast = true
+                UserInitiatedSpellCast = true,
+                PrimaryTargetId        = Owner.TargetGuid ?? 0u
             });
         }
 

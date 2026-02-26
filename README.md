@@ -13,6 +13,57 @@ A server emulator for WildStar written in C# that supports build 16042.
  * Message Broker (RabbitMQ or Azure Service Bus)
  * WildStar 16042 client
 
+### Recent Local Progress (Community Fork)
+This fork is actively restoring gameplay systems, with a current focus on quest objective coverage and combat recovery.
+
+#### Git Changes Summary (Current Working Set)
+Modified files:
+ * `Source/NexusForever.Game/Combat/DamageCalculator.cs`
+   * Fixed healing/shield spell handling (no armor/deflect/glancing on heal-like effects).
+   * Proper heal damage typing and healing multiplier handling.
+   * Fixed physical armor mitigation offset usage.
+   * Improved crit severity handling and combat RNG usage.
+ * `Source/NexusForever.Game/Entity/CurrencyManager.cs`
+   * Added `EarnCurrency` quest objective triggers.
+ * `Source/NexusForever.Game/Entity/HarvestUnitEntity.cs`
+   * Complete harvest system updates including tradeskill -> material mapping, auto-respawn via `RescanCooldown`, and `GatheResource` quest triggers.
+ * `Source/NexusForever.Game/Entity/Inventory.cs`
+   * Added `CollectItem` quest objective triggers.
+ * `Source/NexusForever.Game/Entity/UnitEntity.cs`
+   * Fixed spell lifecycle cleanup and disposal (prevents leaked/failed spells from lingering in `pendingSpells`).
+ * `Source/NexusForever.Game/Spell/CharacterSpell.cs`
+   * Added `PrimaryTargetId` propagation for player cast target tracking.
+ * `Source/NexusForever.Game/Spell/Event/SpellEventManager.cs`
+   * Fixed event timing/cleanup bug (prevents retry loops when spell callbacks fail).
+ * `Source/NexusForever.Game/Spell/Spell.cs`
+   * Added `SpellSuccess`, `SpellSuccess2`, `SpellSuccess3`, `SpellSuccess4` quest triggers.
+   * Fixed target selection / primary target usage in spell start packets.
+   * Added effect-handler exception guards for safer spell execution.
+ * `Source/NexusForever.Game/Spell/SpellEffectHandler.cs`
+   * Added `Heal`, `HealShields`, `DamageShields`, and `Transference` handlers.
+   * Added provisional support paths for `DistanceDependentDamage` and `DistributedDamage`.
+   * Added heal combat log generation and hardened damage handler null/deflect behavior.
+ * `Source/NexusForever.WorldServer/Network/Message/Handler/Entity/ClientEntityInteractionHandler.cs`
+   * Fixed `TalkTo` / `ActivateEntity` quest objective bug (`TalkTo` now only triggers for event `37`).
+
+Ignored local-only file:
+ * `NexusForever.code-workspace` (ignored via `.gitignore`)
+
+#### Quest Objectives Now Working
+ * `CollectItem` (inventory pickup)
+ * `SpellSuccess` / `SpellSuccess2` / `SpellSuccess3` / `SpellSuccess4`
+ * `TalkTo` (event `37` only)
+ * `ActivateEntity` (other interaction events)
+ * `GatheResource` (harvest nodes)
+ * `EarnCurrency` (currency gains)
+
+#### Combat Recovery Notes (Current Passes)
+ * Spell lifecycle stability improved (failed casts no longer linger; finished spells are disposed).
+ * Primary target tracking is now propagated from player casts into spell execution.
+ * Heal and shield-heal spell effects now apply results and emit combat logs.
+ * Several damage-like spell effects are now routed through the core damage path as interim support.
+ * Combat handler coverage has increased, improving playability while deeper effect semantics are restored incrementally.
+
 ### Branches
 NexusForever has multiple branches:
 * **[Master](https://github.com/NexusForever/NexusForever/tree/master)**  

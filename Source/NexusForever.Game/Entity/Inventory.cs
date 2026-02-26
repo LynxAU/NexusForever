@@ -4,7 +4,7 @@ using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Achievement;
-using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable.Model;
 using NexusForever.Network;
 using NexusForever.Network.World.Message.Model;
@@ -286,6 +286,12 @@ namespace NexusForever.Game.Entity
 
                 var item = new Item(characterId, info, Math.Min(count, info.IsStackable() ? info.Entry.MaxStackCount : 1), charges);
                 AddItem(item, location, bagIndex.Value);
+
+                // Update CollectItem quest objectives when item is picked up
+                if (player != null && !player.IsLoading)
+                {
+                    player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CollectItem, info.Entry.Id, item.StackCount);
+                }
 
                 if (!player?.IsLoading ?? false)
                 {

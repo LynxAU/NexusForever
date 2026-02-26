@@ -3,6 +3,7 @@ using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model;
@@ -101,6 +102,12 @@ namespace NexusForever.Game.Entity
                 amount = Math.Min(amount, currency.Entry.CapAmount);
 
             CurrencyAmountUpdate(currency, amount, isLoot);
+
+            // Update EarnCurrency quest objectives when currency is gained
+            if (player != null && isLoot)
+            {
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.EarnCurrency, currencyEntry.Id, amount);
+            }
         }
 
         private ICurrency CurrencyCreate(CurrencyTypeEntry currencyEntry)

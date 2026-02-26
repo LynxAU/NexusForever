@@ -30,12 +30,37 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
         public void HandleMessage(IWorldSession session, ClientEntityInteract entityInteraction)
         {
             IWorldEntity entity = session.Player.GetVisible<IWorldEntity>(entityInteraction.Guid);
+            
+            // Handle quest objectives based on interaction type
+            bool isQuestNpc = entityInteraction.Event == 37;
+            bool isActivation = false;
+            
+            // Determine if this is an activation interaction (not a dialogue)
+            // Events 8, 40-43, 45-48, 65-67, 69-76, 79-87, etc. are UI/windows - no quest objectives
+            // Only certain events should trigger quest objectives
             if (entity != null)
             {
-                session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, entity.CreatureId, 1u);
-                session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkTo, entity.CreatureId, 1u);
-                foreach (uint targetGroupId in assetManager.GetTargetGroupsForCreatureId(entity.CreatureId) ?? Enumerable.Empty<uint>())
-                    session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkToTargetGroup, targetGroupId, 1u);
+                // Quest NPC dialogue (event 37) triggers TalkTo objectives
+                if (isQuestNpc)
+                {
+                    session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkTo, entity.CreatureId, 1u);
+                    foreach (uint targetGroupId in assetManager.GetTargetGroupsForCreatureId(entity.CreatureId) ?? Enumerable.Empty<uint>())
+                        session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkToTargetGroup, targetGroupId, 1u);
+                }
+                // Other interactions (not dialogue) trigger ActivateEntity
+                else if (entityInteraction.Event != 49) // Skip vendors - they have their own handling
+                {
+                    isActivation = true;
+                }
+                
+                // Trigger ActivateEntity for non-dialogue interactions
+                if (isActivation)
+                {
+                    session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, entity.CreatureId, 1u);
+                    // Also check for ActivateTargetGroup if this entity is part of a target group
+                    foreach (uint targetGroupId in assetManager.GetTargetGroupsForCreatureId(entity.CreatureId) ?? Enumerable.Empty<uint>())
+                        session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroup, targetGroupId, 1u);
+                }
             }
 
             switch (entityInteraction.Event)

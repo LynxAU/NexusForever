@@ -36,9 +36,17 @@ namespace NexusForever.Game.Combat
         /// </remarks>
         public void CalculateDamage(IUnitEntity attacker, IUnitEntity victim, ISpell spell, ISpellTargetEffectInfo info)
         {
+            SpellEffectType effectType = (SpellEffectType)info.Entry.EffectType;
+            bool isHealLike = effectType is SpellEffectType.Heal or SpellEffectType.HealShields;
+
             IDamageDescription damageDescription = new SpellTargetInfo.SpellTargetEffectInfo.DamageDescription
             {
-                DamageType   = info.Entry.DamageType,
+                DamageType   = effectType switch
+                {
+                    SpellEffectType.Heal       => DamageType.Heal,
+                    SpellEffectType.HealShields => DamageType.HealShields,
+                    _                          => info.Entry.DamageType
+                },
                 CombatResult = CombatResult.Hit
             };
 
@@ -50,7 +58,7 @@ namespace NexusForever.Game.Combat
                 CombatResult = CombatResult.Hit
             };
 
-            if (CalculateDeflect(attacker, victim))
+            if (!isHealLike && CalculateDeflect(attacker, victim))
             {
                 info.DropEffect = true;
                 info.AddCombatLog(new CombatLogDeflect
@@ -67,7 +75,8 @@ namespace NexusForever.Game.Combat
 
             damage = CalculateBaseDamageVariance(damage);
 
-            damage = GetDamageAfterArmorMitigation(victim, info.Entry.DamageType, damage);
+            if (!isHealLike)
+                damage = GetDamageAfterArmorMitigation(victim, info.Entry.DamageType, damage);
 
             // TODO: Add in other attacking modifiers like Armor Pierce, Strikethrough, Multi-Hit, etc.
 
@@ -75,15 +84,18 @@ namespace NexusForever.Game.Combat
                 damageDescription.CombatResult = CombatResult.Critical;
 
             uint preGlanceDamage = damage;
-            if (CalculateGlance(ref damage, attacker, victim))
+            if (!isHealLike && CalculateGlance(ref damage, attacker, victim))
             {
                 uint glanceDamage = preGlanceDamage - damage;
                 // TODO: Add CombatLog
             }
 
-            uint shieldedAmount = CalculateShieldAmount(damage, victim);
-            damage -= shieldedAmount;
-            damageDescription.ShieldAbsorbAmount = shieldedAmount;
+            if (!isHealLike)
+            {
+                uint shieldedAmount = CalculateShieldAmount(damage, victim);
+                damage -= shieldedAmount;
+                damageDescription.ShieldAbsorbAmount = shieldedAmount;
+            }
 
             // TODO: Add in other defensive modifiers
 
@@ -132,7 +144,13 @@ namespace NexusForever.Game.Combat
 
             float baseDamage = basePropertyDamage + ((typeBaseDamage + baseEntityDamage) * typeMultiplier);
 
-            float propertyMultiplier = caster.GetProperty((Property)(entry.DamageType + 140)).Value;
+            float propertyMultiplier = entry.DamageType switch
+            {
+                DamageType.Heal or DamageType.HealShields =>
+                    (caster.GetProperty(Property.HealingMultiplierOutgoing)?.Value ?? 1f)
+                    * (target.GetProperty(Property.HealingMultiplierIncoming)?.Value ?? 1f),
+                _ => caster.GetProperty((Property)(entry.DamageType + 140))?.Value ?? 1f
+            };
 
             return (uint)(propertyMultiplier * baseDamage);
         }
@@ -258,7 +276,7 @@ namespace NexusForever.Game.Combat
             float mitigationPct = (armorFormulaEntry.Datafloat0 / victim.Level * armorFormulaEntry.Datafloat01) * victim.GetPropertyValue(Property.Armor) / 100;
 
             if (damageType == DamageType.Physical)
-                mitigationPct += victim.GetPropertyValue(Property.DamageMitigationPctOffsetMagic);
+                mitigationPct += victim.GetPropertyValue(Property.DamageMitigationPctOffsetPhysical);
             else if (damageType == DamageType.Tech)
                 mitigationPct += victim.GetPropertyValue(Property.DamageMitigationPctOffsetTech);
             else if (damageType == DamageType.Magic)
@@ -272,7 +290,7 @@ namespace NexusForever.Game.Combat
 
         private bool IsSuccessfulChance(float percentage)
         {
-            return new Random().Next(1, 10000) <= percentage * 10000f;
+            return Random.Shared.Next(1, 10001) <= percentage * 10000f;
         }
 
         /// <summary>
@@ -311,7 +329,10 @@ namespace NexusForever.Game.Combat
 
             bool crit = IsSuccessfulChance(critRate);
             if (crit)
-                damage = (uint)Math.Round(damage * GetRatingPercentMod(Property.RatingCritSeverityIncrease, attacker));
+            {
+                float severity = Math.Max(1f, GetRatingPercentMod(Property.RatingCritSeverityIncrease, attacker));
+                damage = (uint)Math.Round(damage * severity);
+            }
 
             return crit;
         }
@@ -450,8 +471,7 @@ namespace NexusForever.Game.Combat
                     baseValue = entity.GetPropertyValue(Property.BaseCritChance);
                     break;
                 case Property.RatingCritSeverityIncrease:
-                    // TODO: Confirm Property below
-                    // baseValue = entity.GetPropertyValue(Property.CriticalHitSeverityMultiplier);
+                    baseValue = entity.GetPropertyValue(Property.CriticalHitSeverityMultiplier);
                     break;
                 case Property.RatingDamageReflectAmount:
                 case Property.BaseDamageReflectAmount:

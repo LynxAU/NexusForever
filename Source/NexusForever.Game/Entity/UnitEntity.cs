@@ -127,7 +127,10 @@ namespace NexusForever.Game.Entity
             {
                 spell.Update(lastTick);
                 if (spell.IsFinished)
+                {
+                    spell.Dispose();
                     pendingSpells.Remove(spell);
+                }
             }
 
             statUpdateTimer.Update(lastTick);
@@ -316,6 +319,14 @@ namespace NexusForever.Game.Entity
 
             var spell = new Spell.Spell(this, parameters);
             spell.Cast();
+
+            // Failed casts can finish during initial validation. Don't track them.
+            if (spell.IsFinished)
+            {
+                spell.Dispose();
+                return;
+            }
+
             pendingSpells.Add(spell);
         }
 

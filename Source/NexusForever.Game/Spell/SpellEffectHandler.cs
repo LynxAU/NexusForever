@@ -10,6 +10,7 @@ using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
+using NexusForever.Network.World.Combat;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Shared;
 
@@ -20,7 +21,7 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Damage)]
         public static void HandleEffectDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            if (!target.CanAttack(spell.Caster))
+            if (!spell.Caster.CanAttack(target))
                 return;
 
             // TODO: once spell effect handlers aren't static, this should be injected without the factory
@@ -28,7 +29,119 @@ namespace NexusForever.Game.Spell
             var damageCalculator = factory.Resolve();
             damageCalculator.CalculateDamage(spell.Caster, target, spell, info);
 
+            if (info.DropEffect || info.Damage == null)
+                return;
+
             target.TakeDamage(spell.Caster, info.Damage);
+        }
+
+        [SpellEffectHandler(SpellEffectType.DistanceDependentDamage)]
+        public static void HandleEffectDistanceDependentDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectDamage(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.DistributedDamage)]
+        public static void HandleEffectDistributedDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // TODO: Proper damage splitting semantics are not implemented yet.
+            HandleEffectDamage(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.DamageShields)]
+        public static void HandleEffectDamageShields(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // TODO: This currently uses the normal damage path and is only an approximation.
+            HandleEffectDamage(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.Transference)]
+        public static void HandleEffectTransference(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // TODO: Implement transfer-specific behavior (e.g. heal/restore side effects).
+            HandleEffectDamage(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.Heal)]
+        public static void HandleEffectHeal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (!target.IsAlive)
+                return;
+
+            var factory = LegacyServiceProvider.Provider.GetService<IFactory<IDamageCalculator>>();
+            var damageCalculator = factory.Resolve();
+            damageCalculator.CalculateDamage(spell.Caster, target, spell, info);
+
+            if (info.DropEffect || info.Damage == null)
+                return;
+
+            uint requestedHeal = info.Damage.AdjustedDamage;
+            uint healthBefore = target.Health;
+
+            target.ModifyHealth(requestedHeal, DamageType.Heal, spell.Caster);
+
+            uint effectiveHeal = target.Health > healthBefore
+                ? target.Health - healthBefore
+                : 0u;
+            uint overheal = requestedHeal - effectiveHeal;
+
+            info.Damage.AdjustedDamage = effectiveHeal;
+            info.Damage.OverkillAmount = 0u;
+            info.Damage.KilledTarget = false;
+
+            info.AddCombatLog(new CombatLogHeal
+            {
+                HealAmount = effectiveHeal,
+                Overheal   = overheal,
+                Absorption = 0u,
+                EffectType = SpellEffectType.Heal,
+                CastData   = new CombatLogCastData
+                {
+                    CasterId     = spell.Caster.Guid,
+                    TargetId     = target.Guid,
+                    SpellId      = spell.Parameters.SpellInfo.Entry.Id,
+                    CombatResult = info.Damage.CombatResult
+                }
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.HealShields)]
+        public static void HandleEffectHealShields(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (!target.IsAlive)
+                return;
+
+            var factory = LegacyServiceProvider.Provider.GetService<IFactory<IDamageCalculator>>();
+            var damageCalculator = factory.Resolve();
+            damageCalculator.CalculateDamage(spell.Caster, target, spell, info);
+
+            if (info.DropEffect || info.Damage == null)
+                return;
+
+            uint requestedShieldHeal = info.Damage.AdjustedDamage;
+            uint shieldBefore = target.Shield;
+            target.Shield = (uint)Math.Min((ulong)target.MaxShieldCapacity, (ulong)target.Shield + requestedShieldHeal);
+
+            uint effectiveShieldHeal = target.Shield - shieldBefore;
+            uint overheal = requestedShieldHeal - effectiveShieldHeal;
+            info.Damage.AdjustedDamage = effectiveShieldHeal;
+            info.Damage.OverkillAmount = 0u;
+            info.Damage.KilledTarget = false;
+
+            info.AddCombatLog(new CombatLogHeal
+            {
+                HealAmount = effectiveShieldHeal,
+                Overheal   = overheal,
+                Absorption = 0u,
+                EffectType = SpellEffectType.HealShields,
+                CastData   = new CombatLogCastData
+                {
+                    CasterId     = spell.Caster.Guid,
+                    TargetId     = target.Guid,
+                    SpellId      = spell.Parameters.SpellInfo.Entry.Id,
+                    CombatResult = info.Damage.CombatResult
+                }
+            });
         }
 
         [SpellEffectHandler(SpellEffectType.Resurrect)]

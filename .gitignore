@@ -12,6 +12,7 @@
 *.user
 *.userosscache
 *.sln.docstates
+*.code-workspace
 *.bat
 
 # User-specific files (MonoDevelop/Xamarin Studio)

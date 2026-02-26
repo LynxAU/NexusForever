@@ -35,11 +35,21 @@ namespace NexusForever.Game.Entity
         // Movement speed when returning to spawn after evading.
         private const float ReturnSpeed = 7f;
 
+        // Walk speed used during out-of-combat wander.
+        private const float WanderSpeed = 2.5f;
+
         // AI decision tick interval in seconds.
         private readonly UpdateTimer aiUpdateTimer = new(0.5);
 
         // Melee auto-attack swing timer. Default: 2 seconds, matching most MMO baseline swing speed.
         private readonly UpdateTimer meleeSwingTimer = new(2.0);
+
+        // Out-of-combat wander timer for entities that have no DB spline assigned.
+        // Fires immediately on first idle tick (starts elapsed), then resets to 20 s.
+        private readonly UpdateTimer wanderTimer = new(0.0);
+
+        // True once the DB patrol spline has been launched so it is not re-launched every AI tick.
+        private bool patrolLaunched;
 
         // True while the NPC is walking back to its spawn position after evading.
         private bool isReturning;
@@ -68,6 +78,7 @@ namespace NexusForever.Game.Entity
             base.Update(lastTick);
 
             meleeSwingTimer.Update(lastTick);
+            wanderTimer.Update(lastTick);
 
             aiUpdateTimer.Update(lastTick);
             if (aiUpdateTimer.HasElapsed)
@@ -95,7 +106,7 @@ namespace NexusForever.Game.Entity
 
             if (!InCombat)
             {
-                ScanForAggroTargets();
+                HandleIdleUpdate(lastTick);
                 return;
             }
 
@@ -130,6 +141,41 @@ namespace NexusForever.Game.Entity
                 ChaseTarget(target);
             else
                 EngageTarget(target, lastTick);
+        }
+
+        /// <summary>
+        /// Runs each AI tick when the NPC is alive, out of combat, and has finished returning from an evade.
+        /// Handles aggro scanning, patrol or wander movement, and script idle callbacks.
+        /// </summary>
+        private void HandleIdleUpdate(double lastTick)
+        {
+            ScanForAggroTargets();
+
+            if (Spline != null)
+            {
+                // Entity has a DB-authored patrol spline — launch it once and let the movement manager loop it.
+                if (!patrolLaunched)
+                {
+                    MovementManager.SetRotationDefaults();
+                    MovementManager.LaunchSpline(Spline.SplineId, Spline.Mode, Spline.Speed, true);
+                    patrolLaunched = true;
+                }
+            }
+            else if (wanderTimer.HasElapsed)
+            {
+                // No patrol path — wander to a random nearby point so the NPC isn't completely static.
+                float wanderRange = Math.Min(AggroRadius * 0.5f, 8f);
+                MovementManager.LaunchGenerator(new RandomMovementGenerator
+                {
+                    Begin = Position,
+                    Leash = LeashPosition,
+                    Range = wanderRange,
+                    Map   = Map
+                }, WanderSpeed, SplineMode.OneShot);
+                wanderTimer.Reset();
+            }
+
+            scriptCollection?.Invoke<INonPlayerScript>(s => s.OnIdleUpdate(lastTick));
         }
 
         /// <summary>
@@ -211,6 +257,9 @@ namespace NexusForever.Game.Entity
             // Full heal on evade — consistent with most MMO expectations.
             Health = MaxHealth;
             Shield = MaxShieldCapacity;
+
+            // Patrol will relaunch from the beginning once we reach the leash position.
+            patrolLaunched = false;
 
             isReturning = true;
 

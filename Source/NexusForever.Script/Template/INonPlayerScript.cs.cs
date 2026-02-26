@@ -10,6 +10,14 @@
         }
 
         /// <summary>
+        /// Invoked each AI tick while the NPC is out of combat and not returning from an evade.
+        /// Use this to drive custom idle behaviour such as emotes, look-at targets, or scripted movement.
+        /// </summary>
+        void OnIdleUpdate(double lastTick)
+        {
+        }
+
+        /// <summary>
         /// Invoked when the NPC begins evading (leash broken, returning to spawn).
         /// </summary>
         void OnEvade()

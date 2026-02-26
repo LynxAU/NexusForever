@@ -156,21 +156,7 @@ namespace NexusForever.Game.Spell
             info.Damage.OverkillAmount = overkill;
             info.Damage.KilledTarget = !target.IsAlive;
 
-            info.AddCombatLog(new CombatLogDamage
-            {
-                MitigatedDamage   = info.Damage.AdjustedDamage,
-                RawDamage         = info.Damage.RawDamage,
-                Shield            = info.Damage.ShieldAbsorbAmount,
-                Absorption        = info.Damage.AbsorbedAmount,
-                Overkill          = info.Damage.OverkillAmount,
-                Glance            = 0u, // TODO: populate glance amount from damage calculation path
-                BTargetVulnerable = false,
-                BKilled           = info.Damage.KilledTarget,
-                BPeriodic         = info.Entry.TickTime > 0u,
-                DamageType        = info.Damage.DamageType,
-                EffectType        = (SpellEffectType)info.Entry.EffectType,
-                CastData          = BuildCastData(spell, target, info)
-            });
+            AddDamageCombatLog(spell, target, info);
         }
 
         [SpellEffectHandler(SpellEffectType.DistanceDependentDamage)]
@@ -575,6 +561,64 @@ namespace NexusForever.Game.Spell
                 SpellId      = spell.Parameters.SpellInfo.Entry.Id,
                 CombatResult = info.Damage?.CombatResult ?? CombatResult.Hit
             };
+        }
+
+        private static void AddDamageCombatLog(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (info.Damage == null)
+                return;
+
+            SpellEffectType effectType = (SpellEffectType)info.Entry.EffectType;
+            switch (effectType)
+            {
+                case SpellEffectType.DamageShields:
+                    info.AddCombatLog(new CombatLogDamageShield
+                    {
+                        MitigatedDamage   = info.Damage.AdjustedDamage,
+                        RawDamage         = info.Damage.RawDamage,
+                        Shield            = info.Damage.ShieldAbsorbAmount,
+                        Absorption        = info.Damage.AbsorbedAmount,
+                        Overkill          = info.Damage.OverkillAmount,
+                        Glance            = 0u, // TODO: populate glance amount from damage calculation path
+                        BTargetVulnerable = false,
+                        BKilled           = info.Damage.KilledTarget,
+                        BPeriodic         = info.Entry.TickTime > 0u,
+                        DamageType        = info.Damage.DamageType,
+                        EffectType        = effectType,
+                        CastData          = BuildCastData(spell, target, info)
+                    });
+                    break;
+                case SpellEffectType.Transference:
+                    info.AddCombatLog(new CombatLogTransference
+                    {
+                        DamageAmount       = info.Damage.AdjustedDamage,
+                        DamageType         = info.Damage.DamageType,
+                        Shield             = info.Damage.ShieldAbsorbAmount,
+                        Absorption         = info.Damage.AbsorbedAmount,
+                        Overkill           = info.Damage.OverkillAmount,
+                        GlanceAmount       = 0u, // TODO: populate glance amount from damage calculation path
+                        BTargetVulnerable  = false
+                        // TODO: Populate healed units when transference side-effects are implemented.
+                    });
+                    break;
+                default:
+                    info.AddCombatLog(new CombatLogDamage
+                    {
+                        MitigatedDamage   = info.Damage.AdjustedDamage,
+                        RawDamage         = info.Damage.RawDamage,
+                        Shield            = info.Damage.ShieldAbsorbAmount,
+                        Absorption        = info.Damage.AbsorbedAmount,
+                        Overkill          = info.Damage.OverkillAmount,
+                        Glance            = 0u, // TODO: populate glance amount from damage calculation path
+                        BTargetVulnerable = false,
+                        BKilled           = info.Damage.KilledTarget,
+                        BPeriodic         = info.Entry.TickTime > 0u,
+                        DamageType        = info.Damage.DamageType,
+                        EffectType        = effectType,
+                        CastData          = BuildCastData(spell, target, info)
+                    });
+                    break;
+            }
         }
 
         private static uint DecodeUnsignedEffectAmount(Spell4EffectsEntry entry)

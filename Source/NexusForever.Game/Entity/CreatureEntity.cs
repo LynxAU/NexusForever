@@ -83,11 +83,37 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Invoked when the entity dies. Starts the corpse despawn timer for DB-spawned creatures.
+        /// </summary>
+        protected override void OnDeath()
+        {
+            base.OnDeath();
+
+            // Only respawn entities that were initialised from a DB record.
+            if (SpawnModel == null)
+                return;
+
+            corpseDespawnFired = false;
+            corpseDespawnTimer.Reset(start: true);
+        }
+
+        /// <summary>
         /// Invoked each world tick with the delta since the previous tick occurred.
         /// </summary>
         public override void Update(double lastTick)
         {
             base.Update(lastTick);
+
+            if (!IsAlive)
+            {
+                if (corpseDespawnTimer.IsTicking)
+                {
+                    corpseDespawnTimer.Update(lastTick);
+                    if (corpseDespawnTimer.HasElapsed)
+                        HandleCorpseDespawn();
+                }
+                return;
+            }
 
             meleeSwingTimer.Update(lastTick);
             wanderTimer.Update(lastTick);
@@ -98,6 +124,22 @@ namespace NexusForever.Game.Entity
                 HandleAiUpdate(lastTick);
                 aiUpdateTimer.Reset();
             }
+        }
+
+        /// <summary>
+        /// Removes the corpse from the map and schedules a respawn after <see cref="RespawnDelay"/> seconds.
+        /// </summary>
+        private void HandleCorpseDespawn()
+        {
+            if (corpseDespawnFired)
+                return;
+
+            corpseDespawnFired = true;
+
+            if (SpawnModel != null)
+                Map?.ScheduleRespawn(SpawnModel, RespawnDelay);
+
+            Map?.EnqueueRemove(this);
         }
 
         /// <summary>

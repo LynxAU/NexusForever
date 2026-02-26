@@ -587,13 +587,12 @@ namespace NexusForever.Game.Spell
                     BitConverter.UInt32BitsToSingle(info.Entry.DataBits04));
             target.AddSpellModifierProperty(modifier, spell.Parameters.SpellInfo.Entry.Id);
 
-            // TODO: Handle removing spell modifiers
-
-            //if (info.Entry.DurationTime > 0d)
-            //    events.EnqueueEvent(new SpellEvent(info.Entry.DurationTime / 1000d, () =>
-            //    {
-            //        player.RemoveSpellProperty((Property)info.Entry.DataBits00, parameters.SpellInfo.Entry.Id);
-            //    }));
+            if (info.Entry.DurationTime > 0u)
+            {
+                Property property = (Property)info.Entry.DataBits00;
+                uint spellId = spell.Parameters.SpellInfo.Entry.Id;
+                spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () => target.RemoveSpellProperty(property, spellId));
+            }
         }
 
         private static CombatLogCastData BuildCastData(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)

@@ -24,6 +24,11 @@ namespace NexusForever.Game.Abstract.Spell
         /// </summary>
         void CancelCast(CastResult result);
 
+        /// <summary>
+        /// Enqueue a spell event callback to run after the supplied delay in seconds.
+        /// </summary>
+        void EnqueueEvent(double delay, Action callback);
+
         bool IsMovingInterrupted();
     }
 }

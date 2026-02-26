@@ -15,7 +15,7 @@ namespace NexusForever.Game.Entity
     {
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
 
-        public byte CostumeCap => (byte)(player.Account.RewardPropertyManager.GetRewardProperty(RewardPropertyType.CostumeSlots).GetValue(0) ?? 4u);
+        public byte CostumeCap => (byte)(player.Account.RewardPropertyManager.GetRewardProperty(RewardPropertyType.CostumeSlots)?.GetValue(0) ?? 4u);
 
         public byte? CostumeIndex
         {
@@ -116,7 +116,10 @@ namespace NexusForever.Game.Entity
         {
             // TODO: used for housing mannequins
             if (costumeSave.MannequinIndex != 0)
-                throw new NotImplementedException();
+            {
+                log.Warn($"Received unhandled mannequin costume save (index {costumeSave.MannequinIndex}), ignoring.");
+                return;
+            }
 
             if (costumeSave.Index < 0 || costumeSave.Index >= MaxCostumes)
             {

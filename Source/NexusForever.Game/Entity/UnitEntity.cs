@@ -394,14 +394,18 @@ namespace NexusForever.Game.Entity
             if (!IsAlive || !attacker.IsAlive)
                 return;
 
-            // Use post-mitigation applied damage for threat (shield absorbed + health damage).
-            ThreatManager.UpdateThreat(attacker, (int)(damageDescription.ShieldAbsorbAmount + damageDescription.AdjustedDamage));
-
             uint absorbedAmount = ConsumeDamageAbsorption(damageDescription.AdjustedDamage);
             if (absorbedAmount != 0u)
             {
                 damageDescription.AbsorbedAmount = (uint)Math.Min((ulong)uint.MaxValue, (ulong)damageDescription.AbsorbedAmount + absorbedAmount);
                 damageDescription.AdjustedDamage -= absorbedAmount;
+            }
+
+            uint threatAmount = (uint)Math.Min((ulong)int.MaxValue, (ulong)damageDescription.ShieldAbsorbAmount + damageDescription.AdjustedDamage);
+            if (threatAmount != 0u)
+            {
+                // TODO: Calculate Threat properly
+                ThreatManager.UpdateThreat(attacker, (int)threatAmount);
             }
 
             Shield = Shield > damageDescription.ShieldAbsorbAmount ? Shield - damageDescription.ShieldAbsorbAmount : 0u;

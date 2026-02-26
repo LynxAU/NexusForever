@@ -60,7 +60,7 @@ namespace NexusForever.Game.Spell
             }
         }
 
-        public SpellEffectTargetFlags Flags { get; }
+        public SpellEffectTargetFlags Flags { get; private set; }
         public IUnitEntity Entity { get; }
         public List<ISpellTargetEffectInfo> Effects { get; } = new List<ISpellTargetEffectInfo>();
 
@@ -68,6 +68,11 @@ namespace NexusForever.Game.Spell
         {
             Flags  = flags;
             Entity = entity;
+        }
+
+        public void AddFlags(SpellEffectTargetFlags flags)
+        {
+            Flags |= flags;
         }
     }
 }

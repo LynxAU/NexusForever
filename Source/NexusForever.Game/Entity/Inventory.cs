@@ -294,7 +294,7 @@ namespace NexusForever.Game.Entity
                     player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CollectItem, info.Entry.Id, item.StackCount);
                 }
 
-                if (!player?.IsLoading ?? false)
+                if (player != null && !player.IsLoading)
                 {
                     player.Session.EnqueueMessageEncrypted(new ServerItemAdd
                     {
@@ -531,7 +531,7 @@ namespace NexusForever.Game.Entity
             var newItem = new Item(characterId, item.Info, Math.Min(count, item.Info.Entry.MaxStackCount));
             AddItem(newItem, newItemLocation.Location, newItemLocation.BagIndex);
 
-            if (!player?.IsLoading ?? false)
+            if (player != null && !player.IsLoading)
             {
                 player.Session.EnqueueMessageEncrypted(new ServerItemAdd
                 {
@@ -642,7 +642,7 @@ namespace NexusForever.Game.Entity
             // Stacks are bought back in full, so no need to worry about splitting stacks
             AddItem(item, location, bagIndex.Value);
 
-            if (!player?.IsLoading ?? false)
+            if (player != null && !player.IsLoading)
             {
                 player.Session.EnqueueMessageEncrypted(new ServerItemAdd
                 {

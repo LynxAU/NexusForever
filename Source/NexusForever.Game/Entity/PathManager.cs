@@ -232,7 +232,8 @@ namespace NexusForever.Game.Entity
             if (pathRewardEntry.Spell4Id > 0)
             {
                 Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(pathRewardEntry.Spell4Id);
-                player.SpellManager.AddSpell(spell4Entry.Spell4BaseIdBaseSpell);
+                if (spell4Entry != null)
+                    player.SpellManager.AddSpell(spell4Entry.Spell4BaseIdBaseSpell);
             }
 
             if (pathRewardEntry.CharacterTitleId > 0)

@@ -258,7 +258,9 @@ namespace NexusForever.Game.Entity
         private uint GetServiceTokenCostForResurrection()
         {
             GameFormulaEntry entry = GameTableManager.Instance.GameFormula.GetEntry(1315);
-            return entry.Dataint0;
+            if (entry == null)
+                return 1u;
+            return (uint)entry.Dataint0;
         }
     }
 }

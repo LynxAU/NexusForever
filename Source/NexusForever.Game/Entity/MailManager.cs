@@ -24,8 +24,8 @@ namespace NexusForever.Game.Entity
         private readonly List<IMailItem> pendingMail = new();
         private readonly Dictionary<ulong, IMailItem> availableMail = new();
 
-        // timer to check pending mail ever second
-        private readonly UpdateTimer mailTimer = new(1000d);
+        // timer to check pending mail every second
+        private readonly UpdateTimer mailTimer = new(1.0);
 
         /// <summary>
         /// Create a new <see cref="IMailManager"/> from existing <see cref="CharacterModel"/> database model.
@@ -49,14 +49,19 @@ namespace NexusForever.Game.Entity
             if (mailTimer.HasElapsed)
             {
                 bool sendAvailableMail = false;
+                var delivered = new List<IMailItem>();
                 foreach (IMailItem mail in pendingMail)
                 {
                     if (!mail.IsReadyToDeliver())
                         continue;
 
                     availableMail.Add(mail.Id, mail);
+                    delivered.Add(mail);
                     sendAvailableMail = true;
                 }
+
+                foreach (IMailItem mail in delivered)
+                    pendingMail.Remove(mail);
 
                 // prevent sending multiple mail packets
                 if (sendAvailableMail)

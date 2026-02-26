@@ -33,6 +33,9 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
             
             // Handle quest objectives based on interaction type
             bool isQuestNpc = entityInteraction.Event == 37;
+            bool isTradeskillTrainer = entityInteraction.Event == 43;
+            bool isTradeskillEngraving = entityInteraction.Event == 79;
+            bool isMasterCraftsman = entityInteraction.Event == 87;
             bool isActivation = false;
             
             // Determine if this is an activation interaction (not a dialogue)
@@ -46,6 +49,21 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                     session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkTo, entity.CreatureId, 1u);
                     foreach (uint targetGroupId in assetManager.GetTargetGroupsForCreatureId(entity.CreatureId) ?? Enumerable.Empty<uint>())
                         session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkToTargetGroup, targetGroupId, 1u);
+                }
+                // Tradeskill trainer interaction (event 43) triggers LearnTradeskill objectives
+                else if (isTradeskillTrainer)
+                {
+                    session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.LearnTradeskill, 0, 1u);
+                }
+                // Tradeskill engraving station (event 79) triggers ObtainSchematic objectives
+                else if (isTradeskillEngraving)
+                {
+                    session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ObtainSchematic, 0, 1u);
+                }
+                // Master craftsman (event 87) triggers CraftSchematic objectives
+                else if (isMasterCraftsman)
+                {
+                    session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CraftSchematic, 0, 1u);
                 }
                 // Other interactions (not dialogue) trigger ActivateEntity
                 else if (entityInteraction.Event != 49) // Skip vendors - they have their own handling

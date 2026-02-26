@@ -5,6 +5,7 @@ using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Static.PublicEvent;
 using NexusForever.Game.Static.Matching;
+using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.Message;
 using NexusForever.Network.Session;
@@ -14,6 +15,7 @@ using NexusForever.Script.Template;
 using NexusForever.Script.Template.Collection;
 using NexusForever.Shared;
 using NexusForever.Shared.Game;
+using PlayerManager = NexusForever.Game.Entity.PlayerManager;
 
 namespace NexusForever.Game.PublicEvent
 {
@@ -428,6 +430,12 @@ namespace NexusForever.Game.PublicEvent
                     };
 
                     publicEventTeamMember.Send(message);
+
+                    // Update CompleteEvent quest objectives for this player
+                    var player = PlayerManager.Instance.GetPlayer(publicEventTeamMember.CharacterId);
+                    if (player != null)
+                        player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CompleteEvent, 0, 1u);
+
                     toRemove.Add(publicEventTeamMember.CharacterId);
                 }
             }

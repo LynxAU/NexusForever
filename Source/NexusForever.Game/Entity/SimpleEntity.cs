@@ -1,6 +1,7 @@
 using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Spell;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Network.World.Entity;
 using NexusForever.Network.World.Entity.Model;
@@ -71,7 +72,8 @@ namespace NexusForever.Game.Entity
                 }
             }
 
-            //TODO: cast "116,Generic Quest Spell - Activating - Activate - Tier 1" by 0x07FD
+            // Cast generic quest activation spell to trigger quest objectives
+            activator.CastSpell(116, 0, new SpellParameters());
         }
     }
 }

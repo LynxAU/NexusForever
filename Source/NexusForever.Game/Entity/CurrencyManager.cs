@@ -15,7 +15,7 @@ namespace NexusForever.Game.Entity
         private IPlayer player;
         private readonly Dictionary<CurrencyType, ICurrency> currencies = [];
 
-        #region Depenedency Injection
+        #region Dependency Injection
 
         private readonly IGameTableManager gameTableManager;
 

@@ -19,6 +19,7 @@ namespace NexusForever.Game.Spell
                 public uint ShieldAbsorbAmount { get; set; }
                 public uint AdjustedDamage { get; set; }
                 public uint OverkillAmount { get; set; }
+                public uint GlanceAmount { get; set; }
                 public bool KilledTarget { get; set; }
                 public CombatResult CombatResult { get; set; }
             }

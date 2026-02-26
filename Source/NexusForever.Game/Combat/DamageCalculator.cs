@@ -87,7 +87,7 @@ namespace NexusForever.Game.Combat
             if (!isHealLike && CalculateGlance(ref damage, attacker, victim))
             {
                 uint glanceDamage = preGlanceDamage - damage;
-                // TODO: Add CombatLog
+                damageDescription.GlanceAmount = glanceDamage;
             }
 
             if (!isHealLike)

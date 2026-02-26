@@ -462,7 +462,12 @@ namespace NexusForever.Game.Entity
                 player.XpManager.GrantXp(killXp, ExpReason.KillCreature);
             }
 
-            // TODO: Reward Loot
+            // Grant kill credits. Quadratic scale: Level² × 3, floored at 1.
+            // Approximation — replace with actual loot table data when available.
+            ulong killCredits = Math.Max(1u, (ulong)(Level * Level * 3u));
+            player.CurrencyManager.CurrencyAddAmount(CurrencyType.Credits, killCredits, isLoot: true);
+
+            // TODO: Reward item loot (requires Creature2LootGroup game table data)
             // TODO: Handle Achievements
         }
 

@@ -6,7 +6,7 @@ namespace NexusForever.Network.World.Combat
     {
         public CombatLogType Type => CombatLogType.ModifyInterruptArmor;
 
-        public uint Amount { get; set; }
+        public int Amount { get; set; }
         public CombatLogCastData CastData { get; set; }
 
         public void Write(GamePacketWriter writer)

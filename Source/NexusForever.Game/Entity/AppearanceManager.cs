@@ -166,9 +166,9 @@ namespace NexusForever.Game.Entity
                     .ToList()
             }, true);
 
-            for (byte i = (byte)characterBones.Count; i >= bones.Count; i--)
+            for (int i = characterBones.Count; i >= bones.Count; i--)
             {
-                if (!characterBones.Remove(i, out IBone bone))
+                if (!characterBones.Remove((byte)i, out IBone bone))
                     continue;
 
                 bone.Delete();

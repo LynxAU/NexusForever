@@ -10,6 +10,7 @@ namespace NexusForever.Game.Abstract.Spell
         uint CastingId { get; }
         bool IsCasting { get; }
         bool IsFinished { get; }
+        IReadOnlyCollection<ISpellTargetInfo> Targets { get; }
 
         IUnitEntity Caster { get; }
 

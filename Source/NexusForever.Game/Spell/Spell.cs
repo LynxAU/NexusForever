@@ -26,6 +26,7 @@ namespace NexusForever.Game.Spell
         public uint CastingId { get; }
         public bool IsCasting => status == SpellStatus.Casting;
         public bool IsFinished => status == SpellStatus.Finished;
+        public IReadOnlyCollection<ISpellTargetInfo> Targets => targets;
 
         public IUnitEntity Caster { get; }
 

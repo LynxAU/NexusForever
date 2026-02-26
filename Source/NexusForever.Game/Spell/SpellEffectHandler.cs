@@ -135,6 +135,11 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Damage)]
         public static void HandleEffectDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
+            HandleEffectDamageInternal(spell, target, info, splitCount: 1);
+        }
+
+        private static void HandleEffectDamageInternal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info, int splitCount)
+        {
             if (!spell.Caster.CanAttack(target))
                 return;
 
@@ -145,6 +150,9 @@ namespace NexusForever.Game.Spell
 
             if (info.DropEffect || info.Damage == null)
                 return;
+
+            if (splitCount > 1)
+                ApplyApproximateDamageSplit(info.Damage, splitCount);
 
             uint healthBefore = target.Health;
             target.TakeDamage(spell.Caster, info.Damage);
@@ -168,8 +176,8 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.DistributedDamage)]
         public static void HandleEffectDistributedDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // TODO: Proper damage splitting semantics are not implemented yet.
-            HandleEffectDamage(spell, target, info);
+            int splitCount = GetEffectTargetCount(spell, info);
+            HandleEffectDamageInternal(spell, target, info, splitCount);
         }
 
         [SpellEffectHandler(SpellEffectType.DamageShields)]
@@ -604,6 +612,28 @@ namespace NexusForever.Game.Spell
             };
         }
 
+        private static int GetEffectTargetCount(ISpell spell, ISpellTargetEffectInfo info)
+        {
+            SpellEffectTargetFlags effectTargetFlags = (SpellEffectTargetFlags)info.Entry.TargetFlags;
+            int count = spell.Targets.Count(t => (t.Flags & effectTargetFlags) != 0);
+            return Math.Max(1, count);
+        }
+
+        private static void ApplyApproximateDamageSplit(IDamageDescription damage, int splitCount)
+        {
+            if (splitCount <= 1)
+                return;
+
+            // Approximation: split all reported damage components evenly across effect targets.
+            // TODO: Replace with effect-accurate distributed damage semantics (pre/post mitigation split rules).
+            damage.RawDamage = DivideByCount(damage.RawDamage, splitCount);
+            damage.RawScaledDamage = DivideByCount(damage.RawScaledDamage, splitCount);
+            damage.AbsorbedAmount = DivideByCount(damage.AbsorbedAmount, splitCount);
+            damage.ShieldAbsorbAmount = DivideByCount(damage.ShieldAbsorbAmount, splitCount);
+            damage.AdjustedDamage = DivideByCount(damage.AdjustedDamage, splitCount);
+            damage.GlanceAmount = DivideByCount(damage.GlanceAmount, splitCount);
+        }
+
         private static void AddDamageCombatLog(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
             if (info.Damage == null)
@@ -708,6 +738,14 @@ namespace NexusForever.Game.Spell
 
             uint amount = (uint)Math.Min((long)(-(long)delta), uint.MaxValue);
             return amount >= current ? 0u : current - amount;
+        }
+
+        private static uint DivideByCount(uint value, int count)
+        {
+            if (value == 0u || count <= 1)
+                return value;
+
+            return (uint)(value / (uint)count);
         }
     }
 }

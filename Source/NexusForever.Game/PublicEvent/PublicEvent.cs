@@ -434,7 +434,11 @@ namespace NexusForever.Game.PublicEvent
                     // Update CompleteEvent quest objectives for this player
                     var player = PlayerManager.Instance.GetPlayer(publicEventTeamMember.CharacterId);
                     if (player != null)
+                    {
+                        log.LogDebug("Triggering CompleteEvent quest objective for player {PlayerId}, publicEvent {PublicEventId}",
+                            player.CharacterId, Id);
                         player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CompleteEvent, 0, 1u);
+                    }
 
                     toRemove.Add(publicEventTeamMember.CharacterId);
                 }

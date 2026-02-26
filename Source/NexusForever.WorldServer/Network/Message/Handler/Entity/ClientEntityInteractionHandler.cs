@@ -53,16 +53,22 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                 // Tradeskill trainer interaction (event 43) triggers LearnTradeskill objectives
                 else if (isTradeskillTrainer)
                 {
+                    log.LogDebug("Triggering LearnTradeskill quest objective for player {PlayerId}, entity {EntityGuid}, event {Event}",
+                        session.Player.CharacterId, entityInteraction.Guid, entityInteraction.Event);
                     session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.LearnTradeskill, 0, 1u);
                 }
                 // Tradeskill engraving station (event 79) triggers ObtainSchematic objectives
                 else if (isTradeskillEngraving)
                 {
+                    log.LogDebug("Triggering ObtainSchematic quest objective for player {PlayerId}, entity {EntityGuid}, event {Event}",
+                        session.Player.CharacterId, entityInteraction.Guid, entityInteraction.Event);
                     session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ObtainSchematic, 0, 1u);
                 }
                 // Master craftsman (event 87) triggers CraftSchematic objectives
                 else if (isMasterCraftsman)
                 {
+                    log.LogDebug("Triggering CraftSchematic quest objective for player {PlayerId}, entity {EntityGuid}, event {Event}",
+                        session.Player.CharacterId, entityInteraction.Guid, entityInteraction.Event);
                     session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CraftSchematic, 0, 1u);
                 }
                 // Other interactions (not dialogue) trigger ActivateEntity
@@ -80,6 +86,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                     {
                         session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroup, targetGroupId, 1u);
                         // ActivateTargetGroupChecklist is similar but for creatures with Activate spell effect
+                        log.LogDebug("Triggering ActivateTargetGroupChecklist quest objective for player {PlayerId}, targetGroup {TargetGroupId}, creature {CreatureId}",
+                            session.Player.CharacterId, targetGroupId, entity.CreatureId);
                         session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroupChecklist, targetGroupId, 1u);
                     }
                 }

@@ -76,9 +76,9 @@ namespace NexusForever.Game.Combat
             damage = CalculateBaseDamageVariance(damage);
 
             if (!isHealLike)
-                damage = GetDamageAfterArmorMitigation(victim, info.Entry.DamageType, damage);
+                damage = GetDamageAfterArmorMitigation(attacker, victim, info.Entry.DamageType, damage);
 
-            // TODO: Add in other attacking modifiers like Armor Pierce, Strikethrough, Multi-Hit, etc.
+            // TODO: Add in other attacking modifiers like Multi-Hit, etc.
 
             if (CalculateCrit(ref damage, attacker, victim))
                 damageDescription.CombatResult = CombatResult.Critical;
@@ -269,7 +269,7 @@ namespace NexusForever.Game.Combat
             return (uint)(damage * (Random.Shared.Next(95, 103) / 100f));
         }
 
-        private uint GetDamageAfterArmorMitigation(IUnitEntity victim, DamageType damageType, uint damage)
+        private uint GetDamageAfterArmorMitigation(IUnitEntity attacker, IUnitEntity victim, DamageType damageType, uint damage)
         {
             GameFormulaEntry armorFormulaEntry = gameTableManager.GameFormula.GetEntry(1234);
             if (armorFormulaEntry == null)
@@ -288,6 +288,14 @@ namespace NexusForever.Game.Combat
                 mitigationPct += victim.GetPropertyValue(Property.DamageMitigationPctOffsetTech);
             else if (damageType == DamageType.Magic)
                 mitigationPct += victim.GetPropertyValue(Property.DamageMitigationPctOffsetMagic);
+
+            // Approximation: apply armor pierce directly to the final mitigation percent.
+            // Overflow strikethrough beyond target deflect contributes to effective armor pierce.
+            float armorPierce = GetRatingPercentMod(Property.RatingArmorPierce, attacker);
+            float strikethrough = GetRatingPercentMod(Property.RatingAvoidReduce, attacker);
+            float targetDeflect = GetRatingPercentMod(Property.RatingAvoidIncrease, victim);
+            armorPierce += Math.Max(0f, strikethrough - targetDeflect);
+            mitigationPct = Math.Max(0f, mitigationPct - armorPierce);
 
             if (mitigationPct > 0f)
                 damage = (uint)Math.Round(damage * (1f - Math.Clamp(mitigationPct, 0f, maximumArmorMitigation)));
@@ -317,9 +325,9 @@ namespace NexusForever.Game.Combat
         /// <remarks>Calculates chance to deflect an attack, avoiding all damage from that attack.</remarks>
         private bool CalculateDeflect(IUnitEntity attacker, IUnitEntity victim)
         {
-            // TODO: Add in Strikethrough Calculations (and that increases Armor Pierce)
-
             float deflectChance = GetRatingPercentMod(Property.RatingAvoidIncrease, victim);
+            float strikethrough = GetRatingPercentMod(Property.RatingAvoidReduce, attacker);
+            deflectChance = Math.Max(0f, deflectChance - strikethrough);
             return IsSuccessfulChance(deflectChance);
         }
 
@@ -328,9 +336,9 @@ namespace NexusForever.Game.Combat
         /// </summary>
         private bool CalculateCrit(ref uint damage, IUnitEntity attacker, IUnitEntity victim)
         {
-            // TODO: Add in Crit Deflect and Critical Mitigation calculations
-
             float critRate = GetRatingPercentMod(Property.RatingCritChanceIncrease, attacker);
+            float critDeflect = GetRatingPercentMod(Property.RatingCritChanceDecrease, victim);
+            critRate = Math.Max(0f, critRate - critDeflect);
             if (critRate <= 0f)
                 return false;
 
@@ -338,6 +346,8 @@ namespace NexusForever.Game.Combat
             if (crit)
             {
                 float severity = Math.Max(1f, GetRatingPercentMod(Property.RatingCritSeverityIncrease, attacker));
+                float critMitigation = GetRatingPercentMod(Property.RatingCriticalMitigation, victim);
+                severity = Math.Max(1f, severity - critMitigation);
                 damage = (uint)Math.Round(damage * severity);
             }
 

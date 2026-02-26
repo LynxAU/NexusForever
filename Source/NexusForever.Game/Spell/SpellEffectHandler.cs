@@ -135,10 +135,10 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Damage)]
         public static void HandleEffectDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            HandleEffectDamageInternal(spell, target, info, splitCount: 1, shieldOnly: false);
+            HandleEffectDamageInternal(spell, target, info, splitCount: 1, shieldOnly: false, applyTransferenceSideEffects: false);
         }
 
-        private static void HandleEffectDamageInternal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info, int splitCount, bool shieldOnly)
+        private static void HandleEffectDamageInternal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info, int splitCount, bool shieldOnly, bool applyTransferenceSideEffects)
         {
             if (!spell.Caster.CanAttack(target))
                 return;
@@ -175,7 +175,11 @@ namespace NexusForever.Game.Spell
             info.Damage.OverkillAmount = overkill;
             info.Damage.KilledTarget = !target.IsAlive;
 
-            AddDamageCombatLog(spell, target, info);
+            List<CombatLogTransference.CombatHealData> transferenceHealedUnits = applyTransferenceSideEffects
+                ? ApplyTransferenceSideEffects(spell, info)
+                : null;
+
+            AddDamageCombatLog(spell, target, info, transferenceHealedUnits);
         }
 
         [SpellEffectHandler(SpellEffectType.DistanceDependentDamage)]
@@ -188,20 +192,19 @@ namespace NexusForever.Game.Spell
         public static void HandleEffectDistributedDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
             int splitCount = GetEffectTargetCount(spell, info);
-            HandleEffectDamageInternal(spell, target, info, splitCount, shieldOnly: false);
+            HandleEffectDamageInternal(spell, target, info, splitCount, shieldOnly: false, applyTransferenceSideEffects: false);
         }
 
         [SpellEffectHandler(SpellEffectType.DamageShields)]
         public static void HandleEffectDamageShields(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            HandleEffectDamageInternal(spell, target, info, splitCount: 1, shieldOnly: true);
+            HandleEffectDamageInternal(spell, target, info, splitCount: 1, shieldOnly: true, applyTransferenceSideEffects: false);
         }
 
         [SpellEffectHandler(SpellEffectType.Transference)]
         public static void HandleEffectTransference(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // TODO: Implement transfer-specific behavior (e.g. heal/restore side effects).
-            HandleEffectDamage(spell, target, info);
+            HandleEffectDamageInternal(spell, target, info, splitCount: 1, shieldOnly: false, applyTransferenceSideEffects: true);
         }
 
         [SpellEffectHandler(SpellEffectType.Heal)]
@@ -623,7 +626,48 @@ namespace NexusForever.Game.Spell
             damage.GlanceAmount = DivideByCountWithRemainder(damage.GlanceAmount, splitCount, splitRank);
         }
 
-        private static void AddDamageCombatLog(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        private static List<CombatLogTransference.CombatHealData> ApplyTransferenceSideEffects(ISpell spell, ISpellTargetEffectInfo info)
+        {
+            if (info.Damage == null)
+                return null;
+
+            uint transferAmount = (uint)Math.Min((ulong)uint.MaxValue, (ulong)info.Damage.AdjustedDamage + info.Damage.ShieldAbsorbAmount);
+            if (transferAmount == 0u)
+                return null;
+
+            Vital vital = ResolveTransferenceVital(info.Entry.DataBits00);
+            float before = spell.Caster.GetVitalValue(vital);
+            spell.Caster.ModifyVital(vital, transferAmount);
+            float after = spell.Caster.GetVitalValue(vital);
+
+            uint appliedAmount = after > before ? (uint)Math.Round(after - before) : 0u;
+            uint overheal = transferAmount > appliedAmount ? transferAmount - appliedAmount : 0u;
+
+            if (appliedAmount == 0u && overheal == 0u)
+                return null;
+
+            return
+            [
+                new CombatLogTransference.CombatHealData
+                {
+                    HealedUnitId = spell.Caster.Guid,
+                    HealAmount   = appliedAmount,
+                    Vital        = vital,
+                    Overheal     = overheal,
+                    Absorption   = 0u
+                }
+            ];
+        }
+
+        private static Vital ResolveTransferenceVital(uint dataBits00)
+        {
+            Vital vital = (Vital)dataBits00;
+            return vital == Vital.Invalid || !Enum.IsDefined(vital)
+                ? Vital.Health
+                : vital;
+        }
+
+        private static void AddDamageCombatLog(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info, List<CombatLogTransference.CombatHealData> transferenceHealedUnits = null)
         {
             if (info.Damage == null)
                 return;
@@ -673,14 +717,14 @@ namespace NexusForever.Game.Spell
                 case SpellEffectType.Transference:
                     info.AddCombatLog(new CombatLogTransference
                     {
-                        DamageAmount       = info.Damage.AdjustedDamage,
-                        DamageType         = info.Damage.DamageType,
-                        Shield             = info.Damage.ShieldAbsorbAmount,
-                        Absorption         = info.Damage.AbsorbedAmount,
-                        Overkill           = info.Damage.OverkillAmount,
-                        GlanceAmount       = info.Damage.GlanceAmount,
-                        BTargetVulnerable  = false
-                        // TODO: Populate healed units when transference side-effects are implemented.
+                        DamageAmount      = info.Damage.AdjustedDamage,
+                        DamageType        = info.Damage.DamageType,
+                        Shield            = info.Damage.ShieldAbsorbAmount,
+                        Absorption        = info.Damage.AbsorbedAmount,
+                        Overkill          = info.Damage.OverkillAmount,
+                        GlanceAmount      = info.Damage.GlanceAmount,
+                        BTargetVulnerable = false,
+                        HealedUnits       = transferenceHealedUnits ?? []
                     });
                     break;
                 default:

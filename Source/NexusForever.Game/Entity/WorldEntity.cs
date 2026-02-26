@@ -81,6 +81,13 @@ namespace NexusForever.Game.Entity
 
         public EntitySplineModel Spline { get; private set; }
 
+        /// <summary>
+        /// The <see cref="EntityModel"/> used to initialise this entity from the database.
+        /// Null for entities not spawned from a DB record (e.g. dynamically created or player-controlled).
+        /// Used by the respawn system to reconstruct the entity after it dies.
+        /// </summary>
+        public EntityModel SpawnModel { get; private set; }
+
         public Vector3 LeashPosition { get; protected set; }
         public float LeashRange { get; protected set; } = 15f;
         public IMovementManager MovementManager { get; private set; }
@@ -230,6 +237,7 @@ namespace NexusForever.Game.Entity
             ActivePropId  = model.ActivePropId;
             WorldSocketId = model.WorldSocketId;
             Spline        = model.EntitySpline;
+            SpawnModel    = model;
 
             foreach (EntityStatModel statModel in model.EntityStat)
                 stats.Add((Stat)statModel.Stat, new StatValue(statModel));

@@ -20,6 +20,7 @@ using NexusForever.Script.Template;
 using NexusForever.Script.Template.Collection;
 using NexusForever.Shared;
 using NexusForever.Shared.Configuration;
+using NexusForever.Shared.Game;
 using NLog;
 
 namespace NexusForever.Game.Map
@@ -44,6 +45,20 @@ namespace NexusForever.Game.Map
         private readonly HashSet<(uint GridX, uint GridZ)> activeGrids = new();
 
         protected readonly ConcurrentQueue<IGridAction> pendingActions = new();
+
+        private readonly List<RespawnEntry> pendingRespawns = new();
+
+        private sealed class RespawnEntry
+        {
+            public EntityModel Model { get; }
+            public UpdateTimer Timer { get; }
+
+            public RespawnEntry(EntityModel model, double delaySec)
+            {
+                Model = model;
+                Timer = new UpdateTimer(delaySec);
+            }
+        }
 
         private readonly QueuedCounter entityCounter = new();
         protected readonly Dictionary<uint /*guid*/, IGridEntity> entities = new();
@@ -89,12 +104,42 @@ namespace NexusForever.Game.Map
         /// </summary>
         public virtual void Update(double lastTick)
         {
+            ProcessRespawns(lastTick);
             ProcessGridActions();
             UpdateGrids(lastTick);
 
             scriptCollection?.Invoke<IUpdate>(s => s.Update(lastTick));
 
             PublicEventManager.Update(lastTick);
+        }
+
+        private void ProcessRespawns(double lastTick)
+        {
+            if (pendingRespawns.Count == 0)
+                return;
+
+            for (int i = pendingRespawns.Count - 1; i >= 0; i--)
+            {
+                RespawnEntry entry = pendingRespawns[i];
+                entry.Timer.Update(lastTick);
+                if (!entry.Timer.HasElapsed)
+                    continue;
+
+                pendingRespawns.RemoveAt(i);
+
+                IWorldEntity entity = entityFactory.CreateWorldEntity(entry.Model.Type);
+                entity.Initialise(entry.Model);
+
+                var position = new MapPosition
+                {
+                    Position = new Vector3(entry.Model.X, entry.Model.Y, entry.Model.Z)
+                };
+
+                if (CanEnter(entity, position))
+                    EnqueueAdd(entity, position);
+                else
+                    log.Warn($"Respawn failed for entity {entry.Model.Id}: CanEnter rejected position.");
+            }
         }
 
         private void ProcessGridActions()
@@ -250,6 +295,12 @@ namespace NexusForever.Game.Map
             {
                 Entity = entity
             });
+        }
+
+        /// <inheritdoc/>
+        public void ScheduleRespawn(EntityModel model, double delaySec)
+        {
+            pendingRespawns.Add(new RespawnEntry(model, delaySec));
         }
 
         /// <summary>

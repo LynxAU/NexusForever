@@ -332,8 +332,8 @@ namespace NexusForever.Game.Entity
                     return (ushort)fallbackVisual.ItemDisplayId;
             }
 
-            // TODO: research this...
-            throw new NotImplementedException();
+            // No valid display source found - return 0 to avoid crash
+            return 0;
         }
 
         /// <summary>

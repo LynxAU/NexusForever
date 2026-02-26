@@ -38,7 +38,9 @@ namespace NexusForever.Game.Entity.Movement.Spline
 
         public float Unknown30 { get; private set; }
 
+#pragma warning disable CS0649
         private Vector3? formation;
+#pragma warning restore CS0649
 
         #region Dependency Injection
 

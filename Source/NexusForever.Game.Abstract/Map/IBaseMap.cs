@@ -4,6 +4,7 @@ using NexusForever.Game.Abstract.PublicEvent;
 using NexusForever.Game.Abstract.Map.Search;
 using NexusForever.Game.Static.Entity;
 using NexusForever.IO.Map;
+using NexusForever.Database.World.Model;
 using NexusForever.Network.Message;
 
 namespace NexusForever.Game.Abstract.Map
@@ -73,5 +74,10 @@ namespace NexusForever.Game.Abstract.Map
         /// Invoked when <see cref="IPublicEvent"/> finishes with the winning <see cref="IPublicEventTeam"/>.
         /// </summary>
         void OnPublicEventFinish(IPublicEvent publicEvent, IPublicEventTeam publicEventTeam);
+
+        /// <summary>
+        /// Schedule a creature to respawn at its original spawn position after <paramref name="delaySec"/> seconds.
+        /// </summary>
+        void ScheduleRespawn(EntityModel model, double delaySec);
     }
 }

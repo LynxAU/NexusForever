@@ -38,6 +38,12 @@ namespace NexusForever.Game.Entity
         // Walk speed used during out-of-combat wander.
         private const float WanderSpeed = 2.5f;
 
+        // Seconds the corpse remains visible before being removed from the map.
+        private const double CorpseDuration = 5.0;
+
+        // Seconds after corpse removal before the creature respawns.
+        private const double RespawnDelay = 30.0;
+
         // AI decision tick interval in seconds.
         private readonly UpdateTimer aiUpdateTimer = new(0.5);
 
@@ -53,6 +59,12 @@ namespace NexusForever.Game.Entity
 
         // True while the NPC is walking back to its spawn position after evading.
         private bool isReturning;
+
+        // Countdown from death to corpse removal. Only ticks when started via OnDeath().
+        private readonly UpdateTimer corpseDespawnTimer = new(CorpseDuration, start: false);
+
+        // Guard: prevents HandleCorpseDespawn firing more than once per death.
+        private bool corpseDespawnFired;
 
         #region Dependency Injection
 

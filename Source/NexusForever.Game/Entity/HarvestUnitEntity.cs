@@ -106,7 +106,7 @@ namespace NexusForever.Game.Entity
                 // Add the material to player's supply satchel
                 player.SupplySatchelManager.AddAmount((ushort)materialEntry.Id, 1);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // Log error but don't crash - harvesting is optional
                 // TODO: Add proper logging

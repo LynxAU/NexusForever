@@ -89,7 +89,7 @@ namespace NexusForever.Game.Combat
             }
 
             if (!isHealLike)
-                ApplyApproximateMultiHit(ref damage, attacker);
+                ApplyApproximateMultiHit(ref damage, damageDescription, attacker);
 
             if (!isHealLike)
             {
@@ -371,7 +371,7 @@ namespace NexusForever.Game.Combat
             return glance;
         }
 
-        private void ApplyApproximateMultiHit(ref uint damage, IUnitEntity attacker)
+        private void ApplyApproximateMultiHit(ref uint damage, IDamageDescription damageDescription, IUnitEntity attacker)
         {
             float multiHitChance = GetRatingPercentMod(Property.RatingMultiHitChance, attacker);
             if (multiHitChance <= 0f || !IsSuccessfulChance(multiHitChance))
@@ -387,6 +387,7 @@ namespace NexusForever.Game.Combat
             if (bonusDamage == 0u)
                 return;
 
+            damageDescription.MultiHitAmount = bonusDamage;
             damage = (uint)Math.Min((ulong)uint.MaxValue, (ulong)damage + bonusDamage);
         }
 

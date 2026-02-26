@@ -65,7 +65,7 @@ namespace NexusForever.Game.Housing
                 ResidencePrivacyLevel.Private       => ServerHousingBasics.ResidencePrivacyLevelFlags.Private,
                 ResidencePrivacyLevel.NeighborsOnly => ServerHousingBasics.ResidencePrivacyLevelFlags.NeighborsOnly,
                 ResidencePrivacyLevel.RoommatesOnly => ServerHousingBasics.ResidencePrivacyLevelFlags.RoommatesOnly,
-                _                                   => throw new NotImplementedException()
+                _                                   => ServerHousingBasics.ResidencePrivacyLevelFlags.Public
             };
 
             owner.Session.EnqueueMessageEncrypted(new ServerHousingBasics

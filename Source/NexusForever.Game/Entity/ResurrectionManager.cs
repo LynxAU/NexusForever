@@ -149,7 +149,8 @@ namespace NexusForever.Game.Entity
                         return;
                     break;
                 default:
-                    throw new NotImplementedException();
+                    log.Warn($"Unhandled resurrection type {type}, ignoring.");
+                    return;
             }
 
             // delbrately not using property to prevent sending update packet

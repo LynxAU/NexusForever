@@ -586,6 +586,8 @@ namespace NexusForever.Game.Entity
         public void ItemDelete(uint itemId, uint count = 1u, ItemUpdateReason reason = ItemUpdateReason.Loot)
         {
             IBag bag = GetBag(InventoryLocation.Inventory);
+            if (bag == null)
+                throw new ArgumentException();
             foreach (IItem item in bag.Where(i => i.Id == itemId))
             {
                 if (item.StackCount > count)

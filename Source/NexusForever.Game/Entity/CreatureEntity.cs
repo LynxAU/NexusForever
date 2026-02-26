@@ -51,8 +51,8 @@ namespace NexusForever.Game.Entity
         private readonly UpdateTimer meleeSwingTimer = new(2.0);
 
         // Out-of-combat wander timer for entities that have no DB spline assigned.
-        // Fires immediately on first idle tick (starts elapsed), then resets to 20 s.
-        private readonly UpdateTimer wanderTimer = new(0.0);
+        // 20-second interval between random movement picks.
+        private readonly UpdateTimer wanderTimer = new(20.0);
 
         // True once the DB patrol spline has been launched so it is not re-launched every AI tick.
         private bool patrolLaunched;

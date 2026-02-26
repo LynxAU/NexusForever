@@ -527,9 +527,32 @@ namespace NexusForever.Game.Entity
             if (ThreatManager.IsThreatened == InCombat)
                 return;
 
+            bool wasInCombat = InCombat;
+
             InCombat   = ThreatManager.IsThreatened;
             Sheathed   = !inCombat;
             StandState = inCombat ? StandState.Stand : StandState.State0;
+
+            if (!wasInCombat && InCombat)
+                OnEnterCombat();
+            else if (wasInCombat && !InCombat)
+                OnExitCombat();
+        }
+
+        /// <summary>
+        /// Invoked when this <see cref="IUnitEntity"/> transitions from out-of-combat to in-combat.
+        /// </summary>
+        protected virtual void OnEnterCombat()
+        {
+            scriptCollection?.Invoke<IUnitScript>(s => s.OnEnterCombat());
+        }
+
+        /// <summary>
+        /// Invoked when this <see cref="IUnitEntity"/> transitions from in-combat to out-of-combat.
+        /// </summary>
+        protected virtual void OnExitCombat()
+        {
+            scriptCollection?.Invoke<IUnitScript>(s => s.OnExitCombat());
         }
     }
 }

@@ -5,5 +5,9 @@
     /// </summary>
     public interface ICreatureEntity : IUnitEntity
     {
+        /// <summary>
+        /// Radius within which the NPC will auto-aggro hostile units.
+        /// </summary>
+        float AggroRadius { get; }
     }
 }

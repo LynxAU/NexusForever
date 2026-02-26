@@ -1,9 +1,14 @@
-﻿using NexusForever.Database.World.Model;
+using System.Numerics;
+using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Entity.Movement.Generator;
+using NexusForever.Game.Static.Entity.Movement.Spline;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Script;
+using NexusForever.Script.Template;
+using NexusForever.Shared.Game;
 
 namespace NexusForever.Game.Entity
 {
@@ -12,6 +17,26 @@ namespace NexusForever.Game.Entity
     /// </summary>
     public abstract class CreatureEntity : UnitEntity, ICreatureEntity
     {
+        /// <summary>
+        /// Radius within which the NPC will auto-aggro hostile units.
+        /// </summary>
+        public float AggroRadius { get; protected set; } = 10f;
+
+        // Extra melee buffer added to the sum of caster and target HitRadius to determine "in attack range".
+        private const float MeleeAttackBuffer = 1.5f;
+
+        // Movement speed when chasing a combat target.
+        private const float ChaseSpeed = 7f;
+
+        // Movement speed when returning to spawn after evading.
+        private const float ReturnSpeed = 7f;
+
+        // AI decision tick interval in seconds.
+        private readonly UpdateTimer aiUpdateTimer = new(0.5);
+
+        // True while the NPC is walking back to its spawn position after evading.
+        private bool isReturning;
+
         #region Dependency Injection
 
         public CreatureEntity(IMovementManager movementManager)
@@ -26,6 +51,146 @@ namespace NexusForever.Game.Entity
             base.Initialise(model);
 
             scriptCollection = ScriptManager.Instance.InitialiseEntityScripts<ICreatureEntity>(this);
+        }
+
+        /// <summary>
+        /// Invoked each world tick with the delta since the previous tick occurred.
+        /// </summary>
+        public override void Update(double lastTick)
+        {
+            base.Update(lastTick);
+
+            aiUpdateTimer.Update(lastTick);
+            if (aiUpdateTimer.HasElapsed)
+            {
+                HandleAiUpdate(lastTick);
+                aiUpdateTimer.Reset();
+            }
+        }
+
+        /// <summary>
+        /// Core AI decision loop, ticked every <see cref="aiUpdateTimer"/> interval.
+        /// </summary>
+        protected virtual void HandleAiUpdate(double lastTick)
+        {
+            if (!IsAlive)
+                return;
+
+            // Wait until we have fully returned to the leash position before resuming normal AI.
+            if (isReturning)
+            {
+                if (Vector3.Distance(Position, LeashPosition) < 1.5f)
+                    isReturning = false;
+                return;
+            }
+
+            if (!InCombat)
+            {
+                ScanForAggroTargets();
+                return;
+            }
+
+            // Leash check — if we have wandered too far from spawn, evade and reset.
+            if (Vector3.Distance(Position, LeashPosition) > LeashRange)
+            {
+                Evade();
+                return;
+            }
+
+            // Pick the unit at the top of the threat list as the primary combat target.
+            IHostileEntity topThreat = ThreatManager.GetTopHostile();
+            if (topThreat == null)
+                return;
+
+            IUnitEntity target = GetVisible<IUnitEntity>(topThreat.HatedUnitId);
+            if (target == null || !target.IsAlive)
+            {
+                // Target left vision range or is dead — drop them from the threat list.
+                ThreatManager.RemoveHostile(topThreat.HatedUnitId);
+                return;
+            }
+
+            // Keep the client-visible target indicator in sync.
+            if (TargetGuid != target.Guid)
+                SetTarget(target);
+
+            float attackRange = HitRadius + target.HitRadius + MeleeAttackBuffer;
+            float distance    = Vector3.Distance(Position, target.Position);
+
+            if (distance > attackRange)
+                ChaseTarget(target);
+            else
+                EngageTarget(target, lastTick);
+        }
+
+        /// <summary>
+        /// Scans visible entities and aggroes any hostile unit within <see cref="AggroRadius"/>.
+        /// </summary>
+        private void ScanForAggroTargets()
+        {
+            foreach (IGridEntity entity in visibleEntities.Values)
+            {
+                if (entity is not IUnitEntity unit)
+                    continue;
+
+                if (!CanAttack(unit))
+                    continue;
+
+                if (Vector3.Distance(Position, entity.Position) <= AggroRadius)
+                {
+                    // Adding initial threat pulls the entity into combat via UpdateCombatState.
+                    ThreatManager.UpdateThreat(unit, 1);
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Move toward <paramref name="target"/> using a direct linear path.
+        /// </summary>
+        private void ChaseTarget(IUnitEntity target)
+        {
+            MovementManager.SetRotationFaceUnit(target.Guid);
+            MovementManager.LaunchGenerator(new DirectMovementGenerator
+            {
+                Begin = Position,
+                Final = target.Position,
+                Map   = Map
+            }, ChaseSpeed, SplineMode.OneShot);
+        }
+
+        /// <summary>
+        /// Called each AI tick when within melee range of <paramref name="target"/>.
+        /// Faces the target and gives scripts the opportunity to execute their combat logic.
+        /// </summary>
+        private void EngageTarget(IUnitEntity target, double lastTick)
+        {
+            MovementManager.SetRotationFaceUnit(target.Guid);
+            scriptCollection?.Invoke<INonPlayerScript>(s => s.OnCombatUpdate(lastTick));
+        }
+
+        /// <summary>
+        /// Clears combat state, fully heals, and walks the NPC back to its spawn position.
+        /// </summary>
+        private void Evade()
+        {
+            scriptCollection?.Invoke<INonPlayerScript>(s => s.OnEvade());
+
+            ThreatManager.ClearThreatList();
+            SetTarget((IWorldEntity)null);
+
+            // Full heal on evade — consistent with most MMO expectations.
+            Health = MaxHealth;
+            Shield = MaxShieldCapacity;
+
+            isReturning = true;
+
+            MovementManager.LaunchGenerator(new DirectMovementGenerator
+            {
+                Begin = Position,
+                Final = LeashPosition,
+                Map   = Map
+            }, ReturnSpeed, SplineMode.OneShot);
         }
 
         /// <summary>

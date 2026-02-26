@@ -24,5 +24,19 @@ namespace NexusForever.Script.Template
         void OnThreatChange(IHostileEntity hostile)
         {
         }
+
+        /// <summary>
+        /// Invoked when the unit transitions from out-of-combat to in-combat.
+        /// </summary>
+        void OnEnterCombat()
+        {
+        }
+
+        /// <summary>
+        /// Invoked when the unit transitions from in-combat to out-of-combat.
+        /// </summary>
+        void OnExitCombat()
+        {
+        }
     }
 }

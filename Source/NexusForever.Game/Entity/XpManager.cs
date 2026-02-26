@@ -2,6 +2,7 @@
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Spell;
 using NexusForever.GameTable;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Static;
@@ -189,6 +190,9 @@ namespace NexusForever.Game.Entity
                 return;
 
             player.Level = newLevel;
+
+            // Cast level up spell to trigger the big level up UI/effects
+            player.CastSpell(53378, (byte)(newLevel - 1), new SpellParameters());
 
             // Grant Rewards for level up
             player.SpellManager.GrantSpells();

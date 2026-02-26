@@ -151,15 +151,15 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void MoveToInventory(ushort materialId, uint amount)
         {
-            if (amount > tradeskillMaterials[materialId].Amount)
+            if (!tradeskillMaterials.TryGetValue(materialId, out ITradeskillMaterial material))
+                throw new ArgumentException($"Material {materialId} not found in supply satchel.");
+
+            if (amount > material.Amount)
                 throw new ArgumentOutOfRangeException(nameof(amount));
 
-            if (tradeskillMaterials.TryGetValue(materialId, out ITradeskillMaterial material))
-            {
-                // Remove the amount first. The Inventory will replace what it couldn't create items for.
-                RemoveAmount(materialId, amount);
-                player.Inventory.ItemCreate(InventoryLocation.Inventory, material.Entry.Item2IdStatRevolution, amount, ItemUpdateReason.ResourceConversion);
-            }
+            // Remove the amount first. The Inventory will replace what it couldn't create items for.
+            RemoveAmount(materialId, amount);
+            player.Inventory.ItemCreate(InventoryLocation.Inventory, material.Entry.Item2IdStatRevolution, amount, ItemUpdateReason.ResourceConversion);
         }
 
         /// <summary>

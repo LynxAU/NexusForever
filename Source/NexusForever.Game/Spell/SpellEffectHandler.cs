@@ -470,6 +470,9 @@ namespace NexusForever.Game.Spell
                 return;
 
             Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(info.Entry.DataBits00);
+            if (spell4Entry == null)
+                return;
+
             player.SpellManager.AddSpell(spell4Entry.Spell4BaseIdBaseSpell);
 
             player.Session.EnqueueMessageEncrypted(new ServerUnlockMount
@@ -494,6 +497,9 @@ namespace NexusForever.Game.Spell
                 return;
 
             Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(info.Entry.DataBits00);
+            if (spell4Entry == null)
+                return;
+
             player.SpellManager.AddSpell(spell4Entry.Spell4BaseIdBaseSpell);
 
             player.Session.EnqueueMessageEncrypted(new ServerUnlockMount

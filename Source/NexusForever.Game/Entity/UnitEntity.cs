@@ -455,7 +455,15 @@ namespace NexusForever.Game.Entity
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroups, targetGroupId, 1u);
             }
 
-            // TODO: Reward XP
+            // Grant kill XP. Use 10% of the level's BaseQuestXpPerLevel as a baseline
+            // approximation — pending research into the exact WildStar formula.
+            XpPerLevelEntry xpEntry = GameTableManager.Instance.XpPerLevel.GetEntry(Level);
+            if (xpEntry != null)
+            {
+                uint killXp = Math.Max(1u, (uint)(xpEntry.BaseQuestXpPerLevel * 0.10f));
+                player.XpManager.GrantXp(killXp, ExpReason.KillCreature);
+            }
+
             // TODO: Reward Loot
             // TODO: Handle Achievements
         }

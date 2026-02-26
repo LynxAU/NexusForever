@@ -107,6 +107,8 @@ namespace NexusForever.Game.Entity
             }
 
             ClassEntry classEntry = GameTableManager.Instance.Class.GetEntry((byte)player.Class);
+            if (classEntry == null)
+                return;
             foreach (uint classSpell in classEntry.Spell4IdInnateAbilityActive
                 .Concat(classEntry.Spell4IdInnateAbilityPassive)
                 .Concat(classEntry.Spell4IdAttackPrimary)

@@ -201,15 +201,19 @@ namespace NexusForever.Game.Spell
 
             uint requestedHeal = info.Damage.AdjustedDamage;
             uint healthBefore = target.Health;
+            uint healingAbsorptionBefore = target.HealingAbsorptionPool;
 
             target.ModifyHealth(requestedHeal, DamageType.Heal, spell.Caster);
 
+            uint healAbsorption = healingAbsorptionBefore - target.HealingAbsorptionPool;
+            uint healAfterAbsorption = requestedHeal - healAbsorption;
             uint effectiveHeal = target.Health > healthBefore
                 ? target.Health - healthBefore
                 : 0u;
-            uint overheal = requestedHeal - effectiveHeal;
+            uint overheal = healAfterAbsorption - effectiveHeal;
 
             info.Damage.AdjustedDamage = effectiveHeal;
+            info.Damage.AbsorbedAmount = healAbsorption;
             info.Damage.OverkillAmount = 0u;
             info.Damage.KilledTarget = false;
 
@@ -217,7 +221,7 @@ namespace NexusForever.Game.Spell
             {
                 HealAmount = effectiveHeal,
                 Overheal   = overheal,
-                Absorption = 0u,
+                Absorption = healAbsorption,
                 EffectType = SpellEffectType.Heal,
                 CastData   = new CombatLogCastData
                 {
@@ -243,12 +247,15 @@ namespace NexusForever.Game.Spell
                 return;
 
             uint requestedShieldHeal = info.Damage.AdjustedDamage;
+            uint healAbsorption = target.ConsumeHealingAbsorption(requestedShieldHeal);
+            uint shieldHealAfterAbsorption = requestedShieldHeal - healAbsorption;
             uint shieldBefore = target.Shield;
-            target.Shield = (uint)Math.Min((ulong)target.MaxShieldCapacity, (ulong)target.Shield + requestedShieldHeal);
+            target.Shield = (uint)Math.Min((ulong)target.MaxShieldCapacity, (ulong)target.Shield + shieldHealAfterAbsorption);
 
             uint effectiveShieldHeal = target.Shield - shieldBefore;
-            uint overheal = requestedShieldHeal - effectiveShieldHeal;
+            uint overheal = shieldHealAfterAbsorption - effectiveShieldHeal;
             info.Damage.AdjustedDamage = effectiveShieldHeal;
+            info.Damage.AbsorbedAmount = healAbsorption;
             info.Damage.OverkillAmount = 0u;
             info.Damage.KilledTarget = false;
 
@@ -256,7 +263,7 @@ namespace NexusForever.Game.Spell
             {
                 HealAmount = effectiveShieldHeal,
                 Overheal   = overheal,
-                Absorption = 0u,
+                Absorption = healAbsorption,
                 EffectType = SpellEffectType.HealShields,
                 CastData   = new CombatLogCastData
                 {
@@ -271,14 +278,19 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Absorption)]
         public static void HandleEffectAbsorption(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // TODO: Implement a real absorption pool on entities and consume it in damage application.
             uint amount = DecodeUnsignedEffectAmount(info.Entry);
             if (amount == 0u)
                 return;
 
+            uint before = target.DamageAbsorptionPool;
+            target.AddDamageAbsorption(amount);
+            uint appliedAmount = target.DamageAbsorptionPool - before;
+            if (appliedAmount == 0u)
+                return;
+
             info.AddCombatLog(new CombatLogAbsorption
             {
-                AbsorptionAmount = amount,
+                AbsorptionAmount = appliedAmount,
                 CastData         = BuildCastData(spell, target, info)
             });
         }
@@ -286,14 +298,19 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.HealingAbsorption)]
         public static void HandleEffectHealingAbsorption(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // TODO: Implement a real healing absorption (mortal wound-style) mechanic on entities.
             uint amount = DecodeUnsignedEffectAmount(info.Entry);
             if (amount == 0u)
                 return;
 
+            uint before = target.HealingAbsorptionPool;
+            target.AddHealingAbsorption(amount);
+            uint appliedAmount = target.HealingAbsorptionPool - before;
+            if (appliedAmount == 0u)
+                return;
+
             info.AddCombatLog(new CombatLogHealingAbsorption
             {
-                Amount = amount
+                Amount = appliedAmount
             });
         }
 

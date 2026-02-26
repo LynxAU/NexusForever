@@ -78,8 +78,6 @@ namespace NexusForever.Game.Combat
             if (!isHealLike)
                 damage = GetDamageAfterArmorMitigation(attacker, victim, info.Entry.DamageType, damage);
 
-            // TODO: Add in other attacking modifiers like Multi-Hit, etc.
-
             if (CalculateCrit(ref damage, attacker, victim))
                 damageDescription.CombatResult = CombatResult.Critical;
 
@@ -89,6 +87,9 @@ namespace NexusForever.Game.Combat
                 uint glanceDamage = preGlanceDamage - damage;
                 damageDescription.GlanceAmount = glanceDamage;
             }
+
+            if (!isHealLike)
+                ApplyApproximateMultiHit(ref damage, attacker);
 
             if (!isHealLike)
             {
@@ -368,6 +369,25 @@ namespace NexusForever.Game.Combat
                 damage = (uint)Math.Round((float)(damage * (1 - GetRatingPercentMod(Property.RatingGlanceAmount, victim))));
 
             return glance;
+        }
+
+        private void ApplyApproximateMultiHit(ref uint damage, IUnitEntity attacker)
+        {
+            float multiHitChance = GetRatingPercentMod(Property.RatingMultiHitChance, attacker);
+            if (multiHitChance <= 0f || !IsSuccessfulChance(multiHitChance))
+                return;
+
+            float multiHitAmount = GetRatingPercentMod(Property.RatingMultiHitAmount, attacker);
+            if (multiHitAmount <= 0f)
+                return;
+
+            // Approximation: apply Multi-Hit as a scalar bonus to the current hit result.
+            // TODO: Implement as a separate additional hit with dedicated combat logs once semantics are validated.
+            uint bonusDamage = (uint)Math.Round(damage * multiHitAmount);
+            if (bonusDamage == 0u)
+                return;
+
+            damage = (uint)Math.Min((ulong)uint.MaxValue, (ulong)damage + bonusDamage);
         }
 
         private float GetRatingPercentMod(Property property, IUnitEntity entity)

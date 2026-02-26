@@ -265,7 +265,7 @@ namespace NexusForever.Game.Entity
                 if (info.Entry.Id != item.Info.Entry.Quest2IdActivation)
                     throw new QuestException($"Player {player.CharacterId} tried to start quest {info.Entry.Id} from invalid item {item.Info.Entry.Id}!");
 
-                // TODO: consume charge
+                player.Inventory.ItemUse(item);
             }
             else
             {

@@ -222,6 +222,14 @@ namespace NexusForever.Game.Spell
             log.Trace($"Spell {Parameters.SpellInfo.Entry.Id} cast was cancelled.");
         }
 
+        public void EnqueueEvent(double delay, Action callback)
+        {
+            if (callback == null)
+                throw new ArgumentNullException(nameof(callback));
+
+            events.EnqueueEvent(new SpellEvent(Math.Max(0d, delay), callback));
+        }
+
         private void Execute()
         {
             status = SpellStatus.Executing;
@@ -254,13 +262,13 @@ namespace NexusForever.Game.Spell
 
         private void SelectTargets()
         {
-            targets.Add(new SpellTargetInfo(SpellEffectTargetFlags.Caster, Caster));
+            targets.Clear();
+            AddOrMergeTarget(SpellEffectTargetFlags.Caster, Caster);
 
             if (Parameters.PrimaryTargetId != 0)
             {
                 IUnitEntity primaryTargetEntity = Caster.GetVisible<IUnitEntity>(Parameters.PrimaryTargetId);
-                if (primaryTargetEntity != null)
-                    targets.Add(new SpellTargetInfo(SpellEffectTargetFlags.Target, primaryTargetEntity));
+                AddOrMergeTarget(SpellEffectTargetFlags.Target, primaryTargetEntity);
             }
 
             if (Caster is IPlayer)
@@ -269,8 +277,28 @@ namespace NexusForever.Game.Spell
             foreach (ITelegraph telegraph in telegraphs)
             {
                 foreach (IUnitEntity entity in telegraph.GetTargets())
-                    targets.Add(new SpellTargetInfo(SpellEffectTargetFlags.Telegraph, entity));
+                    AddOrMergeTarget(SpellEffectTargetFlags.Telegraph, entity);
             }
+        }
+
+        private void AddOrMergeTarget(SpellEffectTargetFlags flags, IUnitEntity entity)
+        {
+            if (entity == null)
+                return;
+
+            // Merge cross-source flags for the same entity (e.g. explicit target + telegraph).
+            // Preserve same-flag duplicates (notably multiple telegraphs) until those semantics are implemented.
+            SpellTargetInfo existingTarget = targets
+                .OfType<SpellTargetInfo>()
+                .FirstOrDefault(t => t.Entity.Guid == entity.Guid && (t.Flags & flags) == 0);
+
+            if (existingTarget != null)
+            {
+                existingTarget.AddFlags(flags);
+                return;
+            }
+
+            targets.Add(new SpellTargetInfo(flags, entity));
         }
 
         private void ExecuteEffects()

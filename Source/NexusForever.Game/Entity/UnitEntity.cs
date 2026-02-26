@@ -394,14 +394,18 @@ namespace NexusForever.Game.Entity
             if (!IsAlive || !attacker.IsAlive)
                 return;
 
-            // TODO: Calculate Threat properly
-            ThreatManager.UpdateThreat(attacker, (int)damageDescription.RawDamage);
-
             uint absorbedAmount = ConsumeDamageAbsorption(damageDescription.AdjustedDamage);
             if (absorbedAmount != 0u)
             {
                 damageDescription.AbsorbedAmount = (uint)Math.Min((ulong)uint.MaxValue, (ulong)damageDescription.AbsorbedAmount + absorbedAmount);
                 damageDescription.AdjustedDamage -= absorbedAmount;
+            }
+
+            uint threatAmount = (uint)Math.Min((ulong)int.MaxValue, (ulong)damageDescription.ShieldAbsorbAmount + damageDescription.AdjustedDamage);
+            if (threatAmount != 0u)
+            {
+                // TODO: Calculate Threat properly
+                ThreatManager.UpdateThreat(attacker, (int)threatAmount);
             }
 
             Shield -= damageDescription.ShieldAbsorbAmount;

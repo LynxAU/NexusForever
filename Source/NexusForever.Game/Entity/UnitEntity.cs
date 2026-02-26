@@ -389,8 +389,8 @@ namespace NexusForever.Game.Entity
             if (!IsAlive || !attacker.IsAlive)
                 return;
 
-            // TODO: Calculate Threat properly
-            ThreatManager.UpdateThreat(attacker, (int)damageDescription.RawDamage);
+            // Use post-mitigation applied damage for threat (shield absorbed + health damage).
+            ThreatManager.UpdateThreat(attacker, (int)(damageDescription.ShieldAbsorbAmount + damageDescription.AdjustedDamage));
 
             Shield -= damageDescription.ShieldAbsorbAmount;
             ModifyHealth(damageDescription.AdjustedDamage, damageDescription.DamageType, attacker);

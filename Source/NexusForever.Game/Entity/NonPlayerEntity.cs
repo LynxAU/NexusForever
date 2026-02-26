@@ -55,6 +55,8 @@ namespace NexusForever.Game.Entity
             float value = base.CalculateDefaultProperty(property);
 
             Creature2Entry creatureEntry = GameTableManager.Instance.Creature2.GetEntry(CreatureId);
+            if (creatureEntry == null)
+                return value;
 
             Creature2ArcheTypeEntry archeTypeEntry = GameTableManager.Instance.Creature2ArcheType.GetEntry(creatureEntry.Creature2ArcheTypeId);
             if (archeTypeEntry != null)

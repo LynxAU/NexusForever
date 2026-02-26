@@ -620,7 +620,7 @@ namespace NexusForever.Game.Spell
                         Shield            = info.Damage.ShieldAbsorbAmount,
                         Absorption        = info.Damage.AbsorbedAmount,
                         Overkill          = info.Damage.OverkillAmount,
-                        Glance            = 0u, // TODO: populate glance amount from damage calculation path
+                        Glance            = info.Damage.GlanceAmount,
                         BTargetVulnerable = false,
                         BKilled           = info.Damage.KilledTarget,
                         BPeriodic         = info.Entry.TickTime > 0u,
@@ -637,7 +637,7 @@ namespace NexusForever.Game.Spell
                         Shield             = info.Damage.ShieldAbsorbAmount,
                         Absorption         = info.Damage.AbsorbedAmount,
                         Overkill           = info.Damage.OverkillAmount,
-                        GlanceAmount       = 0u, // TODO: populate glance amount from damage calculation path
+                        GlanceAmount       = info.Damage.GlanceAmount,
                         BTargetVulnerable  = false
                         // TODO: Populate healed units when transference side-effects are implemented.
                     });
@@ -650,7 +650,7 @@ namespace NexusForever.Game.Spell
                         Shield            = info.Damage.ShieldAbsorbAmount,
                         Absorption        = info.Damage.AbsorbedAmount,
                         Overkill          = info.Damage.OverkillAmount,
-                        Glance            = 0u, // TODO: populate glance amount from damage calculation path
+                        Glance            = info.Damage.GlanceAmount,
                         BTargetVulnerable = false,
                         BKilled           = info.Damage.KilledTarget,
                         BPeriodic         = info.Entry.TickTime > 0u,

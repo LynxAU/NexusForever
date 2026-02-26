@@ -332,6 +332,31 @@ namespace NexusForever.Game.Spell
             player.ResurrectionManager.ResurrectRequest(spell.Caster.Guid);
         }
 
+        [SpellEffectHandler(SpellEffectType.Kill)]
+        public static void HandleEffectKill(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (!target.IsAlive)
+                return;
+
+            uint lethalAmount = Math.Max(1u, target.Health);
+            var damage = new SpellTargetInfo.SpellTargetEffectInfo.DamageDescription
+            {
+                DamageType       = DamageType.Physical,
+                RawDamage        = lethalAmount,
+                RawScaledDamage  = lethalAmount,
+                AdjustedDamage   = lethalAmount,
+                CombatResult     = CombatResult.Hit,
+                ShieldAbsorbAmount = 0u,
+                AbsorbedAmount   = 0u
+            };
+
+            info.AddDamage(damage);
+            target.TakeDamage(spell.Caster, damage);
+
+            if (!target.IsAlive)
+                info.AddCombatLog(new CombatLogDeath { UnitId = target.Guid });
+        }
+
         [SpellEffectHandler(SpellEffectType.Proxy)]
         public static void HandleEffectProxy(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {

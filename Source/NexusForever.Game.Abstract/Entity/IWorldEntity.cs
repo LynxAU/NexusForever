@@ -155,6 +155,16 @@ namespace NexusForever.Game.Abstract.Entity
         T? GetStatEnum<T>(Stat stat) where T : struct, Enum;
 
         /// <summary>
+        /// Get the current value of the <see cref="Stat"/> mapped to <see cref="Vital"/>.
+        /// </summary>
+        float GetVitalValue(Vital vital);
+
+        /// <summary>
+        /// Modify the current stat value for the supplied <see cref="Vital"/>.
+        /// </summary>
+        void ModifyVital(Vital vital, float value);
+
+        /// <summary>
         /// Enqueue broadcast of <see cref="IWritable"/> to all visible <see cref="IPlayer"/>'s in range.
         /// </summary>
         void EnqueueToVisible(IWritable message, bool includeSelf = false);

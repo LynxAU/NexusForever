@@ -18,6 +18,120 @@ namespace NexusForever.Game.Spell
 {
     public static class SpellHandler
     {
+        [SpellEffectHandler(SpellEffectType.VitalModifier)]
+        public static void HandleEffectVitalModifier(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            Vital vital = (Vital)info.Entry.DataBits00;
+
+            float requestedAmount = info.Entry.DataBits01;
+            if (requestedAmount == 0f)
+            {
+                for (int i = 0; i < info.Entry.ParameterValue.Length; i++)
+                {
+                    if (info.Entry.ParameterValue[i] == 0f)
+                        continue;
+
+                    requestedAmount = info.Entry.ParameterValue[i];
+                    break;
+                }
+            }
+
+            if (requestedAmount == 0f)
+                return;
+
+            float before = target.GetVitalValue(vital);
+            target.ModifyVital(vital, requestedAmount);
+            float after = target.GetVitalValue(vital);
+
+            float appliedAmount = after - before;
+            if (appliedAmount == 0f)
+                return;
+
+            info.AddCombatLog(new CombatLogVitalModifier
+            {
+                Amount         = appliedAmount,
+                VitalModified  = vital,
+                BShowCombatLog = true,
+                CastData       = BuildCastData(spell, target, info)
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.SapVital)]
+        public static void HandleEffectSapVital(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Assumption: SapVital uses the same primary data layout as VitalModifier
+            // (DataBits00 = Vital, DataBits01 = amount), but always drains the target.
+            Vital vital = (Vital)info.Entry.DataBits00;
+
+            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            if (amount == 0u)
+                return;
+
+            float before = target.GetVitalValue(vital);
+            target.ModifyVital(vital, -(float)amount);
+            float after = target.GetVitalValue(vital);
+
+            float appliedAmount = after - before;
+            if (appliedAmount == 0f)
+                return;
+
+            info.AddCombatLog(new CombatLogVitalModifier
+            {
+                Amount         = appliedAmount,
+                VitalModified  = vital,
+                BShowCombatLog = true,
+                CastData       = BuildCastData(spell, target, info)
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.ClampVital)]
+        public static void HandleEffectClampVital(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Assumption: DataBits00 = Vital, DataBits01 = Min, DataBits02 = Max.
+            // If both bounds are zero, fall back to the first parameter values.
+            Vital vital = (Vital)info.Entry.DataBits00;
+
+            float minValue = info.Entry.DataBits01;
+            float maxValue = info.Entry.DataBits02;
+
+            if (minValue == 0f && maxValue == 0f)
+            {
+                if (info.Entry.ParameterValue.Length > 0)
+                    minValue = info.Entry.ParameterValue[0];
+                if (info.Entry.ParameterValue.Length > 1)
+                    maxValue = info.Entry.ParameterValue[1];
+            }
+
+            bool hasMin = minValue != 0f;
+            bool hasMax = maxValue != 0f;
+            if (!hasMin && !hasMax)
+                return;
+
+            if (hasMin && hasMax && maxValue < minValue)
+                (minValue, maxValue) = (maxValue, minValue);
+
+            float current = target.GetVitalValue(vital);
+            float clamped = current;
+            if (hasMin)
+                clamped = Math.Max(clamped, minValue);
+            if (hasMax)
+                clamped = Math.Min(clamped, maxValue);
+
+            float delta = clamped - current;
+            if (delta == 0f)
+                return;
+
+            target.ModifyVital(vital, delta);
+
+            info.AddCombatLog(new CombatLogVitalModifier
+            {
+                Amount         = delta,
+                VitalModified  = vital,
+                BShowCombatLog = true,
+                CastData       = BuildCastData(spell, target, info)
+            });
+        }
+
         [SpellEffectHandler(SpellEffectType.Damage)]
         public static void HandleEffectDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -32,7 +146,31 @@ namespace NexusForever.Game.Spell
             if (info.DropEffect || info.Damage == null)
                 return;
 
+            uint healthBefore = target.Health;
             target.TakeDamage(spell.Caster, info.Damage);
+
+            uint overkill = info.Damage.AdjustedDamage > healthBefore
+                ? info.Damage.AdjustedDamage - healthBefore
+                : 0u;
+
+            info.Damage.OverkillAmount = overkill;
+            info.Damage.KilledTarget = !target.IsAlive;
+
+            info.AddCombatLog(new CombatLogDamage
+            {
+                MitigatedDamage   = info.Damage.AdjustedDamage,
+                RawDamage         = info.Damage.RawDamage,
+                Shield            = info.Damage.ShieldAbsorbAmount,
+                Absorption        = info.Damage.AbsorbedAmount,
+                Overkill          = info.Damage.OverkillAmount,
+                Glance            = 0u, // TODO: populate glance amount from damage calculation path
+                BTargetVulnerable = false,
+                BKilled           = info.Damage.KilledTarget,
+                BPeriodic         = info.Entry.TickTime > 0u,
+                DamageType        = info.Damage.DamageType,
+                EffectType        = (SpellEffectType)info.Entry.EffectType,
+                CastData          = BuildCastData(spell, target, info)
+            });
         }
 
         [SpellEffectHandler(SpellEffectType.DistanceDependentDamage)]
@@ -141,6 +279,61 @@ namespace NexusForever.Game.Spell
                     SpellId      = spell.Parameters.SpellInfo.Entry.Id,
                     CombatResult = info.Damage.CombatResult
                 }
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.Absorption)]
+        public static void HandleEffectAbsorption(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // TODO: Implement a real absorption pool on entities and consume it in damage application.
+            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            if (amount == 0u)
+                return;
+
+            info.AddCombatLog(new CombatLogAbsorption
+            {
+                AbsorptionAmount = amount,
+                CastData         = BuildCastData(spell, target, info)
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.HealingAbsorption)]
+        public static void HandleEffectHealingAbsorption(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // TODO: Implement a real healing absorption (mortal wound-style) mechanic on entities.
+            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            if (amount == 0u)
+                return;
+
+            info.AddCombatLog(new CombatLogHealingAbsorption
+            {
+                Amount = amount
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.ModifyInterruptArmor)]
+        public static void HandleEffectModifyInterruptArmor(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (!target.IsAlive)
+                return;
+
+            int requestedDelta = DecodeSignedEffectAmount(info.Entry);
+            if (requestedDelta == 0)
+                return;
+
+            uint before = target.InterruptArmor;
+            uint after = ApplySignedDelta(before, requestedDelta);
+            int appliedDelta = unchecked((int)after - (int)before);
+
+            if (appliedDelta == 0)
+                return;
+
+            target.InterruptArmor = after;
+
+            info.AddCombatLog(new CombatLogModifyInterruptArmor
+            {
+                Amount    = unchecked((uint)appliedDelta),
+                CastData  = BuildCastData(spell, target, info)
             });
         }
 
@@ -371,6 +564,65 @@ namespace NexusForever.Game.Spell
             //    {
             //        player.RemoveSpellProperty((Property)info.Entry.DataBits00, parameters.SpellInfo.Entry.Id);
             //    }));
+        }
+
+        private static CombatLogCastData BuildCastData(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            return new CombatLogCastData
+            {
+                CasterId     = spell.Caster.Guid,
+                TargetId     = target.Guid,
+                SpellId      = spell.Parameters.SpellInfo.Entry.Id,
+                CombatResult = info.Damage?.CombatResult ?? CombatResult.Hit
+            };
+        }
+
+        private static uint DecodeUnsignedEffectAmount(Spell4EffectsEntry entry)
+        {
+            if (entry.DataBits01 != 0u)
+                return entry.DataBits01;
+
+            if (entry.DataBits00 != 0u)
+                return entry.DataBits00;
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                float value = entry.ParameterValue[i];
+                if (value > 0f)
+                    return (uint)Math.Round(value);
+            }
+
+            return 0u;
+        }
+
+        private static int DecodeSignedEffectAmount(Spell4EffectsEntry entry)
+        {
+            if (entry.DataBits01 != 0u)
+                return unchecked((int)entry.DataBits01);
+
+            if (entry.DataBits00 != 0u)
+                return unchecked((int)entry.DataBits00);
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                float value = entry.ParameterValue[i];
+                if (value != 0f)
+                    return (int)Math.Round(value);
+            }
+
+            return 0;
+        }
+
+        private static uint ApplySignedDelta(uint current, int delta)
+        {
+            if (delta >= 0)
+            {
+                ulong result = (ulong)current + (ulong)delta;
+                return (uint)Math.Min(result, uint.MaxValue);
+            }
+
+            uint amount = (uint)Math.Min((long)(-(long)delta), uint.MaxValue);
+            return amount >= current ? 0u : current - amount;
         }
     }
 }

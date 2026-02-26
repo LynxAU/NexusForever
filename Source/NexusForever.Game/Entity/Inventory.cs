@@ -4,6 +4,7 @@ using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Achievement;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable.Model;
 using NexusForever.Network;

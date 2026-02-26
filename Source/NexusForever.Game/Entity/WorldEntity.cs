@@ -9,6 +9,7 @@ using NexusForever.Game.Chat;
 using NexusForever.Game.Map.Search;
 using NexusForever.Game.Reputation;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Spell;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Chat;
 using NexusForever.GameTable;
@@ -777,6 +778,118 @@ namespace NexusForever.Game.Entity
         protected void SetStat<T>(Stat stat, T value) where T : Enum, IConvertible
         {
             SetStat(stat, value.ToUInt32(null));
+        }
+
+        /// <summary>
+        /// Get the current value of the supplied <see cref="Vital"/>.
+        /// </summary>
+        public float GetVitalValue(Vital vital)
+        {
+            switch (vital)
+            {
+                case Vital.Health:
+                    return Health;
+                case Vital.ShieldCapacity:
+                    return Shield;
+                case Vital.InterruptArmor:
+                    return InterruptArmor;
+            }
+
+            if (TryMapFloatVitalToStat(vital, out Stat stat))
+                return GetStatFloat(stat) ?? 0f;
+
+            return 0f;
+        }
+
+        /// <summary>
+        /// Modify the current value of the supplied <see cref="Vital"/>.
+        /// </summary>
+        public void ModifyVital(Vital vital, float value)
+        {
+            if (value == 0f || float.IsNaN(value) || float.IsInfinity(value))
+                return;
+
+            switch (vital)
+            {
+                case Vital.Health:
+                {
+                    if (this is not IUnitEntity unit)
+                        return;
+
+                    // Avoid reviving dead units through a generic vital modifier path.
+                    if (value > 0f && !unit.IsAlive)
+                        return;
+
+                    uint amount = (uint)Math.Round(Math.Abs(value));
+                    if (amount == 0u)
+                        return;
+
+                    unit.ModifyHealth(amount, value >= 0f ? DamageType.Heal : DamageType.Physical, null);
+                    return;
+                }
+                case Vital.ShieldCapacity:
+                {
+                    long shield = (long)Math.Round(Shield + value);
+                    Shield = (uint)Math.Clamp(shield, 0L, (long)MaxShieldCapacity);
+                    return;
+                }
+                case Vital.InterruptArmor:
+                {
+                    long interruptArmor = (long)Math.Round(InterruptArmor + value);
+                    InterruptArmor = (uint)Math.Clamp(interruptArmor, 0L, (long)uint.MaxValue);
+                    return;
+                }
+            }
+
+            if (!TryMapFloatVitalToStat(vital, out Stat floatStat))
+                return;
+
+            float current = GetStatFloat(floatStat) ?? 0f;
+            SetStat(floatStat, Math.Max(0f, current + value));
+        }
+
+        private static bool TryMapFloatVitalToStat(Vital vital, out Stat stat)
+        {
+            switch (vital)
+            {
+                case Vital.Focus:
+                    stat = Stat.Focus;
+                    return true;
+                case Vital.Resource0:
+                case Vital.PublicResource0:
+                    stat = Stat.Resource0;
+                    return true;
+                case Vital.Resource1:
+                case Vital.KineticCell:
+                case Vital.PublicResource1:
+                case Vital.MedicCore:
+                case Vital.Volatility:
+                    stat = Stat.Resource1;
+                    return true;
+                case Vital.Resource2:
+                case Vital.PublicResource2:
+                    stat = Stat.Resource2;
+                    return true;
+                case Vital.Resource3:
+                case Vital.StalkerA:
+                case Vital.StalkerB:
+                case Vital.StalkerC:
+                    stat = Stat.Resource3;
+                    return true;
+                case Vital.Resource4:
+                case Vital.SpellSurge:
+                    stat = Stat.Resource4;
+                    return true;
+                case Vital.Resource5:
+                    stat = Stat.Resource5;
+                    return true;
+                case Vital.Resource6:
+                    stat = Stat.Resource6;
+                    return true;
+                default:
+                    stat = default;
+                    return false;
+            }
         }
 
         /// <summary>

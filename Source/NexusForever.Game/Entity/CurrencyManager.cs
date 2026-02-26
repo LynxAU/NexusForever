@@ -106,7 +106,7 @@ namespace NexusForever.Game.Entity
             // Update EarnCurrency quest objectives when currency is gained
             if (player != null && isLoot)
             {
-                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.EarnCurrency, currencyEntry.Id, amount);
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.EarnCurrency, (uint)currencyEntry.Id, (uint)amount);
             }
         }
 

@@ -1,5 +1,6 @@
 ﻿using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Spell;
+using System;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Spell;
 
@@ -74,6 +75,11 @@ namespace NexusForever.Game.Abstract.Entity
         /// Determine if this <see cref="IUnitEntity"/> can attack supplied <see cref="IUnitEntity"/>.
         /// </summary>
         bool CanAttack(IUnitEntity target);
+
+        /// <summary>
+        /// Returns an active <see cref="ISpell"/> matching the supplied predicate.
+        /// </summary>
+        ISpell GetActiveSpell(Func<ISpell, bool> func);
 
         /// <summary>
         /// Returns whether or not this <see cref="IUnitEntity"/> is an attackable target.

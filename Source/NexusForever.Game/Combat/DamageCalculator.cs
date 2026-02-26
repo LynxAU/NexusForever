@@ -190,10 +190,10 @@ namespace NexusForever.Game.Combat
                         break;
                     // client defaults to a value of 0.25f if the game table entry is missing
                     case SpellEffectParameterType.AssaultPower:
-                        intermediateValue = GetProperty(Property.AssaultRating) * forumulaEntry?.Datafloat0 ?? 0.25f;
+                        intermediateValue = GetProperty(Property.AssaultRating) * (forumulaEntry?.Datafloat0 ?? 0.25f);
                         break;
                     case SpellEffectParameterType.SupportPower:
-                        intermediateValue = GetProperty(Property.SupportRating) * forumulaEntry?.Datafloat01 ?? 0.25f;
+                        intermediateValue = GetProperty(Property.SupportRating) * (forumulaEntry?.Datafloat01 ?? 0.25f);
                         break;
                 }
 
@@ -272,8 +272,15 @@ namespace NexusForever.Game.Combat
         private uint GetDamageAfterArmorMitigation(IUnitEntity victim, DamageType damageType, uint damage)
         {
             GameFormulaEntry armorFormulaEntry = gameTableManager.GameFormula.GetEntry(1234);
+            if (armorFormulaEntry == null)
+            {
+                log.LogWarning("Missing GameFormula 1234, skipping armor mitigation.");
+                return damage;
+            }
+
+            uint victimLevel = Math.Max(victim.Level, 1u);
             float maximumArmorMitigation = (float)(armorFormulaEntry.Dataint01 * 0.01);
-            float mitigationPct = (armorFormulaEntry.Datafloat0 / victim.Level * armorFormulaEntry.Datafloat01) * victim.GetPropertyValue(Property.Armor) / 100;
+            float mitigationPct = (armorFormulaEntry.Datafloat0 / victimLevel * armorFormulaEntry.Datafloat01) * victim.GetPropertyValue(Property.Armor) / 100;
 
             if (damageType == DamageType.Physical)
                 mitigationPct += victim.GetPropertyValue(Property.DamageMitigationPctOffsetPhysical);
@@ -436,8 +443,15 @@ namespace NexusForever.Game.Combat
                     break;
             }
 
+            if (gameFormula == null)
+            {
+                log.LogWarning($"Missing GameFormula in calculating Percentage from Rating: {property}");
+                return GetBasePercentMod(property, entity);
+            }
+
+            uint entityLevel = Math.Max(entity.Level, 1u);
             // Return a decimal representing the % applied by this rating.
-            float ratingMod = ((gameFormula.Datafloat0 / entity.Level) * gameFormula.Datafloat01) * entity.GetPropertyValue(property);
+            float ratingMod = ((gameFormula.Datafloat0 / entityLevel) * gameFormula.Datafloat01) * entity.GetPropertyValue(property);
             return Math.Min((GetBasePercentMod(property, entity) + ratingMod) * 100f, gameFormula.Dataint01) / 100f;
         }
 

@@ -550,6 +550,9 @@ namespace NexusForever.Game.Entity
             RewardQuest(quest.Info, reward);
             quest.State = QuestState.Completed;
 
+            // Update CompleteQuest objectives for other quests that require this quest
+            ObjectiveUpdate(QuestObjectiveType.CompleteQuest, questId, 1u);
+
             // mark repeatable quests for reset
             switch ((QuestRepeatPeriod)quest.Info.Entry.QuestRepeatPeriodEnum)
             {

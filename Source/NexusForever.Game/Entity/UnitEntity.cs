@@ -392,7 +392,7 @@ namespace NexusForever.Game.Entity
             // Use post-mitigation applied damage for threat (shield absorbed + health damage).
             ThreatManager.UpdateThreat(attacker, (int)(damageDescription.ShieldAbsorbAmount + damageDescription.AdjustedDamage));
 
-            Shield -= damageDescription.ShieldAbsorbAmount;
+            Shield = Shield > damageDescription.ShieldAbsorbAmount ? Shield - damageDescription.ShieldAbsorbAmount : 0u;
             ModifyHealth(damageDescription.AdjustedDamage, damageDescription.DamageType, attacker);
         }
 

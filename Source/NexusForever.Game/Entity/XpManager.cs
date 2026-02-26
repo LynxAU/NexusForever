@@ -70,14 +70,13 @@ namespace NexusForever.Game.Entity
             if (model.LastOnline == null)
                 return;
 
-            float xpForLevel     = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level).MinXpForLevel;
-            float xpForNextLevel = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level + 1).MinXpForLevel;
+            // Level 50 characters have no XP-based rest bonus (Elder Gem rest logic not yet implemented).
+            if (player.Level >= 50)
+                return;
 
-            uint maximumBonusXp;
-            if (player.Level < 50)
-                maximumBonusXp = (uint)((xpForNextLevel - xpForLevel) * 1.5f);
-            else
-                maximumBonusXp = 0; // TODO: Calculate Elder Gem Rest Bonus XP
+            float xpForLevel     = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level)?.MinXpForLevel ?? 0f;
+            float xpForNextLevel = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level + 1)?.MinXpForLevel ?? 0f;
+            uint maximumBonusXp  = (uint)((xpForNextLevel - xpForLevel) * 1.5f);
 
             double xpPercentEarned;
 
@@ -166,10 +165,14 @@ namespace NexusForever.Game.Entity
             if (newLevel == player.Level)
                 return;
 
-            uint newXp = GameTableManager.Instance.XpPerLevel.GetEntry(newLevel).MinXpForLevel;
+            var xpEntry = GameTableManager.Instance.XpPerLevel.GetEntry(newLevel);
+            if (xpEntry == null)
+                return;
+
+            uint newXp = xpEntry.MinXpForLevel;
             player.Session.EnqueueMessageEncrypted(new ServerExperienceGained
             {
-                TotalXpGained     = newXp - TotalXp,
+                TotalXpGained     = newXp > TotalXp ? newXp - TotalXp : 0u,
                 RestXpAmount      = 0,
                 SignatureXpAmount = 0,
                 Reason            = reason

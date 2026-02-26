@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Numerics;
 using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Database.World.Model;
@@ -7,7 +8,10 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Entity.Movement.Generator;
+using NexusForever.Game.Spell;
 using NexusForever.Game.Static.Entity.Movement.Spline;
+using NexusForever.GameTable;
+using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Script;
 using NexusForever.Script.Template;
@@ -66,6 +70,16 @@ namespace NexusForever.Game.Entity
         // Guard: prevents HandleCorpseDespawn firing more than once per death.
         private bool corpseDespawnFired;
 
+        // Creature2Action entries from this creature's action set that have a valid Spell4Id in ActionData00.
+        // Null until Initialise() runs; empty if the creature has no action set or no spell actions.
+        private List<Creature2ActionEntry> spellActions;
+
+        // Per-action cooldown tracker: actionEntry.Id → remaining seconds until next cast.
+        private readonly Dictionary<uint, double> spellCooldowns = new();
+
+        // Default spell cooldown used when a spell has no DelayMS.
+        private const double DefaultSpellCooldown = 10.0;
+
         #region Dependency Injection
 
         public CreatureEntity(IMovementManager movementManager)
@@ -80,6 +94,30 @@ namespace NexusForever.Game.Entity
             base.Initialise(model);
 
             scriptCollection = ScriptManager.Instance.InitialiseEntityScripts<ICreatureEntity>(this);
+            LoadSpellActions();
+        }
+
+        /// <summary>
+        /// Loads spell actions from this creature's <see cref="Creature2ActionSetEntry"/>.
+        /// Only entries whose <see cref="Creature2ActionEntry.ActionData00"/> resolves to a valid
+        /// <see cref="Spell4Entry"/> are retained — invalid IDs are silently skipped.
+        /// </summary>
+        private void LoadSpellActions()
+        {
+            uint actionSetId = CreatureEntry?.Creature2ActionSetId ?? 0u;
+            if (actionSetId == 0u)
+            {
+                spellActions = [];
+                return;
+            }
+
+            spellActions = GameTableManager.Instance.Creature2Action.Entries
+                .Where(e => e != null
+                    && e.CreatureActionSetId == actionSetId
+                    && e.ActionData00 != 0u
+                    && GameTableManager.Instance.Spell4.GetEntry(e.ActionData00) != null)
+                .OrderBy(e => e.OrderIndex)
+                .ToList();
         }
 
         /// <summary>
@@ -117,6 +155,14 @@ namespace NexusForever.Game.Entity
 
             meleeSwingTimer.Update(lastTick);
             wanderTimer.Update(lastTick);
+
+            // Tick down per-spell cooldowns.
+            foreach (uint key in spellCooldowns.Keys.ToList())
+            {
+                spellCooldowns[key] -= lastTick;
+                if (spellCooldowns[key] <= 0d)
+                    spellCooldowns.Remove(key);
+            }
 
             aiUpdateTimer.Update(lastTick);
             if (aiUpdateTimer.HasElapsed)
@@ -283,7 +329,31 @@ namespace NexusForever.Game.Entity
                 meleeSwingTimer.Reset();
             }
 
+            TryCastSpellAction(target);
+
             scriptCollection?.Invoke<INonPlayerScript>(s => s.OnCombatUpdate(lastTick));
+        }
+
+        /// <summary>
+        /// Attempts to cast the highest-priority available spell from this creature's action set.
+        /// Only one spell is attempted per AI tick. Entries are ordered by <see cref="Creature2ActionEntry.OrderIndex"/>.
+        /// </summary>
+        private void TryCastSpellAction(IUnitEntity target)
+        {
+            if (spellActions == null || spellActions.Count == 0)
+                return;
+
+            foreach (Creature2ActionEntry action in spellActions)
+            {
+                if (spellCooldowns.ContainsKey(action.Id))
+                    continue;
+
+                CastSpell(action.ActionData00, new SpellParameters { PrimaryTargetId = target.Guid });
+
+                double cooldown = action.DelayMS > 0u ? action.DelayMS / 1000.0 : DefaultSpellCooldown;
+                spellCooldowns[action.Id] = cooldown;
+                break;
+            }
         }
 
         /// <summary>
@@ -311,6 +381,9 @@ namespace NexusForever.Game.Entity
             // Full heal on evade — consistent with most MMO expectations.
             Health = MaxHealth;
             Shield = MaxShieldCapacity;
+
+            // Reset all spell cooldowns so the NPC starts fresh after returning to spawn.
+            spellCooldowns.Clear();
 
             // Patrol will relaunch from the beginning once we reach the leash position.
             patrolLaunched = false;

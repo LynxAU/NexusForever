@@ -505,11 +505,17 @@ namespace NexusForever.Game.Entity
                     model.RotationZ = Rotation.Z;
                     entity.Property(p => p.RotationZ).IsModified = true;
 
-                    model.WorldId = (ushort)Map.Entry.Id;
-                    entity.Property(p => p.WorldId).IsModified = true;
+                    if (Map != null)
+                    {
+                        model.WorldId = (ushort)Map.Entry.Id;
+                        entity.Property(p => p.WorldId).IsModified = true;
+                    }
 
-                    model.WorldZoneId = (ushort)Zone.Id;
-                    entity.Property(p => p.WorldZoneId).IsModified = true;
+                    if (Zone != null)
+                    {
+                        model.WorldZoneId = (ushort)Zone.Id;
+                        entity.Property(p => p.WorldZoneId).IsModified = true;
+                    }
                 }
 
                 if ((saveMask & PlayerSaveMask.Path) != 0)
@@ -802,6 +808,8 @@ namespace NexusForever.Game.Entity
         {
             //TODO: Store proficiencies in DB table and load from there. Do they change ever after creation? Perhaps something for use on custom servers?
             ClassEntry classEntry = GameTableManager.Instance.Class.GetEntry((ulong)Class);
+            if (classEntry == null)
+                return (ItemProficiency)0;
             return (ItemProficiency)classEntry.StartingItemProficiencies;
         }
 

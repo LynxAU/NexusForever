@@ -1,13 +1,17 @@
 using System.Numerics;
+using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Database.World.Model;
+using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Entity.Movement.Generator;
 using NexusForever.Game.Static.Entity.Movement.Spline;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Script;
 using NexusForever.Script.Template;
+using NexusForever.Shared;
 using NexusForever.Shared.Game;
 
 namespace NexusForever.Game.Entity
@@ -34,6 +38,9 @@ namespace NexusForever.Game.Entity
         // AI decision tick interval in seconds.
         private readonly UpdateTimer aiUpdateTimer = new(0.5);
 
+        // Melee auto-attack swing timer. Default: 2 seconds, matching most MMO baseline swing speed.
+        private readonly UpdateTimer meleeSwingTimer = new(2.0);
+
         // True while the NPC is walking back to its spawn position after evading.
         private bool isReturning;
 
@@ -59,6 +66,8 @@ namespace NexusForever.Game.Entity
         public override void Update(double lastTick)
         {
             base.Update(lastTick);
+
+            meleeSwingTimer.Update(lastTick);
 
             aiUpdateTimer.Update(lastTick);
             if (aiUpdateTimer.HasElapsed)
@@ -161,12 +170,32 @@ namespace NexusForever.Game.Entity
 
         /// <summary>
         /// Called each AI tick when within melee range of <paramref name="target"/>.
-        /// Faces the target and gives scripts the opportunity to execute their combat logic.
+        /// Faces the target, fires a melee swing if the timer is ready, and gives scripts
+        /// the opportunity to execute their own combat logic.
         /// </summary>
         private void EngageTarget(IUnitEntity target, double lastTick)
         {
             MovementManager.SetRotationFaceUnit(target.Guid);
+
+            if (meleeSwingTimer.HasElapsed)
+            {
+                TryMeleeSwing(target);
+                meleeSwingTimer.Reset();
+            }
+
             scriptCollection?.Invoke<INonPlayerScript>(s => s.OnCombatUpdate(lastTick));
+        }
+
+        /// <summary>
+        /// Attempt a melee auto-attack against <paramref name="target"/>.
+        /// Returns immediately if the hit is deflected (null damage description).
+        /// </summary>
+        private void TryMeleeSwing(IUnitEntity target)
+        {
+            var factory = LegacyServiceProvider.Provider.GetService<IFactory<IDamageCalculator>>();
+            IDamageDescription desc = factory?.Resolve()?.CalculateMeleeDamage(this, target);
+            if (desc != null)
+                target.TakeDamage(this, desc);
         }
 
         /// <summary>

@@ -107,6 +107,48 @@ namespace NexusForever.Game.Combat
         }
 
         /// <summary>
+        /// Calculate a raw melee auto-attack hit from <paramref name="attacker"/> against <paramref name="victim"/>.
+        /// Runs the standard deflect → base damage (AssaultRating) → variance → armor → crit → glance → shield pipeline.
+        /// Returns null if the attack was fully deflected.
+        /// </summary>
+        public IDamageDescription CalculateMeleeDamage(IUnitEntity attacker, IUnitEntity victim)
+        {
+            // Deflect check — same as spell damage path.
+            if (CalculateDeflect(attacker, victim))
+                return null;
+
+            // Base damage: AssaultRating scaled by the same coefficient the spell system uses for AssaultPower.
+            GameFormulaEntry formulaEntry = gameTableManager.GameFormula.GetEntry(1266);
+            float assaultRating = attacker.GetPropertyValue(Property.AssaultRating);
+            uint damage = (uint)MathF.Ceiling(assaultRating * (formulaEntry?.Datafloat0 ?? 0.25f));
+
+            var desc = new SpellTargetInfo.SpellTargetEffectInfo.DamageDescription
+            {
+                DamageType      = DamageType.Physical,
+                CombatResult    = CombatResult.Hit,
+                RawDamage       = damage,
+                RawScaledDamage = damage
+            };
+
+            damage = CalculateBaseDamageVariance(damage);
+            damage = GetDamageAfterArmorMitigation(victim, DamageType.Physical, damage);
+
+            if (CalculateCrit(ref damage, attacker, victim))
+                desc.CombatResult = CombatResult.Critical;
+
+            uint preGlance = damage;
+            if (CalculateGlance(ref damage, attacker, victim))
+                desc.GlanceAmount = preGlance - damage;
+
+            uint shieldAbsorb = CalculateShieldAmount(damage, victim);
+            damage -= shieldAbsorb;
+            desc.ShieldAbsorbAmount = shieldAbsorb;
+            desc.AdjustedDamage     = damage;
+
+            return desc;
+        }
+
+        /// <summary>
         /// Get base damage value for the given <see cref="IUnitEntity"/> with the provided parameter data from the <see cref="Spell4EffectsEntry"/>.
         /// </summary>
         private uint CalculateBaseDamage(IUnitEntity caster, IUnitEntity target, Spell4EffectsEntry entry)

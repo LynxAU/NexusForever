@@ -152,13 +152,15 @@ namespace NexusForever.Game.Spell
                 return;
 
             if (splitCount > 1)
-                ApplyApproximateDamageSplit(info.Damage, splitCount);
+            {
+                int splitRank = GetEffectTargetRank(spell, info, target.Guid);
+                ApplyApproximateDamageSplit(info.Damage, splitCount, splitRank);
+            }
 
             if (shieldOnly)
             {
-                // Approximation: route all post-mitigation damage into shields only and drop any overflow.
-                ulong totalPostMitigationDamage = (ulong)info.Damage.ShieldAbsorbAmount + info.Damage.AdjustedDamage;
-                uint shieldDamage = (uint)Math.Min((ulong)target.Shield, totalPostMitigationDamage);
+                // Approximation: route this effect's adjusted damage directly into shields only.
+                uint shieldDamage = Math.Min(target.Shield, info.Damage.AdjustedDamage);
                 info.Damage.ShieldAbsorbAmount = shieldDamage;
                 info.Damage.AdjustedDamage = 0u;
             }
@@ -627,19 +629,33 @@ namespace NexusForever.Game.Spell
             return Math.Max(1, count);
         }
 
-        private static void ApplyApproximateDamageSplit(IDamageDescription damage, int splitCount)
+        private static int GetEffectTargetRank(ISpell spell, ISpellTargetEffectInfo info, uint targetGuid)
+        {
+            SpellEffectTargetFlags effectTargetFlags = (SpellEffectTargetFlags)info.Entry.TargetFlags;
+            List<uint> targetGuids = spell.Targets
+                .Where(t => (t.Flags & effectTargetFlags) != 0)
+                .Select(t => t.Entity.Guid)
+                .Distinct()
+                .OrderBy(g => g)
+                .ToList();
+
+            int rank = targetGuids.IndexOf(targetGuid);
+            return rank < 0 ? 0 : rank;
+        }
+
+        private static void ApplyApproximateDamageSplit(IDamageDescription damage, int splitCount, int splitRank)
         {
             if (splitCount <= 1)
                 return;
 
-            // Approximation: split all reported damage components evenly across effect targets.
+            // Approximation: split all reported damage components across effect targets while preserving total.
             // TODO: Replace with effect-accurate distributed damage semantics (pre/post mitigation split rules).
-            damage.RawDamage = DivideByCount(damage.RawDamage, splitCount);
-            damage.RawScaledDamage = DivideByCount(damage.RawScaledDamage, splitCount);
-            damage.AbsorbedAmount = DivideByCount(damage.AbsorbedAmount, splitCount);
-            damage.ShieldAbsorbAmount = DivideByCount(damage.ShieldAbsorbAmount, splitCount);
-            damage.AdjustedDamage = DivideByCount(damage.AdjustedDamage, splitCount);
-            damage.GlanceAmount = DivideByCount(damage.GlanceAmount, splitCount);
+            damage.RawDamage = DivideByCountWithRemainder(damage.RawDamage, splitCount, splitRank);
+            damage.RawScaledDamage = DivideByCountWithRemainder(damage.RawScaledDamage, splitCount, splitRank);
+            damage.AbsorbedAmount = DivideByCountWithRemainder(damage.AbsorbedAmount, splitCount, splitRank);
+            damage.ShieldAbsorbAmount = DivideByCountWithRemainder(damage.ShieldAbsorbAmount, splitCount, splitRank);
+            damage.AdjustedDamage = DivideByCountWithRemainder(damage.AdjustedDamage, splitCount, splitRank);
+            damage.GlanceAmount = DivideByCountWithRemainder(damage.GlanceAmount, splitCount, splitRank);
         }
 
         private static void AddDamageCombatLog(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
@@ -748,12 +764,15 @@ namespace NexusForever.Game.Spell
             return amount >= current ? 0u : current - amount;
         }
 
-        private static uint DivideByCount(uint value, int count)
+        private static uint DivideByCountWithRemainder(uint value, int count, int rank)
         {
             if (value == 0u || count <= 1)
                 return value;
 
-            return (uint)(value / (uint)count);
+            uint divisor = (uint)Math.Max(count, 1);
+            uint quotient = value / divisor;
+            uint remainder = value % divisor;
+            return rank < remainder ? quotient + 1u : quotient;
         }
     }
 }

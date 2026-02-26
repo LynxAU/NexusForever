@@ -427,8 +427,6 @@ namespace NexusForever.Game.Entity
             }
 
             GenerateRewards();
-            // TODO: schedule respawn
-
             ThreatManager.ClearThreatList();
 
             deathState = EntityDeathState.Dead;

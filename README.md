@@ -14,55 +14,84 @@ A server emulator for WildStar written in C# that supports build 16042.
  * WildStar 16042 client
 
 ### Recent Local Progress (Community Fork)
-This fork is actively restoring gameplay systems, with a current focus on quest objective coverage and combat recovery.
+This fork is actively restoring gameplay systems with parallel workstreams for quest objective coverage, spell/combat effect recovery, and NPC combat AI.
 
-#### Git Changes Summary (Current Working Set)
-Modified files:
- * `Source/NexusForever.Game/Combat/DamageCalculator.cs`
-   * Fixed healing/shield spell handling (no armor/deflect/glancing on heal-like effects).
-   * Proper heal damage typing and healing multiplier handling.
-   * Fixed physical armor mitigation offset usage.
-   * Improved crit severity handling and combat RNG usage.
- * `Source/NexusForever.Game/Entity/CurrencyManager.cs`
-   * Added `EarnCurrency` quest objective triggers.
- * `Source/NexusForever.Game/Entity/HarvestUnitEntity.cs`
-   * Complete harvest system updates including tradeskill -> material mapping, auto-respawn via `RescanCooldown`, and `GatheResource` quest triggers.
- * `Source/NexusForever.Game/Entity/Inventory.cs`
-   * Added `CollectItem` quest objective triggers.
- * `Source/NexusForever.Game/Entity/UnitEntity.cs`
-   * Fixed spell lifecycle cleanup and disposal (prevents leaked/failed spells from lingering in `pendingSpells`).
- * `Source/NexusForever.Game/Spell/CharacterSpell.cs`
-   * Added `PrimaryTargetId` propagation for player cast target tracking.
- * `Source/NexusForever.Game/Spell/Event/SpellEventManager.cs`
-   * Fixed event timing/cleanup bug (prevents retry loops when spell callbacks fail).
- * `Source/NexusForever.Game/Spell/Spell.cs`
-   * Added `SpellSuccess`, `SpellSuccess2`, `SpellSuccess3`, `SpellSuccess4` quest triggers.
-   * Fixed target selection / primary target usage in spell start packets.
-   * Added effect-handler exception guards for safer spell execution.
- * `Source/NexusForever.Game/Spell/SpellEffectHandler.cs`
-   * Added `Heal`, `HealShields`, `DamageShields`, and `Transference` handlers.
-   * Added provisional support paths for `DistanceDependentDamage` and `DistributedDamage`.
-   * Added heal combat log generation and hardened damage handler null/deflect behavior.
- * `Source/NexusForever.WorldServer/Network/Message/Handler/Entity/ClientEntityInteractionHandler.cs`
-   * Fixed `TalkTo` / `ActivateEntity` quest objective bug (`TalkTo` now only triggers for event `37`).
+#### Integrated Progress (`main`)
+Current integrated community-fork work (through `6893fad9`) includes:
+
+ * Quest objective trigger coverage expansions:
+   * `CollectItem`, `EarnCurrency`, `GatheResource`
+   * `TalkTo` / `TalkToTargetGroup` (dialogue event `37`)
+   * `ActivateEntity`, `ActivateTargetGroup`, `ActivateTargetGroupChecklist`
+   * `SpellSuccess`, `SpellSuccess2`, `SpellSuccess3`, `SpellSuccess4`
+   * `SucceedCSI` (via CSI result packet handling)
+   * `CompleteQuest` (quest turn-in completion now updates dependent objectives)
+   * `CompleteEvent`
+   * `EnterZone`, `EnterArea`
+   * `LearnTradeskill`, `ObtainSchematic`, `CraftSchematic`
+ * CSI packet support for quest updates:
+   * Added `ClientSpellInteractionResult` (`0x0805`) opcode and packet model.
+   * Added server handler to resolve `CastingId` -> active spell and trigger `SucceedCSI`.
+ * Combat stability and targeting fixes:
+   * Failed spells no longer linger in `pendingSpells`.
+   * Finished spells are disposed correctly.
+   * Spell event callback retry-loop bug fixed.
+   * Player cast `PrimaryTargetId` propagation fixed.
+ * Combat effect support and math recovery:
+   * Implemented `Heal`, `HealShields`, `DamageShields`, `Transference` (initial path)
+   * Implemented `Absorption`, `HealingAbsorption`, `ModifyInterruptArmor`
+   * Implemented `VitalModifier`, `SapVital`, `ClampVital` (with current `DataBits` assumptions documented in code)
+   * Added entity vital APIs (`GetVitalValue` / `ModifyVital`) for health/shield/resources/interrupt armor
+   * Improved `DamageCalculator` heal handling, mitigation correctness, formula fallbacks, and level guards
 
 Ignored local-only file:
  * `NexusForever.code-workspace` (ignored via `.gitignore`)
 
-#### Quest Objectives Now Working
- * `CollectItem` (inventory pickup)
+#### Quest Objective Coverage Notes
+Working objective hooks now include:
+
+ * `CollectItem`
+ * `EarnCurrency`
+ * `GatheResource`
+ * `KillCreature` / `KillCreature2`
+ * `KillTargetGroup` / `KillTargetGroups`
+ * `TalkTo` / `TalkToTargetGroup`
+ * `ActivateEntity` / `ActivateTargetGroup` / `ActivateTargetGroupChecklist`
  * `SpellSuccess` / `SpellSuccess2` / `SpellSuccess3` / `SpellSuccess4`
- * `TalkTo` (event `37` only)
- * `ActivateEntity` (other interaction events)
- * `GatheResource` (harvest nodes)
- * `EarnCurrency` (currency gains)
+ * `SucceedCSI`
+ * `CompleteQuest`
+ * `CompleteEvent`
+ * `EnterZone`
+ * `EnterArea`
+ * `LearnTradeskill`
+ * `ObtainSchematic`
+ * `CraftSchematic`
+
+Current placeholder caveats (needs follow-up when crafting/area systems are fully wired):
+
+ * `LearnTradeskill`, `ObtainSchematic`, `CraftSchematic` are currently triggered from interaction open events and use placeholder data paths in some cases.
+ * `EnterArea` currently uses a placeholder trigger path and should be replaced with proper world-location/area tracking.
+ * `SucceedCSI` depends on CSI cast tracking and `PrimaryTargetId` being valid for the interaction spell.
+
+#### Active Branch Work (Not Yet Merged to `main`)
+Parallel branch work in progress:
+
+ * `combat/npc-ai-basic` (`6d3f82e3`, `c455e1a3`)
+   * NPC combat AI foundations: aggro scan, chase, leash/evade, and combat script hooks
+   * `ICreatureEntity.AggroRadius`
+   * `UnitEntity` enter/exit combat callbacks for scripts
+   * `INonPlayerScript` / `IUnitScript` combat lifecycle hooks
+   * Added glance amount propagation into damage descriptions and combat logs
+ * `codex/combat-effects` (`de2b9d22`, `b9f49cd6`)
+   * Effect-specific combat log routing for `DamageShields` and `Transference`
+   * Implemented `Kill` spell effect handler
+   * Branch-local compile fix for `EnterArea` debug logging (`NLog` API mismatch)
 
 #### Combat Recovery Notes (Current Passes)
- * Spell lifecycle stability improved (failed casts no longer linger; finished spells are disposed).
- * Primary target tracking is now propagated from player casts into spell execution.
- * Heal and shield-heal spell effects now apply results and emit combat logs.
- * Several damage-like spell effects are now routed through the core damage path as interim support.
- * Combat handler coverage has increased, improving playability while deeper effect semantics are restored incrementally.
+ * Combat effect handler coverage has increased to `29 / 136` non-`UNUSED` spell effect types (~`21.3%`) on `codex/combat-effects`.
+ * Core damage/heal/shield flows now emit more accurate combat logs (including glance, shield-damage logs, and transference log routing).
+ * Vitals/resource manipulation support now exists at the entity layer, which unlocks more class mechanics and utility effects.
+ * NPC combat behavior work is progressing in parallel and can now build on restored threat/combat-state hooks.
 
 ### Branches
 NexusForever has multiple branches:

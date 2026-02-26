@@ -135,10 +135,10 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Damage)]
         public static void HandleEffectDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            HandleEffectDamageInternal(spell, target, info, splitCount: 1);
+            HandleEffectDamageInternal(spell, target, info, splitCount: 1, shieldOnly: false);
         }
 
-        private static void HandleEffectDamageInternal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info, int splitCount)
+        private static void HandleEffectDamageInternal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info, int splitCount, bool shieldOnly)
         {
             if (!spell.Caster.CanAttack(target))
                 return;
@@ -153,6 +153,15 @@ namespace NexusForever.Game.Spell
 
             if (splitCount > 1)
                 ApplyApproximateDamageSplit(info.Damage, splitCount);
+
+            if (shieldOnly)
+            {
+                // Approximation: route all post-mitigation damage into shields only and drop any overflow.
+                ulong totalPostMitigationDamage = (ulong)info.Damage.ShieldAbsorbAmount + info.Damage.AdjustedDamage;
+                uint shieldDamage = (uint)Math.Min((ulong)target.Shield, totalPostMitigationDamage);
+                info.Damage.ShieldAbsorbAmount = shieldDamage;
+                info.Damage.AdjustedDamage = 0u;
+            }
 
             uint healthBefore = target.Health;
             target.TakeDamage(spell.Caster, info.Damage);
@@ -177,14 +186,13 @@ namespace NexusForever.Game.Spell
         public static void HandleEffectDistributedDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
             int splitCount = GetEffectTargetCount(spell, info);
-            HandleEffectDamageInternal(spell, target, info, splitCount);
+            HandleEffectDamageInternal(spell, target, info, splitCount, shieldOnly: false);
         }
 
         [SpellEffectHandler(SpellEffectType.DamageShields)]
         public static void HandleEffectDamageShields(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // TODO: This currently uses the normal damage path and is only an approximation.
-            HandleEffectDamage(spell, target, info);
+            HandleEffectDamageInternal(spell, target, info, splitCount: 1, shieldOnly: true);
         }
 
         [SpellEffectHandler(SpellEffectType.Transference)]

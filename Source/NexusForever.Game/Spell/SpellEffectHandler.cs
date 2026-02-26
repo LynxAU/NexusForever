@@ -135,6 +135,11 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Damage)]
         public static void HandleEffectDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
+            HandleEffectDamageInternal(spell, target, info, splitCount: 1);
+        }
+
+        private static void HandleEffectDamageInternal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info, int splitCount)
+        {
             if (!spell.Caster.CanAttack(target))
                 return;
 
@@ -146,6 +151,9 @@ namespace NexusForever.Game.Spell
             if (info.DropEffect || info.Damage == null)
                 return;
 
+            if (splitCount > 1)
+                ApplyApproximateDamageSplit(info.Damage, splitCount);
+
             uint healthBefore = target.Health;
             target.TakeDamage(spell.Caster, info.Damage);
 
@@ -156,21 +164,7 @@ namespace NexusForever.Game.Spell
             info.Damage.OverkillAmount = overkill;
             info.Damage.KilledTarget = !target.IsAlive;
 
-            info.AddCombatLog(new CombatLogDamage
-            {
-                MitigatedDamage   = info.Damage.AdjustedDamage,
-                RawDamage         = info.Damage.RawDamage,
-                Shield            = info.Damage.ShieldAbsorbAmount,
-                Absorption        = info.Damage.AbsorbedAmount,
-                Overkill          = info.Damage.OverkillAmount,
-                Glance            = info.Damage.GlanceAmount,
-                BTargetVulnerable = false,
-                BKilled           = info.Damage.KilledTarget,
-                BPeriodic         = info.Entry.TickTime > 0u,
-                DamageType        = info.Damage.DamageType,
-                EffectType        = (SpellEffectType)info.Entry.EffectType,
-                CastData          = BuildCastData(spell, target, info)
-            });
+            AddDamageCombatLog(spell, target, info);
         }
 
         [SpellEffectHandler(SpellEffectType.DistanceDependentDamage)]
@@ -182,8 +176,8 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.DistributedDamage)]
         public static void HandleEffectDistributedDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // TODO: Proper damage splitting semantics are not implemented yet.
-            HandleEffectDamage(spell, target, info);
+            int splitCount = GetEffectTargetCount(spell, info);
+            HandleEffectDamageInternal(spell, target, info, splitCount);
         }
 
         [SpellEffectHandler(SpellEffectType.DamageShields)]
@@ -583,6 +577,85 @@ namespace NexusForever.Game.Spell
             };
         }
 
+        private static int GetEffectTargetCount(ISpell spell, ISpellTargetEffectInfo info)
+        {
+            SpellEffectTargetFlags effectTargetFlags = (SpellEffectTargetFlags)info.Entry.TargetFlags;
+            int count = spell.Targets.Count(t => (t.Flags & effectTargetFlags) != 0);
+            return Math.Max(1, count);
+        }
+
+        private static void ApplyApproximateDamageSplit(IDamageDescription damage, int splitCount)
+        {
+            if (splitCount <= 1)
+                return;
+
+            // Approximation: split all reported damage components evenly across effect targets.
+            // TODO: Replace with effect-accurate distributed damage semantics (pre/post mitigation split rules).
+            damage.RawDamage = DivideByCount(damage.RawDamage, splitCount);
+            damage.RawScaledDamage = DivideByCount(damage.RawScaledDamage, splitCount);
+            damage.AbsorbedAmount = DivideByCount(damage.AbsorbedAmount, splitCount);
+            damage.ShieldAbsorbAmount = DivideByCount(damage.ShieldAbsorbAmount, splitCount);
+            damage.AdjustedDamage = DivideByCount(damage.AdjustedDamage, splitCount);
+            damage.GlanceAmount = DivideByCount(damage.GlanceAmount, splitCount);
+        }
+
+        private static void AddDamageCombatLog(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (info.Damage == null)
+                return;
+
+            SpellEffectType effectType = (SpellEffectType)info.Entry.EffectType;
+            switch (effectType)
+            {
+                case SpellEffectType.DamageShields:
+                    info.AddCombatLog(new CombatLogDamageShield
+                    {
+                        MitigatedDamage   = info.Damage.AdjustedDamage,
+                        RawDamage         = info.Damage.RawDamage,
+                        Shield            = info.Damage.ShieldAbsorbAmount,
+                        Absorption        = info.Damage.AbsorbedAmount,
+                        Overkill          = info.Damage.OverkillAmount,
+                        Glance            = info.Damage.GlanceAmount,
+                        BTargetVulnerable = false,
+                        BKilled           = info.Damage.KilledTarget,
+                        BPeriodic         = info.Entry.TickTime > 0u,
+                        DamageType        = info.Damage.DamageType,
+                        EffectType        = effectType,
+                        CastData          = BuildCastData(spell, target, info)
+                    });
+                    break;
+                case SpellEffectType.Transference:
+                    info.AddCombatLog(new CombatLogTransference
+                    {
+                        DamageAmount       = info.Damage.AdjustedDamage,
+                        DamageType         = info.Damage.DamageType,
+                        Shield             = info.Damage.ShieldAbsorbAmount,
+                        Absorption         = info.Damage.AbsorbedAmount,
+                        Overkill           = info.Damage.OverkillAmount,
+                        GlanceAmount       = info.Damage.GlanceAmount,
+                        BTargetVulnerable  = false
+                        // TODO: Populate healed units when transference side-effects are implemented.
+                    });
+                    break;
+                default:
+                    info.AddCombatLog(new CombatLogDamage
+                    {
+                        MitigatedDamage   = info.Damage.AdjustedDamage,
+                        RawDamage         = info.Damage.RawDamage,
+                        Shield            = info.Damage.ShieldAbsorbAmount,
+                        Absorption        = info.Damage.AbsorbedAmount,
+                        Overkill          = info.Damage.OverkillAmount,
+                        Glance            = info.Damage.GlanceAmount,
+                        BTargetVulnerable = false,
+                        BKilled           = info.Damage.KilledTarget,
+                        BPeriodic         = info.Entry.TickTime > 0u,
+                        DamageType        = info.Damage.DamageType,
+                        EffectType        = effectType,
+                        CastData          = BuildCastData(spell, target, info)
+                    });
+                    break;
+            }
+        }
         private static uint DecodeUnsignedEffectAmount(Spell4EffectsEntry entry)
         {
             if (entry.DataBits01 != 0u)
@@ -629,6 +702,14 @@ namespace NexusForever.Game.Spell
 
             uint amount = (uint)Math.Min((long)(-(long)delta), uint.MaxValue);
             return amount >= current ? 0u : current - amount;
+        }
+
+        private static uint DivideByCount(uint value, int count)
+        {
+            if (value == 0u || count <= 1)
+                return value;
+
+            return (uint)(value / (uint)count);
         }
     }
 }

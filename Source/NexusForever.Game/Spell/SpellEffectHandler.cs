@@ -356,7 +356,7 @@ namespace NexusForever.Game.Spell
 
             info.AddCombatLog(new CombatLogModifyInterruptArmor
             {
-                Amount    = unchecked((uint)appliedDelta),
+                Amount    = appliedDelta,
                 CastData  = BuildCastData(spell, target, info)
             });
         }

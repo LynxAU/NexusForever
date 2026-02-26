@@ -585,13 +585,13 @@ namespace NexusForever.Game.Spell
                     BitConverter.UInt32BitsToSingle(info.Entry.DataBits02), 
                     BitConverter.UInt32BitsToSingle(info.Entry.DataBits03), 
                     BitConverter.UInt32BitsToSingle(info.Entry.DataBits04));
-            target.AddSpellModifierProperty(modifier, spell.Parameters.SpellInfo.Entry.Id);
+            uint modifierInstanceId = spell.CastingId;
+            target.AddSpellModifierProperty(modifier, modifierInstanceId);
 
             if (info.Entry.DurationTime > 0u)
             {
                 Property property = (Property)info.Entry.DataBits00;
-                uint spellId = spell.Parameters.SpellInfo.Entry.Id;
-                spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () => target.RemoveSpellProperty(property, spellId));
+                spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () => target.RemoveSpellProperty(property, modifierInstanceId));
             }
         }
 

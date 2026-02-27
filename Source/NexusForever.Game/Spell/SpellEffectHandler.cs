@@ -10,6 +10,7 @@ using NexusForever.Game.Entity;
 using NexusForever.Game.Static.Crafting;
 using NexusForever.Game.Map;
 using NexusForever.Game.Prerequisite;
+using NexusForever.Game.Reputation;
 using NexusForever.Game.Static.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
@@ -1447,6 +1448,180 @@ namespace NexusForever.Game.Spell
                 return;
 
             player.TitleManager.AddTitle((ushort)info.Entry.DataBits00);
+        }
+
+        [SpellEffectHandler(SpellEffectType.SpellCounter)]
+        public static void HandleEffectSpellCounter(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            uint spellFilterId = info.Entry.DataBits00;
+            ISpell activeSpell = target.GetActiveSpell(s =>
+                s.IsCasting && (spellFilterId == 0u || s.Parameters.SpellInfo.Entry.Id == spellFilterId));
+            if (activeSpell == null)
+                return;
+
+            target.CancelSpellCast(activeSpell.CastingId, Network.World.Message.Static.CastResult.SpellInterrupted);
+        }
+
+        [SpellEffectHandler(SpellEffectType.ForceFacing)]
+        public static void HandleEffectForceFacing(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null || spell.Caster == null || target.Guid == spell.Caster.Guid)
+                return;
+
+            target.MovementManager.SetRotationFaceUnit(spell.Caster.Guid);
+
+            if (target is not UnitEntity unitEntity || info.Entry.DurationTime == 0u)
+                return;
+
+            uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+            uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+            uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+            unitEntity.AddTimedAura(
+                spell.Parameters.SpellInfo.Entry.Id,
+                info.Entry.EffectType,
+                spell.Caster.Guid,
+                info.Entry.DurationTime / 1000d,
+                0.25d,
+                onTick: () => target.MovementManager.SetRotationFaceUnit(spell.Caster.Guid),
+                onRemove: () => target.MovementManager.SetRotationDefaults(),
+                stackGroupId: stackGroupId,
+                stackCap: stackCap,
+                stackTypeEnum: stackTypeEnum,
+                isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+        }
+
+        [SpellEffectHandler(SpellEffectType.NpcForceFacing)]
+        public static void HandleEffectNpcForceFacing(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectForceFacing(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.VectorSlide)]
+        public static void HandleEffectVectorSlide(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Approximation: most observed VectorSlide payloads align with ForcedMove semantics.
+            HandleEffectForcedMove(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.Stealth)]
+        public static void HandleEffectStealth(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            info.AddCombatLog(new CombatLogStealth
+            {
+                UnitId = target.Guid,
+                BExiting = false
+            });
+
+            if (target is not UnitEntity unitEntity || info.Entry.DurationTime == 0u)
+                return;
+
+            uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+            uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+            uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+            unitEntity.AddTimedAura(
+                spell.Parameters.SpellInfo.Entry.Id,
+                SpellEffectType.Stealth,
+                spell.Caster.Guid,
+                info.Entry.DurationTime / 1000d,
+                0d,
+                onRemove: () => spell.Caster.EnqueueToVisible(new ServerCombatLog
+                {
+                    CombatLog = new CombatLogStealth
+                    {
+                        UnitId = target.Guid,
+                        BExiting = true
+                    }
+                }, true),
+                stackGroupId: stackGroupId,
+                stackCap: stackCap,
+                stackTypeEnum: stackTypeEnum,
+                isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+        }
+
+        [SpellEffectHandler(SpellEffectType.RemoveStealth)]
+        public static void HandleEffectRemoveStealth(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            if (target is UnitEntity unitEntity)
+                unitEntity.RemoveTimedAurasByEffectType(SpellEffectType.Stealth);
+
+            info.AddCombatLog(new CombatLogStealth
+            {
+                UnitId = target.Guid,
+                BExiting = true
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.AggroImmune)]
+        public static void HandleEffectAggroImmune(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not UnitEntity unitEntity)
+                return;
+
+            void clearThreat() => target.ThreatManager.ClearThreatList();
+            clearThreat();
+
+            if (info.Entry.DurationTime == 0u)
+                return;
+
+            uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+            uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+            uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+            unitEntity.AddTimedAura(
+                spell.Parameters.SpellInfo.Entry.Id,
+                SpellEffectType.AggroImmune,
+                spell.Caster.Guid,
+                info.Entry.DurationTime / 1000d,
+                0.25d,
+                onTick: clearThreat,
+                stackGroupId: stackGroupId,
+                stackCap: stackCap,
+                stackTypeEnum: stackTypeEnum,
+                isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+        }
+
+        [SpellEffectHandler(SpellEffectType.ReputationModify)]
+        public static void HandleEffectReputationModify(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            Faction faction = (Faction)info.Entry.DataBits00;
+            if (FactionManager.Instance.GetFaction(faction) == null)
+                return;
+
+            int amount = DecodeSignedEffectAmount(info.Entry);
+            if (amount == 0)
+                return;
+
+            player.ReputationManager.UpdateReputation(faction, amount);
+        }
+
+        [SpellEffectHandler(SpellEffectType.AchievementAdvance)]
+        public static void HandleEffectAchievementAdvance(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint achievementId = info.Entry.DataBits00;
+            if (achievementId == 0u || achievementId > ushort.MaxValue)
+                return;
+
+            player.AchievementManager.GrantAchievement((ushort)achievementId);
         }
 
         [SpellEffectHandler(SpellEffectType.Fluff)]

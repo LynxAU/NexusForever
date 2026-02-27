@@ -75,6 +75,11 @@ namespace NexusForever.Game.Abstract.Entity
         uint RemoveCrowdControlStatesByMask(uint stateMask, uint sourceCasterId = 0u);
 
         /// <summary>
+        /// Remove timed auras by effect type.
+        /// </summary>
+        uint RemoveTimedAurasByEffectType(SpellEffectType effectType, uint sourceCasterId = 0u);
+
+        /// <summary>
         /// Cast a <see cref="ISpell"/> with the supplied spell id and <see cref="ISpellParameters"/>.
         /// </summary>
         void CastSpell(uint spell4Id, ISpellParameters parameters);

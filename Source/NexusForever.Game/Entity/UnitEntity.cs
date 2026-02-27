@@ -405,6 +405,18 @@ namespace NexusForever.Game.Entity
             return (uint)matching.Count;
         }
 
+        public uint RemoveTimedAurasByEffectType(SpellEffectType effectType, uint sourceCasterId = 0u)
+        {
+            List<ActiveTimedAura> matching = activeTimedAuras
+                .Where(a => a.EffectType == effectType && (sourceCasterId == 0u || a.SourceCasterId == sourceCasterId))
+                .ToList();
+
+            foreach (ActiveTimedAura aura in matching)
+                RemoveTimedAura(aura.AuraId);
+
+            return (uint)matching.Count;
+        }
+
         public uint ApplyCrowdControlState(CCState state, uint durationMs, uint sourceCasterId, uint diminishingReturnsId = 0u)
         {
             double multiplier = ConsumeDiminishingReturnsMultiplier(diminishingReturnsId);

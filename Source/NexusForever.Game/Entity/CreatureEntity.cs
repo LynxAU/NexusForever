@@ -399,11 +399,17 @@ namespace NexusForever.Game.Entity
 
         private bool IsSpellInRange(IUnitEntity target, Spell4Entry spellEntry)
         {
-            float distance = Vector3.Distance(Position, target.Position);
+            float dx = Position.X - target.Position.X;
+            float dz = Position.Z - target.Position.Z;
+            float horizontalDistance = MathF.Sqrt((dx * dx) + (dz * dz));
+            float verticalDistance = MathF.Abs(Position.Y - target.Position.Y);
             float minRange = Math.Max(0f, spellEntry.TargetMinRange);
             float maxRange = spellEntry.TargetMaxRange <= 0f ? float.MaxValue : spellEntry.TargetMaxRange;
+            float maxVerticalRange = spellEntry.TargetVerticalRange <= 0f ? float.MaxValue : spellEntry.TargetVerticalRange;
 
-            return distance >= minRange && distance <= maxRange;
+            return horizontalDistance >= minRange
+                && horizontalDistance <= maxRange
+                && verticalDistance <= maxVerticalRange;
         }
 
         /// <summary>

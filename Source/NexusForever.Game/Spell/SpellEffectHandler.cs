@@ -13,11 +13,13 @@ using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Static.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
+using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Combat;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Network.World.Message.Model.Abilities;
 using NexusForever.Network.World.Message.Model.Crafting;
 using NexusForever.Network.World.Message.Model.Entity;
 using NexusForever.Shared;
@@ -222,6 +224,116 @@ namespace NexusForever.Game.Spell
             HandleEffectDamageInternal(spell, target, info, splitCount: 1, shieldOnly: false, applyTransferenceSideEffects: true);
         }
 
+        [SpellEffectHandler(SpellEffectType.ForcedMove)]
+        public static void HandleEffectForcedMove(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null || spell.Caster == null || target.Guid == spell.Caster.Guid)
+                return;
+
+            if (!TryResolveForcedMoveDistance(info.Entry, out float distance))
+                return;
+
+            uint travelMs = ResolveForcedMoveTravelMs(info.Entry);
+            if (travelMs == 0u)
+                return;
+
+            Vector3 direction = Vector3.Normalize(target.Position - spell.Caster.Position);
+            if (!IsFinite(direction) || direction.LengthSquared() < 0.0001f)
+            {
+                Vector3 fallback = target.Position - spell.Caster.Position;
+                if (fallback.LengthSquared() < 0.0001f)
+                    return;
+
+                direction = Vector3.Normalize(fallback);
+            }
+
+            bool pullTowardCaster = info.Entry.DataBits00 is 3u or 9u or 18u;
+            Vector3 offset = direction * (pullTowardCaster ? -distance : distance);
+            Vector3 destination = target.Position + offset;
+
+            target.CancelSpellsOnMove();
+            target.MovementManager.SetState(NexusForever.Game.Static.Entity.Movement.Command.State.StateFlags.Move);
+            target.MovementManager.SetPositionKeys(
+                [0u, travelMs],
+                [target.Position, destination]);
+        }
+
+        [SpellEffectHandler(SpellEffectType.Activate)]
+        public static void HandleEffectActivate(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            uint activateSpellId = info.Entry.DataBits00;
+            if (activateSpellId == 0u)
+                return;
+
+            IUnitEntity activationSource = target ?? spell.Caster;
+            if (activationSource == null || !activationSource.IsAlive)
+                return;
+
+            activationSource.CastSpell(activateSpellId, new SpellParameters
+            {
+                ParentSpellInfo        = spell.Parameters.SpellInfo,
+                RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                UserInitiatedSpellCast = false,
+                PrimaryTargetId        = spell.Caster?.Guid ?? activationSource.Guid
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.NpcExecutionDelay)]
+        public static void HandleEffectNpcExecutionDelay(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            uint delayMs = info.Entry.DataBits00;
+            if (delayMs == 0u || delayMs == uint.MaxValue)
+                delayMs = info.Entry.DurationTime;
+            if (delayMs == 0u || delayMs == uint.MaxValue)
+                delayMs = 250u;
+
+            spell.EnqueueEvent(delayMs / 1000d, () => { });
+        }
+
+        [SpellEffectHandler(SpellEffectType.FactionSet)]
+        public static void HandleEffectFactionSet(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            if (!Enum.IsDefined(typeof(Faction), (int)info.Entry.DataBits00))
+                return;
+
+            Faction faction = (Faction)info.Entry.DataBits00;
+            if (info.Entry.DurationTime == 0u)
+            {
+                target.SetFaction(faction);
+                return;
+            }
+
+            target.SetTemporaryFaction(faction);
+            spell.EnqueueEvent(info.Entry.DurationTime / 1000d, target.RemoveTemporaryFaction);
+        }
+
+        [SpellEffectHandler(SpellEffectType.ActionBarSet)]
+        public static void HandleEffectActionBarSet(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            ushort actionBarShortcutSetId = (ushort)(info.Entry.DataBits00 & 0x3FFFu);
+            if (actionBarShortcutSetId == 0u)
+                actionBarShortcutSetId = (ushort)(info.Entry.DataBits01 & 0x3FFFu);
+            if (actionBarShortcutSetId == 0u)
+                return;
+
+            ShortcutSet shortcutSet = Enum.IsDefined(typeof(ShortcutSet), (int)info.Entry.DataBits01)
+                ? (ShortcutSet)info.Entry.DataBits01
+                : ShortcutSet.FloatingSpellBar;
+
+            player.Session.EnqueueMessageEncrypted(new ServerShowActionBar
+            {
+                ShortcutSet            = shortcutSet,
+                ActionBarShortcutSetId = actionBarShortcutSetId,
+                AssociatedUnitId       = player.Guid
+            });
+        }
+
         [SpellEffectHandler(SpellEffectType.Heal)]
         public static void HandleEffectHeal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -404,6 +516,46 @@ namespace NexusForever.Game.Spell
                 isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
                 isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
                 isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+        }
+
+        [SpellEffectHandler(SpellEffectType.UnitStateSet)]
+        public static void HandleEffectUnitStateSet(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            if (!Enum.IsDefined(typeof(CCState), (int)info.Entry.DataBits00))
+                return;
+
+            var state = (CCState)info.Entry.DataBits00;
+            uint durationMs = info.Entry.DurationTime > 0u
+                ? info.Entry.DurationTime
+                : info.Entry.DataBits01;
+            if (durationMs == 0u)
+                return;
+
+            CCStatesEntry ccStateEntry = GameTableManager.Instance.CCStates.GetEntry((uint)state);
+            uint diminishingReturnsId = ccStateEntry?.CcStateDiminishingReturnsId ?? 0u;
+            uint appliedDurationMs = target.ApplyCrowdControlState(state, durationMs, spell.Caster.Guid, diminishingReturnsId);
+            if (appliedDurationMs == 0u)
+                return;
+
+            spell.Caster.EnqueueToVisible(new ServerEntityCCStateSet
+            {
+                UnitId              = target.Guid,
+                CCType              = state,
+                SpellEffectUniqueId = info.EffectId
+            }, true);
+
+            info.AddCombatLog(new CombatLogCCState
+            {
+                State                       = state,
+                BRemoved                    = false,
+                InterruptArmorTaken         = 0u,
+                Result                      = CCStateApplyRulesResult.Ok,
+                CcStateDiminishingReturnsId = (ushort)diminishingReturnsId,
+                CastData                    = BuildCastData(spell, target, info)
+            });
         }
 
         [SpellEffectHandler(SpellEffectType.ModifyInterruptArmor)]
@@ -802,6 +954,38 @@ namespace NexusForever.Game.Spell
                 info.AddCombatLog(new CombatLogDeath { UnitId = target.Guid });
         }
 
+        [SpellEffectHandler(SpellEffectType.SummonCreature)]
+        public static void HandleEffectSummonCreature(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            uint creatureId = info.Entry.DataBits00;
+            if (creatureId == 0u || spell.Caster?.Map == null)
+                return;
+
+            var factory = LegacyServiceProvider.Provider.GetService<IEntityFactory>();
+            var creature = factory?.CreateEntity<INonPlayerEntity>();
+            if (creature == null)
+                return;
+
+            creature.Initialise(creatureId);
+
+            var position = new MapPosition
+            {
+                Position = target?.Position ?? spell.Caster.Position
+            };
+
+            if (spell.Caster.Map.CanEnter(creature, position))
+                spell.Caster.Map.EnqueueAdd(creature, position);
+        }
+
+        [SpellEffectHandler(SpellEffectType.DespawnUnit)]
+        public static void HandleEffectDespawnUnit(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            target.RemoveFromMap();
+        }
+
         [SpellEffectHandler(SpellEffectType.Proxy)]
         public static void HandleEffectProxy(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -1004,6 +1188,42 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Fluff)]
         public static void HandleEffectFluff(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
+        }
+
+        [SpellEffectHandler(SpellEffectType.Scale)]
+        public static void HandleEffectScale(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            if (!TryDecodePositiveScale(info.Entry.DataBits00, out float scaleValue))
+                return;
+
+            double durationSeconds = info.Entry.DurationTime / 1000d;
+            if (durationSeconds <= 0d || target is not UnitEntity unitEntity)
+            {
+                target.MovementManager.SetScale(scaleValue);
+                return;
+            }
+
+            float originalScale = target.MovementManager.GetScale();
+            uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+            uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+            uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+            unitEntity.AddTimedAura(
+                spell.Parameters.SpellInfo.Entry.Id,
+                info.Entry.EffectType,
+                spell.Caster.Guid,
+                durationSeconds,
+                0d,
+                onApply: () => target.MovementManager.SetScale(scaleValue),
+                onRemove: () => target.MovementManager.SetScale(originalScale),
+                stackGroupId: stackGroupId,
+                stackCap: stackCap,
+                stackTypeEnum: stackTypeEnum,
+                isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
         }
 
         [SpellEffectHandler(SpellEffectType.UnitPropertyModifier)]
@@ -1433,6 +1653,65 @@ namespace NexusForever.Game.Spell
             return rawValue / 1000d;
         }
 
+        private static bool TryDecodePositiveScale(uint rawValue, out float scale)
+        {
+            scale = BitConverter.UInt32BitsToSingle(rawValue);
+            if (float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 0f)
+                return false;
+
+            if (scale > 20f)
+                return false;
+
+            return true;
+        }
+
+        private static bool TryResolveForcedMoveDistance(Spell4EffectsEntry entry, out float distance)
+        {
+            static bool IsReasonableDistance(float value) => !float.IsNaN(value) && !float.IsInfinity(value) && value > 0f && value <= 80f;
+
+            float value1 = BitConverter.UInt32BitsToSingle(entry.DataBits01);
+            if (IsReasonableDistance(value1))
+            {
+                distance = value1;
+                return true;
+            }
+
+            float value2 = BitConverter.UInt32BitsToSingle(entry.DataBits02);
+            if (IsReasonableDistance(value2))
+            {
+                distance = value2;
+                return true;
+            }
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                if (IsReasonableDistance(entry.ParameterValue[i]))
+                {
+                    distance = entry.ParameterValue[i];
+                    return true;
+                }
+            }
+
+            distance = 0f;
+            return false;
+        }
+
+        private static uint ResolveForcedMoveTravelMs(Spell4EffectsEntry entry)
+        {
+            uint raw = entry.DataBits03 != 0u ? entry.DataBits03 : entry.DurationTime;
+            if (raw == 0u || raw == uint.MaxValue)
+                return 300u;
+
+            return Math.Min(5000u, Math.Max(50u, raw));
+        }
+
+        private static bool IsFinite(Vector3 value)
+        {
+            return float.IsFinite(value.X)
+                   && float.IsFinite(value.Y)
+                   && float.IsFinite(value.Z);
+        }
+
         private static bool MeetsEffectPersistencePrerequisites(ISpell spell, IUnitEntity target, Spell4EffectsEntry entry)
         {
             if (spell.Caster is IPlayer casterPlayer
@@ -1463,6 +1742,45 @@ namespace NexusForever.Game.Spell
                 return false;
 
             return PrerequisiteManager.Instance.Meets(targetPlayer, entry.PrerequisiteIdTargetSuspend);
+        }
+
+        /// <summary>
+        /// Give an item to the player (spell effect 0x2B).
+        /// </summary>
+        [SpellEffectHandler(SpellEffectType.GiveItemToPlayer)]
+        public static void HandleEffectGiveItemToPlayer(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint itemId = info.Entry.DataBits00;
+            uint count = info.Entry.DataBits01 == 0u ? 1u : info.Entry.DataBits01;
+            if (itemId == 0u)
+                return;
+
+            // Create the item in player's inventory
+            player.Inventory.ItemCreate(InventoryLocation.Inventory, itemId, count);
+        }
+
+        /// <summary>
+        /// Advance a quest objective (spell effect 0x2A).
+        /// </summary>
+        [SpellEffectHandler(SpellEffectType.QuestAdvanceObjective)]
+        public static void HandleEffectQuestAdvanceObjective(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint questId = info.Entry.DataBits00;
+            uint objectiveIndex = info.Entry.DataBits01;
+            uint count = info.Entry.DataBits02;
+
+            if (questId == 0u)
+                return;
+
+            // Advance CompleteQuest objective type with the quest ID
+            // This is a simplification - proper implementation would need to map to specific objective indices
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CompleteQuest, questId, Math.Max(1u, count));
         }
     }
 }

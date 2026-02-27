@@ -1,6 +1,6 @@
 # Spell Data-Driven Report
 
-Generated: 2026-02-27 04:20:38 UTC
+Generated: 2026-02-27 05:06:00 UTC
 Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 
 ## Coverage Snapshot
@@ -18,6 +18,7 @@ Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 ## Effect Metadata (from SpellEffectType.tbl)
 | EffectType | Id | Flags | DataTypes (00..09) |
 |---|---:|---:|---|
+| ForcedMove | 3 | 29 | 2,0,0,2,0,2,0,0,0,2 |
 | Damage | 8 | 23 | 0,2,2,0,0,0,2,2,2,2 |
 | Heal | 10 | 23 | 0,2,2,2,2,2,2,2,2,2 |
 | HealShields | 118 | 23 | 0,2,2,2,2,2,2,2,2,2 |
@@ -25,6 +26,9 @@ Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 | CCStateBreak | 27 | 21 | 2,2,2,2,2,2,2,2,2,2 |
 | SpellDispel | 53 | 21 | 2,2,2,2,2,2,2,2,2,2 |
 | UnitPropertyModifier | 11 | 31 | 2,2,UInt,UInt,UInt,2,2,2,2,2 |
+| UnitStateSet | 15 | 31 | 2,2,2,2,2,2,2,2,2,2 |
+| Scale | 18 | 31 | 0,1,1,2,2,2,2,2,2,2 |
+| SetBusy | 107 | 25 | 2,2,2,2,2,2,2,2,2,2 |
 
 ## Periodic Tick Patterns (Top 20)
 | EffectType | Tick(ms) | Duration(ms) | Rows |
@@ -214,6 +218,112 @@ Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 | 10 | 48845 | 1065353216 | 9 | 1250 | 2 | 1 | 0 | 0 | 6 |
 | 16 | 62686 | 1065353216 | 20 | 1000 | 2 | 2 | 0 | 0 | 6 |
 | 16 | 43565 | 1065353216 | 2 | 1000 | 0 | 1 | 0 | 10000 | 6 |
+
+## Top Unhandled Effect Types By Row Count (Top 30)
+| EffectType | Id | Rows |
+|---|---:|---:|
+| RavelSignal | 81 | 5262 |
+| ItemVisualSwap | 76 | 1542 |
+| FacilityModification | 71 | 771 |
+| SetBusy | 107 | 571 |
+| ProxyLinearAE | 19 | 521 |
+| DisguiseOutfit | 112 | 358 |
+| UnlockInlaidAugment | 127 | 281 |
+| ChangeDisplayName | 82 | 268 |
+| ModifySpell | 55 | 255 |
+| SpellEffectImmunity | 79 | 229 |
+| SpellCounter | 2 | 200 |
+| RewardPropertyModifier | 50 | 197 |
+| ProxyRandomExclusive | 96 | 195 |
+| PetCastSpell | 111 | 191 |
+| ChangePhase | 34 | 161 |
+| SummonPet | 98 | 152 |
+| PersonalDmgHealMod | 151 | 145 |
+| Script | 13 | 104 |
+| ForcedAction | 24 | 95 |
+| ProxyChannelVariableTime | 94 | 86 |
+| ModifySpellEffect | 56 | 82 |
+| NpcForceFacing | 89 | 79 |
+| ModifyCreatureFlags | 60 | 75 |
+| Stealth | 83 | 74 |
+| ReputationModify | 37 | 70 |
+| AggroImmune | 77 | 67 |
+| SummonTrap | 106 | 64 |
+| Disembark | 132 | 63 |
+| ShieldOverload | 64 | 55 |
+| SpellImmunity | 32 | 53 |
+
+## ForcedMove Payload Patterns (Top 20)
+| DataBits00 | DataBits01 | DataBits02 | DataBits03 | DataBits04 | Flags | TargetFlags | Tick(ms) | Duration(ms) | Rows |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 9 | 0 | 0 | 500 | 0 | 0 | 1 | 0 | 0 | 466 |
+| 4 | 1084227584 | 1084227584 | 400 | 0 | 64 | 4 | 0 | 0 | 240 |
+| 8 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 117 |
+| 9 | 0 | 0 | 800 | 0 | 0 | 1 | 0 | 0 | 68 |
+| 4 | 1088421888 | 1092616192 | 300 | 0 | 0 | 2 | 0 | 0 | 54 |
+| 9 | 0 | 0 | 250 | 0 | 0 | 1 | 0 | 0 | 46 |
+| 9 | 0 | 0 | 400 | 0 | 0 | 1 | 0 | 0 | 38 |
+| 4 | 1086324736 | 1097859072 | 300 | 0 | 0 | 2 | 0 | 0 | 33 |
+| 4 | 0 | 1036831949 | 200 | 0 | 1536 | 6 | 0 | 0 | 30 |
+| 9 | 0 | 0 | 1000 | 0 | 0 | 1 | 0 | 0 | 27 |
+| 9 | 0 | 0 | 500 | 0 | 0 | 2 | 0 | 0 | 25 |
+| 4 | 1082130432 | 1082130432 | 250 | 0 | 0 | 4 | 0 | 0 | 25 |
+| 0 | 1101004800 | 1101004800 | 0 | 0 | 0 | 1 | 0 | 0 | 24 |
+| 3 | 1106247680 | 1106247680 | 2000 | 0 | 0 | 2 | 0 | 0 | 24 |
+| 9 | 0 | 0 | 300 | 0 | 0 | 1 | 0 | 0 | 20 |
+| 3 | 1073741824 | 1073741824 | 400 | 0 | 0 | 1 | 0 | 0 | 20 |
+| 9 | 0 | 0 | 200 | 0 | 0 | 1 | 0 | 0 | 19 |
+| 4 | 1073741824 | 1073741824 | 200 | 0 | 64 | 4 | 0 | 0 | 19 |
+| 4 | 1084227584 | 1084227584 | 500 | 0 | 0 | 4 | 0 | 0 | 18 |
+| 4 | 1084227584 | 1084227584 | 400 | 0 | 0 | 4 | 0 | 0 | 18 |
+
+## UnitStateSet Payload Patterns (Top 20)
+| DataBits00 | DataBits01 | DataBits02 | DataBits03 | DataBits04 | Flags | TargetFlags | Tick(ms) | Duration(ms) | Rows |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 0 | 0 | 0 | 0 | 512 | 2 | 0 | 1000 | 483 |
+| 22 | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 19 |
+| 1 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 1000 | 15 |
+| 22 | 0 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 11 |
+| 6 | 0 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 10 |
+| 1 | 30 | 0 | 0 | 0 | 512 | 1 | 0 | 1000 | 8 |
+| 6 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 2000 | 6 |
+| 6 | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 5000 | 5 |
+| 7 | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 4 |
+| 17 | 0 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 4 |
+| 18 | 0 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 4 |
+| 1 | 0 | 0 | 0 | 0 | 512 | 1 | 0 | 1000 | 4 |
+| 17 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1500 | 4 |
+| 18 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1500 | 4 |
+| 16 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1500 | 4 |
+| 6 | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 4 |
+| 2 | 0 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 3 |
+| 8 | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 3 |
+| 9 | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 3 |
+| 16 | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 3 |
+
+## Scale Payload Patterns (Top 20)
+| DataBits00 | DataBits01 | DataBits02 | DataBits03 | DataBits04 | Flags | TargetFlags | Tick(ms) | Duration(ms) | Rows |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1067030938 | 1000 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 12 |
+| 1066611507 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 5000 | 9 |
+| 1077936128 | 400 | 500 | 0 | 0 | 0 | 2 | 0 | 6000 | 9 |
+| 1036831949 | 5000 | 500 | 0 | 0 | 0 | 2 | 0 | 5000 | 9 |
+| 1066192077 | 3000 | 2000 | 0 | 0 | 0 | 1 | 0 | 15000 | 8 |
+| 1068708659 | 4000 | 4000 | 0 | 0 | 2 | 2 | 0 | 0 | 8 |
+| 1067030938 | 1500 | 1500 | 0 | 0 | 0 | 4 | 0 | 180000 | 8 |
+| 1061997773 | 0 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 7 |
+| 1061158912 | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 7 |
+| 1063675494 | 0 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 6 |
+| 1066611507 | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 6 |
+| 1066192077 | 1000 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 6 |
+| 1069547520 | 100 | 100 | 0 | 0 | 0 | 1 | 0 | 100 | 6 |
+| 1067450368 | 0 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 5 |
+| 1069547520 | 0 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 4 |
+| 1067030938 | 1500 | 1500 | 0 | 0 | 2 | 2 | 0 | 0 | 4 |
+| 1056964608 | 2000 | 2000 | 0 | 0 | 0 | 2 | 0 | 2000 | 4 |
+| 1073741824 | 1000 | 1000 | 0 | 0 | 0 | 2 | 0 | 2000 | 4 |
+| 1073741824 | 3000 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 4 |
+| 1066192077 | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 4 |
 
 ## Periodic SpellClass Mix
 | SpellClass (raw) | ClassBucket | SpellCount |

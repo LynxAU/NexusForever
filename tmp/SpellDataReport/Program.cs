@@ -11,6 +11,9 @@ string tableDir = args.Length > 0
 string outputPath = args.Length > 1
     ? args[1]
     : @"C:\Games\Dev\WIldstar\NexusForever\tmp\spell-data-driven-report.md";
+string handlerPath = args.Length > 2
+    ? args[2]
+    : @"C:\Games\Dev\WIldstar\NexusForever\Source\NexusForever.Game\Spell\SpellEffectHandler.cs";
 
 if (!Directory.Exists(tableDir))
 {
@@ -71,6 +74,18 @@ var procByBits = procRows
     .GroupBy(r => new { r.DataBits00, r.DataBits01, r.DataBits02, r.DataBits03, r.DataBits04, r.Flags, r.TargetFlags, r.TickTime, r.DurationTime })
     .OrderByDescending(g => g.Count())
     .Take(25)
+    .ToList();
+
+var forcedMoveByBits = BuildTopPayloadPatterns(effects, SpellEffectType.ForcedMove, 20);
+var unitStateSetByBits = BuildTopPayloadPatterns(effects, SpellEffectType.UnitStateSet, 20);
+var scaleByBits = BuildTopPayloadPatterns(effects, SpellEffectType.Scale, 20);
+
+HashSet<SpellEffectType> handledEffects = LoadHandledEffects(handlerPath);
+var topUnhandledEffects = effects
+    .GroupBy(e => e.EffectType)
+    .Where(g => !handledEffects.Contains(g.Key))
+    .OrderByDescending(g => g.Count())
+    .Take(30)
     .ToList();
 
 var periodicFlagDistribution = effects
@@ -151,13 +166,17 @@ sb.AppendLine("| EffectType | Id | Flags | DataTypes (00..09) |");
 sb.AppendLine("|---|---:|---:|---|");
 foreach (SpellEffectType type in new[]
          {
+             SpellEffectType.ForcedMove,
              SpellEffectType.Damage,
              SpellEffectType.Heal,
              SpellEffectType.HealShields,
              SpellEffectType.CCStateSet,
              SpellEffectType.CCStateBreak,
              SpellEffectType.SpellDispel,
-             SpellEffectType.UnitPropertyModifier
+             SpellEffectType.UnitPropertyModifier,
+             SpellEffectType.UnitStateSet,
+             SpellEffectType.Scale,
+             SpellEffectType.SetBusy
          })
 {
     uint id = (uint)type;
@@ -259,6 +278,17 @@ foreach (var g in procByBits)
     sb.AppendLine($"| {g.Key.DataBits00} | {g.Key.DataBits01} | {g.Key.DataBits02} | {g.Key.DataBits03} | {g.Key.DataBits04} | {g.Key.Flags} | {g.Key.TargetFlags} | {g.Key.TickTime} | {g.Key.DurationTime} | {g.Count()} |");
 sb.AppendLine();
 
+sb.AppendLine("## Top Unhandled Effect Types By Row Count (Top 30)");
+sb.AppendLine("| EffectType | Id | Rows |");
+sb.AppendLine("|---|---:|---:|");
+foreach (var g in topUnhandledEffects)
+    sb.AppendLine($"| {g.Key} | {(uint)g.Key} | {g.Count()} |");
+sb.AppendLine();
+
+AppendPayloadSection(sb, "ForcedMove Payload Patterns (Top 20)", forcedMoveByBits);
+AppendPayloadSection(sb, "UnitStateSet Payload Patterns (Top 20)", unitStateSetByBits);
+AppendPayloadSection(sb, "Scale Payload Patterns (Top 20)", scaleByBits);
+
 sb.AppendLine("## Periodic SpellClass Mix");
 sb.AppendLine("| SpellClass (raw) | ClassBucket | SpellCount |");
 sb.AppendLine("|---:|---|---:|");
@@ -342,3 +372,74 @@ static string DecodeDataType(uint value)
 
     return value.ToString();
 }
+
+static HashSet<SpellEffectType> LoadHandledEffects(string handlerPath)
+{
+    var handled = new HashSet<SpellEffectType>();
+    if (!File.Exists(handlerPath))
+        return handled;
+
+    string[] lines = File.ReadAllLines(handlerPath);
+    foreach (string line in lines)
+    {
+        int i = line.IndexOf("[SpellEffectHandler(SpellEffectType.", StringComparison.Ordinal);
+        if (i < 0)
+            continue;
+
+        int start = i + "[SpellEffectHandler(SpellEffectType.".Length;
+        int end = line.IndexOf(')', start);
+        if (end < 0)
+            continue;
+
+        string name = line[start..end].Trim();
+        if (Enum.TryParse(name, out SpellEffectType effectType))
+            handled.Add(effectType);
+    }
+
+    return handled;
+}
+
+static List<(PayloadKey Key, int Rows)> BuildTopPayloadPatterns(IEnumerable<Spell4EffectsEntry> effects, SpellEffectType type, int take)
+{
+    return effects
+        .Where(e => e.EffectType == type)
+        .GroupBy(e => new PayloadKey(
+            e.DataBits00,
+            e.DataBits01,
+            e.DataBits02,
+            e.DataBits03,
+            e.DataBits04,
+            e.Flags,
+            e.TargetFlags,
+            e.TickTime,
+            e.DurationTime))
+        .OrderByDescending(g => g.Count())
+        .Take(take)
+        .Select(g => (g.Key, g.Count()))
+        .ToList();
+}
+
+static void AppendPayloadSection(StringBuilder sb, string title, IEnumerable<(PayloadKey Key, int Rows)> groups)
+{
+    sb.AppendLine($"## {title}");
+    sb.AppendLine("| DataBits00 | DataBits01 | DataBits02 | DataBits03 | DataBits04 | Flags | TargetFlags | Tick(ms) | Duration(ms) | Rows |");
+    sb.AppendLine("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
+
+    foreach (var g in groups)
+    {
+        sb.AppendLine($"| {g.Key.DataBits00} | {g.Key.DataBits01} | {g.Key.DataBits02} | {g.Key.DataBits03} | {g.Key.DataBits04} | {g.Key.Flags} | {g.Key.TargetFlags} | {g.Key.TickTime} | {g.Key.DurationTime} | {g.Rows} |");
+    }
+
+    sb.AppendLine();
+}
+
+readonly record struct PayloadKey(
+    uint DataBits00,
+    uint DataBits01,
+    uint DataBits02,
+    uint DataBits03,
+    uint DataBits04,
+    uint Flags,
+    uint TargetFlags,
+    uint TickTime,
+    uint DurationTime);

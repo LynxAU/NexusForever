@@ -808,7 +808,8 @@ namespace NexusForever.Game.Spell
             if (target == null)
                 return;
 
-            uint spellFilterId = info.Entry.DataBits00;
+            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            uint spellFilterId = candidates.FirstOrDefault(id => id != spell.Parameters.SpellInfo.Entry.Id);
             ISpell activeSpell = target.GetActiveSpell(s =>
                 s.IsCasting && (spellFilterId == 0u || s.Parameters.SpellInfo.Entry.Id == spellFilterId));
             if (activeSpell == null)
@@ -823,7 +824,8 @@ namespace NexusForever.Game.Spell
             if (target == null)
                 return;
 
-            uint spellIdToRemove = info.Entry.DataBits00;
+            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            uint spellIdToRemove = candidates.FirstOrDefault(id => id != spell.Parameters.SpellInfo.Entry.Id);
             if (spellIdToRemove == 0u)
                 return;
 

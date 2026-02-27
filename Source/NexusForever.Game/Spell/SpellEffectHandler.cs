@@ -1558,7 +1558,67 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.SharedHealthPool)]
         public static void HandleEffectSharedHealthPool(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Placeholder: shared health pools require multi-entity state binding.
+            List<IUnitEntity> members = ResolveSharedHealthPoolMembers(spell);
+            if (members.Count < 2)
+                return;
+
+            void sync()
+            {
+                // Baseline: maintain a shared health percentage across linked targets.
+                // This approximates retail pooled-health behavior closely enough for encounter scripting.
+                float lowestPercent = members
+                    .Where(u => u.IsAlive && u.MaxHealth > 0u)
+                    .Select(u => u.Health / (float)u.MaxHealth)
+                    .DefaultIfEmpty(1f)
+                    .Min();
+
+                foreach (IUnitEntity member in members)
+                {
+                    if (!member.IsAlive || member.MaxHealth == 0u)
+                        continue;
+
+                    uint desiredHealth = (uint)Math.Round(member.MaxHealth * lowestPercent);
+                    desiredHealth = Math.Min(desiredHealth, member.MaxHealth);
+
+                    if (member.Health > desiredHealth)
+                    {
+                        uint damage = member.Health - desiredHealth;
+                        member.ModifyHealth(damage, DamageType.Physical, spell.Caster);
+                    }
+                    else if (member.Health < desiredHealth)
+                    {
+                        uint heal = desiredHealth - member.Health;
+                        member.ModifyHealth(heal, DamageType.Heal, spell.Caster);
+                    }
+                }
+            }
+
+            sync();
+
+            uint durationMs = info.Entry.DurationTime;
+            if (durationMs == 0u)
+                return;
+
+            const double syncTickSeconds = 0.20d;
+            foreach (UnitEntity member in members.OfType<UnitEntity>())
+            {
+                uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+                uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+                uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+                member.AddTimedAura(
+                    spell.Parameters.SpellInfo.Entry.Id,
+                    info.Entry.EffectType,
+                    spell.Caster.Guid,
+                    durationMs / 1000d,
+                    syncTickSeconds,
+                    onTick: sync,
+                    stackGroupId: stackGroupId,
+                    stackCap: stackCap,
+                    stackTypeEnum: stackTypeEnum,
+                    isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                    isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                    isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+            }
         }
 
         [SpellEffectHandler(SpellEffectType.UnlockVanityPet)]
@@ -3275,6 +3335,20 @@ namespace NexusForever.Game.Spell
                 return false;
 
             return PrerequisiteManager.Instance.Meets(targetPlayer, entry.PrerequisiteIdTargetSuspend);
+        }
+
+        private static List<IUnitEntity> ResolveSharedHealthPoolMembers(ISpell spell)
+        {
+            var members = spell.Targets
+                .Select(t => t.Entity)
+                .Where(e => e != null && e.IsAlive)
+                .DistinctBy(e => e.Guid)
+                .ToList();
+
+            if (members.All(e => e.Guid != spell.Caster.Guid) && spell.Caster.IsAlive)
+                members.Add(spell.Caster);
+
+            return members;
         }
 
         /// <summary>

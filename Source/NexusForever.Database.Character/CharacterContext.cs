@@ -35,6 +35,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterTitleModel> CharacterTitle { get; set; }
         public DbSet<CharacterTradeskillMaterialModel> CharacterTradeskillMaterial { get; set; }
         public DbSet<CharacterVirtualItemModel> CharacterVirtualItem { get; set; }
+        public DbSet<CharacterPrimalMatrixModel> CharacterPrimalMatrix { get; set; }
         public DbSet<CharacterZonemapHexgroupModel> CharacterZonemapHexgroup { get; set; }
         public DbSet<ChatChannelModel> ChatChannel { get; set; }
         public DbSet<ChatChannelMemberModel> ChatChannelMember { get; set; }
@@ -2697,6 +2698,34 @@ namespace NexusForever.Database.Character
 
                 entity.HasIndex(e => e.ExpirationTime)
                     .HasDatabaseName("expirationTime");
+            });
+
+            modelBuilder.Entity<CharacterPrimalMatrixModel>(entity =>
+            {
+                entity.ToTable("character_primal_matrix");
+
+                entity.HasKey(e => new { e.Id, e.EssenceId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.EssenceId)
+                    .HasColumnName("essenceId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Amount)
+                    .HasColumnName("amount")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.PrimalMatrix)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_primal_matrix_id__character_id");
             });
         }
     }

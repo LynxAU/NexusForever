@@ -49,6 +49,7 @@
         MTXChest                          = 0x002C,
         GenericUnlock                     = 0x002F,
         RewardRotation                    = 0x0030,
-        NoReason                          = 0x0031
+        NoReason                          = 0x0031,
+        PrimalMatrix                     = 0x0032
     }
 }

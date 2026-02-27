@@ -363,6 +363,7 @@ namespace NexusForever.Game.Entity
             GuildManager            = new GuildManager(this, model);
             ResidenceManager        = new ResidenceManager(this);
             CinematicManager        = new CinematicManager(this);
+            PrimalMatrixManager.Load(model);
 
             LogoutManager           = new LogoutManager(this);
             LogoutManager.OnTimerFinished += Logout;
@@ -602,6 +603,7 @@ namespace NexusForever.Game.Entity
             PathManager.Save(context);
             TitleManager.Save(context);
             CostumeManager.Save(context);
+            PrimalMatrixManager.Save(context);
             PetCustomisationManager.Save(context);
             KeybindingManager.Save(context);
             SpellManager.Save(context);
@@ -820,6 +822,7 @@ namespace NexusForever.Game.Entity
             TitleManager.SendTitles();
             SpellManager.SendInitialPackets();
             PetCustomisationManager.SendInitialPackets();
+            PrimalMatrixManager.SendInitialPackets();
             DatacubeManager.SendInitialPackets();
             MailManager.SendInitialPackets();
             FriendManager.SendInitialPackets();

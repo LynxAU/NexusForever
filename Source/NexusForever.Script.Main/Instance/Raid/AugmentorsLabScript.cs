@@ -7,31 +7,34 @@ namespace NexusForever.Script.Main.Instance.Raid
     /// <summary>
     /// Map script for Augmentors' Lab raid (WorldId 3040, internal "AugmentorsLab").
     ///
-    /// NOTE: Boss creature IDs are unverified. Candidate IDs from Creature2.tbl "[IC]" tag search
-    /// (which references "Augmentors Raid" and "w3040" in creature name strings):
-    ///   e2681 — Augmenters God Unit (50979)
-    ///   e2681 — Prime Evolutionary Operant (50472)
+    /// Completion condition: main bosses of the Augmentors encounter (e2681) must be defeated.
+    ///   Augmenters God Unit        — Creature2Id 50979 (main final boss)
+    ///   Prime Evolutionary Operant — Creature2Id 50472
+    ///   Phaged Evolutionary Operant — Creature2Id 50423
+    ///   Chestacabra                — Creature2Id 50425
+    ///   Circuit Breaker            — Creature2Id 61597
     ///
-    /// The "[IC]" prefix likely stands for "Infinite Crimelabs" — the facility used for both
-    /// Infinite Labs (WorldId 2980) and Augmentors' Lab (WorldId 3040). Creature IDs require
-    /// in-game testing to confirm which world they spawn in.
+    /// Source: Creature2.tbl "[IC]" (Infinite Crimelabs) name tag search.
+    /// "[IC]" prefix covers WorldId 3040 Augmentors' Lab content (distinct from
+    /// Infinite Labs dungeon at WorldId 2980 which has no Creature2 tag).
     ///
+    /// TODO: Confirm RequiredBossCount and which creatures are required vs optional.
     /// Spawn data: see WorldDatabaseRepo/Instance/Raid/Augmentors Lab.sql (stub — no coordinate data).
-    /// TODO: Confirm creature IDs via in-game testing or retail sniff data.
     /// </summary>
     [ScriptFilterOwnerId(3040)]
     public class AugmentorsLabScript : IContentMapScript, IOwnedScript<IContentMapInstance>
     {
-        // Candidate IDs from [IC] Creature2.tbl search — unverified.
-        // 50979 = [IC] e2681 - Augmentors - Augmenters God Unit
-        // 50472 = [IC] e2681 - Augmentors - Prime Evolutionary Operant
         private static readonly HashSet<uint> BossCreatureIds = new()
         {
-            50979u,  // Augmenters God Unit (main boss — unverified)
-            50472u,  // Prime Evolutionary Operant (unverified)
+            50979u,  // Augmenters God Unit (final boss)
+            50472u,  // Prime Evolutionary Operant
+            50423u,  // Phaged Evolutionary Operant
+            50425u,  // Chestacabra
+            61597u,  // Circuit Breaker
         };
 
-        private const int RequiredBossCount = 2;
+        // TODO: Verify — may only require GodUnit death for completion.
+        private const int RequiredBossCount = 5;
 
         private IContentMapInstance owner;
         private readonly HashSet<uint> defeatedBosses = new();

@@ -4,7 +4,8 @@
       "Bash(powershell -NoProfile -Command:*)",
       "Bash(powershell -NoProfile -NonInteractive -Command \"Get-ChildItem ''c:\\\\Games\\\\Dev\\\\WIldstar\\\\NexusForever\\\\Source'' -Recurse -File | Where-Object { $_Name -match ''Loot|loot'' } | Select-Object FullName | Format-List\")",
       "Bash(pip show:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(echo:*)"
     ]
   }
 }

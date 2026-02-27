@@ -228,15 +228,7 @@ namespace NexusForever.Game.Entity
                 .Where(x => x.ObjectId == pathRewardObjectId);
             foreach (PathRewardEntry pathRewardEntry in pathRewardEntries)
             {
-                if (pathRewardEntry.PathRewardFlags > 0)
-                    continue;
-
-                if (pathRewardEntry.PathRewardTypeEnum != 0)
-                    continue;
-
-                if (pathRewardEntry.Item2Id == 0 && pathRewardEntry.Spell4Id == 0 && pathRewardEntry.CharacterTitleId == 0)
-                    continue;
-
+                // Skip rewards with prerequisites that aren't met
                 if (pathRewardEntry.PrerequisiteId > 0 && !PrerequisiteManager.Instance.Meets(player, pathRewardEntry.PrerequisiteId))
                     continue;
 
@@ -256,10 +248,11 @@ namespace NexusForever.Game.Entity
             if (pathRewardEntry == null)
                 throw new ArgumentNullException();
 
-            // Inventory system handles full bags by sending ServerItemError to client
+            // Grant item rewards
             if (pathRewardEntry.Item2Id > 0)
-                player.Inventory.ItemCreate(InventoryLocation.Inventory, pathRewardEntry.Item2Id, 1, ItemUpdateReason.PathReward);
+                player.Inventory.ItemCreate(InventoryLocation.Inventory, pathRewardEntry.Item2Id, pathRewardEntry.Count, ItemUpdateReason.PathReward);
 
+            // Grant spell rewards
             if (pathRewardEntry.Spell4Id > 0)
             {
                 Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(pathRewardEntry.Spell4Id);
@@ -267,8 +260,13 @@ namespace NexusForever.Game.Entity
                     player.SpellManager.AddSpell(spell4Entry.Spell4BaseIdBaseSpell);
             }
 
+            // Grant title rewards
             if (pathRewardEntry.CharacterTitleId > 0)
                 player.TitleManager.AddTitle((ushort)pathRewardEntry.CharacterTitleId);
+
+            // Grant quest rewards
+            if (pathRewardEntry.Quest2Id > 0)
+                player.QuestManager.QuestAdd((ushort)pathRewardEntry.Quest2Id, null);
         }
 
         private PathUnlockedMask GetPathUnlockedMask()

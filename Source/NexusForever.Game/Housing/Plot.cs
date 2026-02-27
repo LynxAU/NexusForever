@@ -25,7 +25,8 @@ namespace NexusForever.Game.Housing
             BuildState     = 0x0008,
             PlotInfoId     = 0x0010,
             WarplotUpgrade = 0x0020,
-            Upkeep         = 0x0040
+            Upkeep         = 0x0040,
+            Contribution   = 0x0080
         }
 
         public ulong Id { get; }
@@ -108,9 +109,18 @@ namespace NexusForever.Game.Housing
         private float upkeepTime;
 
         /// <summary>
-        /// Contribution totals for this plot.
+        /// Contribution totals for this plot. Use <see cref="SetContribution"/> to mutate.
         /// </summary>
-        public uint[] ContributionTotals { get; set; } = new uint[5];
+        public uint[] ContributionTotals { get; } = new uint[5];
+
+        /// <summary>
+        /// Set a contribution total by index and mark the plot dirty for save.
+        /// </summary>
+        public void SetContribution(int index, uint value)
+        {
+            ContributionTotals[index] = value;
+            saveMask |= PlotSaveMask.Contribution;
+        }
 
         /// <summary>
         /// Warplot plug info for this plot (if it's a warplot plot).
@@ -268,13 +278,17 @@ namespace NexusForever.Game.Housing
                 {
                     model.UpkeepCharges = UpkeepCharges;
                     model.UpkeepTime = UpkeepTime;
+                    entity.Property(p => p.UpkeepCharges).IsModified = true;
+                    entity.Property(p => p.UpkeepTime).IsModified = true;
+                }
+
+                if ((saveMask & PlotSaveMask.Contribution) != 0)
+                {
                     model.ContributionTotal0 = ContributionTotals[0];
                     model.ContributionTotal1 = ContributionTotals[1];
                     model.ContributionTotal2 = ContributionTotals[2];
                     model.ContributionTotal3 = ContributionTotals[3];
                     model.ContributionTotal4 = ContributionTotals[4];
-                    entity.Property(p => p.UpkeepCharges).IsModified = true;
-                    entity.Property(p => p.UpkeepTime).IsModified = true;
                     entity.Property(p => p.ContributionTotal0).IsModified = true;
                     entity.Property(p => p.ContributionTotal1).IsModified = true;
                     entity.Property(p => p.ContributionTotal2).IsModified = true;
@@ -294,31 +308,21 @@ namespace NexusForever.Game.Housing
         }
 
         /// <summary>
-        /// Update the upkeep timer and consume charges if needed.
+        /// Update the upkeep timer and consume a charge if the interval has elapsed.
         /// </summary>
-        /// <returns>True if upkeep was consumed.</returns>
+        /// <returns>True if a charge was consumed.</returns>
         public bool UpdateUpkeep(double deltaTime)
         {
-            if (PlugItemEntry == null || PlugItemEntry.UpkeepTime <= 0)
+            if (PlugItemEntry == null || PlugItemEntry.UpkeepTime <= 0 || UpkeepCharges == 0)
                 return false;
 
             UpkeepTime -= (float)deltaTime;
-            if (UpkeepTime <= 0)
-            {
-                // Consume a charge
-                if (UpkeepCharges > 0)
-                {
-                    UpkeepCharges--;
-                    UpkeepTime = PlugItemEntry.UpkeepTime;
-                    return true;
-                }
-                else
-                {
-                    // No charges remaining - apply decay
-                    return true;
-                }
-            }
-            return false;
+            if (UpkeepTime > 0)
+                return false;
+
+            UpkeepCharges--;
+            UpkeepTime = PlugItemEntry.UpkeepTime;
+            return true;
         }
     }
 }

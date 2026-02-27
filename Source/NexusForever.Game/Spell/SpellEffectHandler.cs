@@ -1777,8 +1777,23 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.ModifyAbilityCharges)]
         public static void HandleEffectModifyAbilityCharges(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Baseline: reset cooldown for the specified spell to expedite charge refill in current architecture.
-            HandleEffectCooldownReset(spell, target, info);
+            if (target is not IPlayer player)
+                return;
+
+            uint targetSpellId = info.Entry.DataBits00 != 0u
+                ? info.Entry.DataBits00
+                : spell.Parameters.SpellInfo.Entry.Id;
+
+            if (!TryResolveCharacterSpell(player, targetSpellId, out ICharacterSpell characterSpell))
+                return;
+
+            int delta = DecodeSignedEffectAmount(info.Entry);
+            if (delta == 0 && info.Entry.DataBits01 != 0u)
+                delta = unchecked((int)info.Entry.DataBits01);
+            if (delta == 0)
+                return;
+
+            characterSpell.ModifyCharges(delta);
         }
 
         [SpellEffectHandler(SpellEffectType.SettlerCampfire)]
@@ -3014,6 +3029,31 @@ namespace NexusForever.Game.Spell
         {
             recipient = target as IPlayer ?? spell.Caster as IPlayer;
             return recipient != null;
+        }
+
+        private static bool TryResolveCharacterSpell(IPlayer player, uint rawSpellId, out ICharacterSpell characterSpell)
+        {
+            characterSpell = null;
+            if (rawSpellId == 0u)
+                return false;
+
+            Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(rawSpellId);
+            if (spell4Entry != null)
+            {
+                characterSpell = player.SpellManager.GetSpell(spell4Entry.Spell4BaseIdBaseSpell);
+                if (characterSpell != null)
+                    return true;
+            }
+
+            Spell4BaseEntry spell4BaseEntry = GameTableManager.Instance.Spell4Base.GetEntry(rawSpellId);
+            if (spell4BaseEntry != null)
+            {
+                characterSpell = player.SpellManager.GetSpell(spell4BaseEntry.Id);
+                return characterSpell != null;
+            }
+
+            characterSpell = player.SpellManager.GetSpell(rawSpellId);
+            return characterSpell != null;
         }
 
         private static bool TryResolveHazardId(Spell4EffectsEntry entry, out uint hazardId)

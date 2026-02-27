@@ -182,6 +182,26 @@ namespace NexusForever.Game.Spell
             SendChargeUpdate();
         }
 
+        public void ModifyCharges(int delta)
+        {
+            if (MaxAbilityCharges == 0u || delta == 0)
+                return;
+
+            uint previous = AbilityCharges;
+            if (delta > 0)
+            {
+                AbilityCharges = Math.Min(MaxAbilityCharges, AbilityCharges + (uint)delta);
+            }
+            else
+            {
+                uint decrease = (uint)Math.Min(-(long)delta, uint.MaxValue);
+                AbilityCharges = decrease >= AbilityCharges ? 0u : AbilityCharges - decrease;
+            }
+
+            if (AbilityCharges != previous)
+                SendChargeUpdate();
+        }
+
         private void SendChargeUpdate()
         {
             Owner.Session.EnqueueMessageEncrypted(new ServerSpellAbilityCharges

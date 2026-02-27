@@ -303,6 +303,8 @@ namespace NexusForever.Game.Spell
                 case AmpRespecType.Single:
                 {
                     IActionSetAmp amp = GetAmp((ushort)value);
+                    if (amp == null)
+                        break;
                     RemoveAmp(amp);
                     break;
                 }

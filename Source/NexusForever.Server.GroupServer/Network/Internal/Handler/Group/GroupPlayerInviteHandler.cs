@@ -112,9 +112,12 @@ namespace NexusForever.Server.GroupServer.Network.Internal.Handler.Group
             else
             {
                 var group = await inviter.PrimaryGroup.GetGroupAsync();
+                if (group == null)
+                    return (GroupInviteResult.GroupNotFound, true);
+
                 var member = group.GetMember(inviter.Identity);
 
-                if (group.Leader == inviter.Identity || member.Flags.HasFlag(GroupMemberInfoFlags.CanInvite))
+                if (group.Leader == inviter.Identity || (member != null && member.Flags.HasFlag(GroupMemberInfoFlags.CanInvite)))
                     return (await group.InviteMemberAsync(inviter.Identity, invitee), true);
                 else
                     return (await group.ReferMemberAsync(inviter.Identity, invitee), false);

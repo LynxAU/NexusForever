@@ -244,6 +244,8 @@ namespace NexusForever.Server.GroupServer.Character
 
             foreach (CharacterGroupModel groupModel in characterModel.Groups)
             {
+                if (groupModel.Index >= _groups.Length)
+                    continue;
                 var characterGroup = _serviceProvider.GetRequiredService<CharacterGroup>();
                 characterGroup.Initialise(groupModel);
                 _groups[groupModel.Index] = characterGroup;

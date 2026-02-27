@@ -12,7 +12,7 @@ namespace NexusForever.Server.GroupServer.Group
                 Identity   = member.Identity.ToInternalIdentity(),
                 GroupIndex = member.Index,
                 Flags      = member.Flags,
-                Character  = (await member.GetCharacterAsync()).ToGroupCharacter(),
+                Character  = (await member.GetCharacterAsync())?.ToGroupCharacter(),
             };
         }
     }

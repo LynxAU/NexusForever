@@ -412,10 +412,11 @@ namespace NexusForever.Server.GroupServer.Group
             _invites.Add(invitee.Identity, invite);
             Model.Invites.Add(invite.Model);
 
+            GroupMember leaderMember = GetMember(Leader);
             await _messagePublisher.PublishAsync(new GroupPlayerInvitedMessage
             {
                 Group           = await this.ToInternalGroup(),
-                Leader          = await GetMember(Leader).ToInternalGroupMember(),
+                Leader          = leaderMember != null ? await leaderMember.ToInternalGroupMember() : null,
                 Inviter         = await groupMember.ToInternalGroupMember(),
                 InviteeIdentity = invitee.Identity.ToInternalIdentity(),
                 Invitee         = invitee.ToGroupCharacter()
@@ -641,8 +642,12 @@ namespace NexusForever.Server.GroupServer.Group
 
         private async Task PromoteMemberAsync(GroupMember promotee)
         {
-            GroupMember leaderMember = GetMember(Leader);
-            await leaderMember.RemoveFlagAsync(GroupMemberInfoFlags.GroupAdminFlags, fromPromotion: true);
+            if (Leader != null)
+            {
+                GroupMember leaderMember = GetMember(Leader);
+                if (leaderMember != null)
+                    await leaderMember.RemoveFlagAsync(GroupMemberInfoFlags.GroupAdminFlags, fromPromotion: true);
+            }
 
             Leader = promotee.Identity;
 
@@ -792,7 +797,7 @@ namespace NexusForever.Server.GroupServer.Group
 
         private GroupMarker GetMarker(uint unitId)
         {
-            return _markers.Values.SingleOrDefault(m => m.Model.UnitId == unitId);
+            return _markers.Values.FirstOrDefault(m => m.Model.UnitId == unitId);
         }
 
         /// <summary>

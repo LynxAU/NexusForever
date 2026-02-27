@@ -458,6 +458,18 @@ namespace NexusForever.Game.Spell
                         var info = new SpellTargetInfo.SpellTargetEffectInfo(effectId, spell4EffectsEntry);
                         effectTarget.Effects.Add(info);
 
+                        SpellEffectType effectType = (SpellEffectType)spell4EffectsEntry.EffectType;
+                        if (effectTarget.Entity.IsImmuneToSpell(Parameters.SpellInfo.Entry.Id)
+                            || effectTarget.Entity.IsImmuneToSpellEffect(effectType))
+                        {
+                            info.DropEffect = true;
+                            info.AddCombatLog(new CombatLogImmune
+                            {
+                                CastData = BuildImmuneCastData(effectTarget.Entity)
+                            });
+                            continue;
+                        }
+
                         try
                         {
                             handler.Invoke(this, effectTarget.Entity, info);
@@ -706,6 +718,17 @@ namespace NexusForever.Game.Spell
                 CastingId = CastingId,
                 CasterId  = unitId
             }, true);
+        }
+
+        private CombatLogCastData BuildImmuneCastData(IUnitEntity target)
+        {
+            return new CombatLogCastData
+            {
+                CasterId     = Caster.Guid,
+                TargetId     = target.Guid,
+                SpellId      = Parameters.SpellInfo.Entry.Id,
+                CombatResult = CombatResult.Immune
+            };
         }
     }
 }

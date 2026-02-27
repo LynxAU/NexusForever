@@ -98,6 +98,8 @@ namespace NexusForever.Game.Entity
         private readonly List<ActiveTimedAura> activeTimedAuras = new();
         private readonly List<ActiveProcTrigger> activeProcTriggers = new();
         private readonly Dictionary<uint, ActiveDiminishingReturnsState> diminishingReturnsStates = new();
+        private readonly Dictionary<uint, uint> spellImmunityCounts = new();
+        private readonly Dictionary<SpellEffectType, uint> spellEffectImmunityCounts = new();
         private uint damageAbsorptionPool;
         private uint healingAbsorptionPool;
         private uint crowdControlStateMask;
@@ -415,6 +417,131 @@ namespace NexusForever.Game.Entity
                 RemoveTimedAura(aura.AuraId);
 
             return (uint)matching.Count;
+        }
+
+        public bool IsImmuneToSpell(uint spellId)
+        {
+            return spellId != 0u && spellImmunityCounts.ContainsKey(spellId);
+        }
+
+        public bool IsImmuneToSpellEffect(SpellEffectType effectType)
+        {
+            return spellEffectImmunityCounts.ContainsKey(effectType);
+        }
+
+        public bool HasTimedAuraEffect(SpellEffectType effectType)
+        {
+            return activeTimedAuras.Any(a => a.EffectType == effectType);
+        }
+
+        public ulong AddSpellImmunity(
+            uint ownerSpellId,
+            uint sourceCasterId,
+            uint immuneSpellId,
+            double durationSeconds,
+            uint stackGroupId = 0u,
+            uint stackCap = 0u,
+            uint stackTypeEnum = 0u,
+            bool isDispellable = false,
+            bool isDebuff = false,
+            bool isBuff = false)
+        {
+            if (immuneSpellId == 0u || durationSeconds <= 0d)
+                return 0u;
+
+            IncrementSpellImmunity(immuneSpellId);
+            ulong auraId = AddTimedAura(
+                ownerSpellId,
+                SpellEffectType.SpellImmunity,
+                sourceCasterId,
+                durationSeconds,
+                0d,
+                onRemove: () => DecrementSpellImmunity(immuneSpellId),
+                stackGroupId: stackGroupId,
+                stackCap: stackCap,
+                stackTypeEnum: stackTypeEnum,
+                isDispellable: isDispellable,
+                isDebuff: isDebuff,
+                isBuff: isBuff);
+
+            if (auraId == 0u)
+                DecrementSpellImmunity(immuneSpellId);
+
+            return auraId;
+        }
+
+        public ulong AddSpellEffectImmunity(
+            uint ownerSpellId,
+            uint sourceCasterId,
+            SpellEffectType immuneEffectType,
+            double durationSeconds,
+            uint stackGroupId = 0u,
+            uint stackCap = 0u,
+            uint stackTypeEnum = 0u,
+            bool isDispellable = false,
+            bool isDebuff = false,
+            bool isBuff = false)
+        {
+            if (durationSeconds <= 0d)
+                return 0u;
+
+            IncrementSpellEffectImmunity(immuneEffectType);
+            ulong auraId = AddTimedAura(
+                ownerSpellId,
+                SpellEffectType.SpellEffectImmunity,
+                sourceCasterId,
+                durationSeconds,
+                0d,
+                onRemove: () => DecrementSpellEffectImmunity(immuneEffectType),
+                stackGroupId: stackGroupId,
+                stackCap: stackCap,
+                stackTypeEnum: stackTypeEnum,
+                isDispellable: isDispellable,
+                isDebuff: isDebuff,
+                isBuff: isBuff);
+
+            if (auraId == 0u)
+                DecrementSpellEffectImmunity(immuneEffectType);
+
+            return auraId;
+        }
+
+        private void IncrementSpellImmunity(uint spellId)
+        {
+            if (spellImmunityCounts.TryGetValue(spellId, out uint count))
+                spellImmunityCounts[spellId] = count + 1u;
+            else
+                spellImmunityCounts[spellId] = 1u;
+        }
+
+        private void DecrementSpellImmunity(uint spellId)
+        {
+            if (!spellImmunityCounts.TryGetValue(spellId, out uint count))
+                return;
+
+            if (count <= 1u)
+                spellImmunityCounts.Remove(spellId);
+            else
+                spellImmunityCounts[spellId] = count - 1u;
+        }
+
+        private void IncrementSpellEffectImmunity(SpellEffectType effectType)
+        {
+            if (spellEffectImmunityCounts.TryGetValue(effectType, out uint count))
+                spellEffectImmunityCounts[effectType] = count + 1u;
+            else
+                spellEffectImmunityCounts[effectType] = 1u;
+        }
+
+        private void DecrementSpellEffectImmunity(SpellEffectType effectType)
+        {
+            if (!spellEffectImmunityCounts.TryGetValue(effectType, out uint count))
+                return;
+
+            if (count <= 1u)
+                spellEffectImmunityCounts.Remove(effectType);
+            else
+                spellEffectImmunityCounts[effectType] = count - 1u;
         }
 
         public uint ApplyCrowdControlState(CCState state, uint durationMs, uint sourceCasterId, uint diminishingReturnsId = 0u)
@@ -867,6 +994,13 @@ namespace NexusForever.Game.Entity
                 newHealth -= amount;
 
             Health = (uint)Math.Clamp(newHealth, 0u, MaxHealth);
+
+            if (Health == 0 && type != DamageType.Heal && HasTimedAuraEffect(SpellEffectType.DelayDeath))
+            {
+                // DelayDeath baseline: do not allow fatal health transition while the aura is active.
+                Health = 1u;
+                return;
+            }
 
             if (Health == 0)
                 OnDeath();

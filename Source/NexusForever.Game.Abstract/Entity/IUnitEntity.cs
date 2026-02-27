@@ -80,6 +80,16 @@ namespace NexusForever.Game.Abstract.Entity
         uint RemoveTimedAurasByEffectType(SpellEffectType effectType, uint sourceCasterId = 0u);
 
         /// <summary>
+        /// Returns whether this unit is currently immune to the supplied spell id.
+        /// </summary>
+        bool IsImmuneToSpell(uint spellId);
+
+        /// <summary>
+        /// Returns whether this unit is currently immune to the supplied spell effect type.
+        /// </summary>
+        bool IsImmuneToSpellEffect(SpellEffectType effectType);
+
+        /// <summary>
         /// Cast a <see cref="ISpell"/> with the supplied spell id and <see cref="ISpellParameters"/>.
         /// </summary>
         void CastSpell(uint spell4Id, ISpellParameters parameters);

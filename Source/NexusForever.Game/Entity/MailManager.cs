@@ -67,9 +67,23 @@ namespace NexusForever.Game.Entity
                 if (sendAvailableMail)
                     SendAvailableMail();
 
-                // TODO: remove expired mail
+                // Remove expired mail
+                RemoveExpiredMail();
 
                 mailTimer.Reset();
+            }
+        }
+
+        /// <summary>
+        /// Remove expired mail from player's mailbox.
+        /// </summary>
+        private void RemoveExpiredMail()
+        {
+            var expiredMail = availableMail.Values.Where(m => m.IsExpired()).ToList();
+            foreach (IMailItem mail in expiredMail)
+            {
+                availableMail.Remove(mail.Id);
+                mail.EnqueueDelete(true);
             }
         }
 

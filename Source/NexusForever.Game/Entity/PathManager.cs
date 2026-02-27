@@ -45,7 +45,30 @@ namespace NexusForever.Game.Entity
                         SetPathEntry(path, PathCreate(path));
             }
 
-            // TODO: Check for missing level up rewards.
+            // Check for missing level up rewards - this can happen if player leveled up
+            // before this feature was implemented or due to a bug
+            CheckForMissingRewards();
+        }
+
+        /// <summary>
+        /// Check and grant any missing path level-up rewards based on current XP.
+        /// </summary>
+        private void CheckForMissingRewards()
+        {
+            foreach (IPathEntry entry in paths.Values)
+            {
+                if (!entry.Unlocked)
+                    continue;
+
+                uint currentLevel = GetCurrentLevel(entry.Path);
+                byte rewardedLevel = entry.LevelRewarded;
+
+                // Grant rewards for any levels that haven't been rewarded yet
+                for (byte level = (byte)(rewardedLevel + 1); level <= currentLevel; level++)
+                {
+                    GrantLevelUpReward(entry.Path, level);
+                }
+            }
         }
 
         /// <summary>
@@ -146,8 +169,16 @@ namespace NexusForever.Game.Entity
 
                 SendServerPathUpdateXp(entry.TotalXp);
             }
-
-            // TODO: Reward Elder XP after achieving rank 30
+            else
+            {
+                // Player is at max level (30) - still grant XP for Elder progression
+                IPathEntry entry = GetPathEntry(path);
+                checked
+                {
+                    entry.TotalXp += xp;
+                }
+                SendServerPathUpdateXp(entry.TotalXp);
+            }
         }
 
         /// <summary>
@@ -225,7 +256,7 @@ namespace NexusForever.Game.Entity
             if (pathRewardEntry == null)
                 throw new ArgumentNullException();
 
-            // TODO: Check if there's bag space. Otherwise queue? Or is there an overflow inventory?
+            // Inventory system handles full bags by sending ServerItemError to client
             if (pathRewardEntry.Item2Id > 0)
                 player.Inventory.ItemCreate(InventoryLocation.Inventory, pathRewardEntry.Item2Id, 1, ItemUpdateReason.PathReward);
 

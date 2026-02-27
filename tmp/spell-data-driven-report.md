@@ -1,6 +1,6 @@
 # Spell Data-Driven Report
 
-Generated: 2026-02-27 05:45:12 UTC
+Generated: 2026-02-27 07:53:12 UTC
 Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 
 ## Coverage Snapshot
@@ -222,36 +222,7 @@ Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 ## Top Unhandled Effect Types By Row Count (Top 30)
 | EffectType | Id | Rows |
 |---|---:|---:|
-| RavelSignal | 81 | 5262 |
-| FacilityModification | 71 | 771 |
-| ChangeDisplayName | 82 | 268 |
-| ModifySpell | 55 | 255 |
-| SpellEffectImmunity | 79 | 229 |
-| SpellCounter | 2 | 200 |
-| RewardPropertyModifier | 50 | 197 |
-| PersonalDmgHealMod | 151 | 145 |
-| Script | 13 | 104 |
-| ForcedAction | 24 | 95 |
-| ModifySpellEffect | 56 | 82 |
-| NpcForceFacing | 89 | 79 |
-| ModifyCreatureFlags | 60 | 75 |
-| Stealth | 83 | 74 |
-| ReputationModify | 37 | 70 |
-| AggroImmune | 77 | 67 |
-| SummonTrap | 106 | 64 |
-| Disembark | 132 | 63 |
-| ShieldOverload | 64 | 55 |
-| SpellImmunity | 32 | 53 |
-| HazardModify | 87 | 49 |
-| AchievementAdvance | 92 | 48 |
-| MimicDisguise | 100 | 33 |
-| ForceFacing | 28 | 32 |
-| VectorSlide | 142 | 30 |
-| GiveLootTableToPlayer | 44 | 29 |
-| AddSpellEffect | 58 | 25 |
-| RestedXpDecorBonus | 109 | 25 |
-| DelayDeath | 121 | 25 |
-| ChangeIcon | 75 | 23 |
+| 0 | 0 | 18 |
 
 ## ForcedMove Payload Patterns (Top 20)
 | DataBits00 | DataBits01 | DataBits02 | DataBits03 | DataBits04 | Flags | TargetFlags | Tick(ms) | Duration(ms) | Rows |

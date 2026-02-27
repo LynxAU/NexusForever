@@ -311,6 +311,16 @@ namespace NexusForever.Game.Mail
         }
 
         /// <summary>
+        /// Returns whether this mail has expired based on <see cref="ExpiryTime"/>.
+        /// </summary>
+        public bool IsExpired()
+        {
+            return DateTime.Now
+                .Subtract(CreateTime)
+                .TotalDays > ExpiryTime;
+        }
+
+        /// <summary>
         /// Add a <see cref="IMailAttachment"/> to this <see cref="IMailItem"/>.
         /// </summary>
         public void AttachmentAdd(IMailAttachment mailAttachment)

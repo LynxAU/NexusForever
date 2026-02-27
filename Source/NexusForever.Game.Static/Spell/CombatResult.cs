@@ -5,6 +5,7 @@
         Avoid,
         Critical,
         Hit,
+        Immune,
         NeedsTelegraphEvaluation,
         OutsideTelegraph,
         OutsideTelegraphInvalid,

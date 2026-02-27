@@ -61,6 +61,11 @@ namespace NexusForever.Game.Abstract.Mail
         bool IsReadyToDeliver();
 
         /// <summary>
+        /// Returns whether this item has expired based on <see cref="ExpiryTime"/>.
+        /// </summary>
+        bool IsExpired();
+
+        /// <summary>
         /// Add a <see cref="IMailAttachment"/> to this <see cref="IMailItem"/>.
         /// </summary>
         void AttachmentAdd(IMailAttachment mailAttachment);

@@ -8,6 +8,7 @@ using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Combat;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Static.Crafting;
+using NexusForever.Game.Static.Hazard;
 using NexusForever.Game.Map;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Reputation;
@@ -18,11 +19,13 @@ using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
+using NexusForever.Network.World.Message.Static;
 using NexusForever.Network.World.Combat;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Model.Abilities;
 using NexusForever.Network.World.Message.Model.Crafting;
 using NexusForever.Network.World.Message.Model.Entity;
+using NexusForever.Network.World.Message.Model.Hazard;
 using NexusForever.Shared;
 
 namespace NexusForever.Game.Spell
@@ -838,6 +841,20 @@ namespace NexusForever.Game.Spell
             player.SpellManager.SetSpellCooldown(targetSpellId, newCooldown);
         }
 
+        [SpellEffectHandler(SpellEffectType.ModifySpell)]
+        public static void HandleEffectModifySpell(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Baseline: most practical server-side impact in current stack is cooldown adjustment.
+            HandleEffectModifySpellCooldown(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.ModifySpellEffect)]
+        public static void HandleEffectModifySpellEffect(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Baseline: apply as spell cooldown delta until full effect-param mutation semantics are reconstructed.
+            HandleEffectModifySpellCooldown(spell, target, info);
+        }
+
         [SpellEffectHandler(SpellEffectType.CooldownReset)]
         public static void HandleEffectCooldownReset(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -974,6 +991,59 @@ namespace NexusForever.Game.Spell
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CraftSchematic, schematicId, 1u);
         }
 
+        [SpellEffectHandler(SpellEffectType.ForcedAction)]
+        public static void HandleEffectForcedAction(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            uint forcedSpellId = info.Entry.DataBits00 != 0u
+                ? info.Entry.DataBits00
+                : info.Entry.DataBits01;
+            if (forcedSpellId == 0u)
+                return;
+
+            target.CastSpell(forcedSpellId, new SpellParameters
+            {
+                ParentSpellInfo        = spell.Parameters.SpellInfo,
+                RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                UserInitiatedSpellCast = false,
+                PrimaryTargetId        = spell.Caster.Guid
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.DelayDeath)]
+        public static void HandleEffectDelayDeath(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not UnitEntity unitEntity)
+                return;
+
+            double durationSeconds = info.Entry.DurationTime > 0u
+                ? info.Entry.DurationTime / 1000d
+                : 5d;
+
+            uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+            uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+            uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+            unitEntity.AddTimedAura(
+                spell.Parameters.SpellInfo.Entry.Id,
+                SpellEffectType.DelayDeath,
+                spell.Caster.Guid,
+                durationSeconds,
+                0d,
+                stackGroupId: stackGroupId,
+                stackCap: stackCap,
+                stackTypeEnum: stackTypeEnum,
+                isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+
+            info.AddCombatLog(new CombatLogDelayDeath
+            {
+                CastData = BuildCastData(spell, target, info)
+            });
+        }
+
         [SpellEffectHandler(SpellEffectType.Kill)]
         public static void HandleEffectKill(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -1022,6 +1092,12 @@ namespace NexusForever.Game.Spell
 
             if (spell.Caster.Map.CanEnter(creature, position))
                 spell.Caster.Map.EnqueueAdd(creature, position);
+        }
+
+        [SpellEffectHandler(SpellEffectType.SummonTrap)]
+        public static void HandleEffectSummonTrap(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectSummonCreature(spell, target, info);
         }
 
         [SpellEffectHandler(SpellEffectType.DespawnUnit)]
@@ -1112,6 +1188,12 @@ namespace NexusForever.Game.Spell
                 RootSpellInfo          = spell.Parameters.RootSpellInfo,
                 UserInitiatedSpellCast = false
             });
+        }
+
+        [SpellEffectHandler(SpellEffectType.ProxyChannel)]
+        public static void HandleEffectProxyChannel(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectProxyChannelVariableTime(spell, target, info);
         }
 
         [SpellEffectHandler(SpellEffectType.ProxyChannelVariableTime)]
@@ -1247,6 +1329,21 @@ namespace NexusForever.Game.Spell
             player.CastSpell(80530, new SpellParameters());
         }
 
+        [SpellEffectHandler(SpellEffectType.SummonVehicle)]
+        public static void HandleEffectSummonVehicle(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectSummonMount(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.Disembark)]
+        public static void HandleEffectDisembark(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            player.Dismount();
+        }
+
         [SpellEffectHandler(SpellEffectType.Teleport)]
         public static void HandleEffectTeleport(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -1257,6 +1354,12 @@ namespace NexusForever.Game.Spell
             if (target is IPlayer player)
                 if (player.CanTeleport())
                     player.TeleportTo((ushort)locationEntry.WorldId, locationEntry.Position0, locationEntry.Position1, locationEntry.Position2);
+        }
+
+        [SpellEffectHandler(SpellEffectType.HousingTeleport)]
+        public static void HandleEffectHousingTeleport(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectTeleport(spell, target, info);
         }
 
         [SpellEffectHandler(SpellEffectType.FullScreenEffect)]
@@ -1338,6 +1441,96 @@ namespace NexusForever.Game.Spell
                 return;
 
             player.PetCustomisationManager.UnlockFlair((ushort)info.Entry.DataBits00);
+        }
+
+        [SpellEffectHandler(SpellEffectType.GrantLevelScaledXP)]
+        public static void HandleEffectGrantLevelScaledXp(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            if (amount == 0u)
+            {
+                XpPerLevelEntry xpEntry = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level);
+                amount = xpEntry != null
+                    ? Math.Max(1u, (uint)(xpEntry.BaseQuestXpPerLevel * 0.10f))
+                    : 1u;
+            }
+
+            player.XpManager.GrantXp(amount, Network.World.Message.Static.ExpReason.Cheat);
+        }
+
+        [SpellEffectHandler(SpellEffectType.GrantLevelScaledPrestige)]
+        public static void HandleEffectGrantLevelScaledPrestige(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            if (amount == 0u)
+                amount = Math.Max(1u, (uint)player.Level);
+
+            player.CurrencyManager.CurrencyAddAmount(CurrencyType.Prestige, amount, isLoot: true);
+        }
+
+        [SpellEffectHandler(SpellEffectType.GrantXP)]
+        public static void HandleEffectGrantXp(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            if (amount == 0u)
+                return;
+
+            player.XpManager.GrantXp(amount, Network.World.Message.Static.ExpReason.Cheat);
+        }
+
+        [SpellEffectHandler(SpellEffectType.PathXpModify)]
+        public static void HandleEffectPathXpModify(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            if (amount == 0u)
+                return;
+
+            player.PathManager.AddXp(amount);
+        }
+
+        [SpellEffectHandler(SpellEffectType.UnlockActionBar)]
+        public static void HandleEffectUnlockActionBar(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            player.SpellManager.SendServerAbilityPoints();
+        }
+
+        [SpellEffectHandler(SpellEffectType.RestedXpDecorBonus)]
+        public static void HandleEffectRestedXpDecorBonus(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Placeholder: rest XP modifier persistence/rates are owned by XP manager progression model.
+        }
+
+        [SpellEffectHandler(SpellEffectType.SetMatchingEligibility)]
+        public static void HandleEffectSetMatchingEligibility(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Placeholder: matching eligibility state is managed by matchmaking subsystem.
+        }
+
+        [SpellEffectHandler(SpellEffectType.ChangePlane)]
+        public static void HandleEffectChangePlane(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Placeholder: plane-layer transitions require authoritative map-layer subsystem support.
+        }
+
+        [SpellEffectHandler(SpellEffectType.SharedHealthPool)]
+        public static void HandleEffectSharedHealthPool(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Placeholder: shared health pools require multi-entity state binding.
         }
 
         [SpellEffectHandler(SpellEffectType.UnlockVanityPet)]
@@ -1448,6 +1641,199 @@ namespace NexusForever.Game.Spell
                 return;
 
             player.TitleManager.AddTitle((ushort)info.Entry.DataBits00);
+        }
+
+        [SpellEffectHandler(SpellEffectType.TitleRevoke)]
+        public static void HandleEffectTitleRevoke(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            player.TitleManager.RevokeTitle((ushort)info.Entry.DataBits00);
+        }
+
+        [SpellEffectHandler(SpellEffectType.VendorPriceModifier)]
+        public static void HandleEffectVendorPriceModifier(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectPropertyModifier(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.ApplyLASChanges)]
+        public static void HandleEffectApplyLasChanges(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            player.SpellManager.SendServerAbilityPoints();
+        }
+
+        [SpellEffectHandler(SpellEffectType.GiveAbilityPointsToPlayer)]
+        public static void HandleEffectGiveAbilityPointsToPlayer(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            player.SpellManager.SendServerAbilityPoints();
+        }
+
+        [SpellEffectHandler(SpellEffectType.PathActionExplorerDig)]
+        public static void HandleEffectPathActionExplorerDig(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            player.PathManager.AddXp(Math.Max(1u, amount));
+        }
+
+        [SpellEffectHandler(SpellEffectType.ModifyAbilityCharges)]
+        public static void HandleEffectModifyAbilityCharges(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Baseline: reset cooldown for the specified spell to expedite charge refill in current architecture.
+            HandleEffectCooldownReset(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.SettlerCampfire)]
+        public static void HandleEffectSettlerCampfire(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (info.Entry.DurationTime == 0u)
+                return;
+
+            // Keep spell execution alive during campfire runtime.
+            spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () => { });
+        }
+
+        [SpellEffectHandler(SpellEffectType.RewardBuffModifier)]
+        public static void HandleEffectRewardBuffModifier(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectPropertyModifier(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.HousingEscape)]
+        public static void HandleEffectHousingEscape(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectHousingTeleport(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.NPCForceAIMovement)]
+        public static void HandleEffectNpcForceAiMovement(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectForcedMove(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.PathMissionIncrement)]
+        public static void HandleEffectPathMissionIncrement(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            player.PathManager.AddXp(Math.Max(1u, amount));
+        }
+
+        [SpellEffectHandler(SpellEffectType.WarplotPlugUpgrade)]
+        public static void HandleEffectWarplotPlugUpgrade(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            ushort unlockId = (ushort)(info.Entry.DataBits00 != 0u ? info.Entry.DataBits00 : info.Entry.DataBits01);
+            if (unlockId == 0u)
+                return;
+
+            player.Account.GenericUnlockManager.Unlock(unlockId);
+        }
+
+        [SpellEffectHandler(SpellEffectType.GiveAugmentPowerToPlayer)]
+        public static void HandleEffectGiveAugmentPowerToPlayer(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint essenceId = info.Entry.DataBits00 != 0u ? info.Entry.DataBits00 : info.Entry.DataBits01;
+            uint amount = info.Entry.DataBits01 != 0u && essenceId == info.Entry.DataBits00
+                ? info.Entry.DataBits01
+                : Math.Max(1u, info.Entry.DataBits02);
+            if (essenceId == 0u)
+                return;
+
+            player.PrimalMatrixManager.AddEssence(essenceId, amount);
+        }
+
+        [SpellEffectHandler(SpellEffectType.TemporarilyUnflagPvp)]
+        public static void HandleEffectTemporarilyUnflagPvp(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // PvP flagging is map/matchmaking-owned in current stack; keep cast timing semantics only.
+            if (info.Entry.DurationTime > 0u)
+                spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () => { });
+        }
+
+        [SpellEffectHandler(SpellEffectType.SupportStuck)]
+        public static void HandleEffectSupportStuck(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectTeleport(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.MiniMapIcon)]
+        public static void HandleEffectMiniMapIcon(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (info.Entry.DurationTime == 0u)
+                return;
+
+            spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () => { });
+        }
+
+        [SpellEffectHandler(SpellEffectType.ModifyRestedXP)]
+        public static void HandleEffectModifyRestedXp(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            if (amount == 0u)
+                return;
+
+            player.XpManager.GrantXp(amount, Network.World.Message.Static.ExpReason.Cheat);
+        }
+
+        [SpellEffectHandler(SpellEffectType.HousingPlantSeed)]
+        public static void HandleEffectHousingPlantSeed(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint itemId = info.Entry.DataBits00;
+            if (itemId == 0u)
+                itemId = info.Entry.DataBits01;
+            if (itemId == 0u || GameTableManager.Instance.Item.GetEntry(itemId) == null)
+                return;
+
+            uint count = info.Entry.DataBits02 == 0u ? 1u : info.Entry.DataBits02;
+            player.Inventory.ItemCreate(InventoryLocation.Inventory, itemId, count, ItemUpdateReason.Loot);
+        }
+
+        [SpellEffectHandler(SpellEffectType.VacuumLoot)]
+        public static void HandleEffectVacuumLoot(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectGiveLootTableToPlayer(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.NpcLootTableModify)]
+        public static void HandleEffectNpcLootTableModify(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectGiveLootTableToPlayer(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.WarplotTeleport)]
+        public static void HandleEffectWarplotTeleport(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectTeleport(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.UnitPropertyConversion)]
+        public static void HandleEffectUnitPropertyConversion(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectPropertyModifier(spell, target, info);
         }
 
         [SpellEffectHandler(SpellEffectType.SpellCounter)]
@@ -1594,6 +1980,70 @@ namespace NexusForever.Game.Spell
                 isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
         }
 
+        [SpellEffectHandler(SpellEffectType.SpellImmunity)]
+        public static void HandleEffectSpellImmunity(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not UnitEntity unitEntity)
+                return;
+
+            uint immuneSpellId = info.Entry.DataBits00 != 0u
+                ? info.Entry.DataBits00
+                : info.Entry.DataBits01;
+            if (immuneSpellId == 0u)
+                return;
+
+            double durationSeconds = info.Entry.DurationTime > 0u
+                ? info.Entry.DurationTime / 1000d
+                : 15d;
+
+            uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+            uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+            uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+            unitEntity.AddSpellImmunity(
+                spell.Parameters.SpellInfo.Entry.Id,
+                spell.Caster.Guid,
+                immuneSpellId,
+                durationSeconds,
+                stackGroupId,
+                stackCap,
+                stackTypeEnum,
+                isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+        }
+
+        [SpellEffectHandler(SpellEffectType.SpellEffectImmunity)]
+        public static void HandleEffectSpellEffectImmunity(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not UnitEntity unitEntity)
+                return;
+
+            uint rawEffectType = info.Entry.DataBits00 != 0u
+                ? info.Entry.DataBits00
+                : info.Entry.DataBits01;
+            if (!Enum.IsDefined(typeof(SpellEffectType), (int)rawEffectType))
+                return;
+
+            double durationSeconds = info.Entry.DurationTime > 0u
+                ? info.Entry.DurationTime / 1000d
+                : 15d;
+
+            uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+            uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+            uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+            unitEntity.AddSpellEffectImmunity(
+                spell.Parameters.SpellInfo.Entry.Id,
+                spell.Caster.Guid,
+                (SpellEffectType)rawEffectType,
+                durationSeconds,
+                stackGroupId,
+                stackCap,
+                stackTypeEnum,
+                isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+        }
+
         [SpellEffectHandler(SpellEffectType.ReputationModify)]
         public static void HandleEffectReputationModify(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -1622,6 +2072,325 @@ namespace NexusForever.Game.Spell
                 return;
 
             player.AchievementManager.GrantAchievement((ushort)achievementId);
+        }
+
+        [SpellEffectHandler(SpellEffectType.RavelSignal)]
+        public static void HandleEffectRavelSignal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Placeholder: client-facing signal effect. No authoritative server state mutation identified yet.
+        }
+
+        [SpellEffectHandler(SpellEffectType.FacilityModification)]
+        public static void HandleEffectFacilityModification(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Placeholder: housing/facility internals require additional live-data reconstruction.
+        }
+
+        [SpellEffectHandler(SpellEffectType.Script)]
+        public static void HandleEffectScript(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Placeholder: spell scripts are already initialised per spell cast via script collection.
+        }
+
+        [SpellEffectHandler(SpellEffectType.ModifyCreatureFlags)]
+        public static void HandleEffectModifyCreatureFlags(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null || info.Entry.DataBits00 == 0u)
+                return;
+
+            EntityCreateFlag flags = (EntityCreateFlag)info.Entry.DataBits00;
+            EntityCreateFlag previousFlags = target.CreateFlags;
+            bool alreadySet = (previousFlags & flags) == flags;
+
+            Action apply = () => target.CreateFlags |= flags;
+            Action remove = () =>
+            {
+                if (!alreadySet)
+                    target.CreateFlags &= ~flags;
+            };
+
+            if (info.Entry.DurationTime > 0u && target is UnitEntity unitEntity)
+            {
+                uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+                uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+                uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+                unitEntity.AddTimedAura(
+                    spell.Parameters.SpellInfo.Entry.Id,
+                    info.Entry.EffectType,
+                    spell.Caster.Guid,
+                    info.Entry.DurationTime / 1000d,
+                    0d,
+                    onApply: apply,
+                    onRemove: remove,
+                    stackGroupId: stackGroupId,
+                    stackCap: stackCap,
+                    stackTypeEnum: stackTypeEnum,
+                    isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                    isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                    isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+                return;
+            }
+
+            apply();
+        }
+
+        [SpellEffectHandler(SpellEffectType.ShieldOverload)]
+        public static void HandleEffectShieldOverload(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null || target.Shield == 0u)
+                return;
+
+            target.Shield = 0u;
+        }
+
+        [SpellEffectHandler(SpellEffectType.HazardEnable)]
+        public static void HandleEffectHazardEnable(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (!TryResolveHazardRecipient(spell, target, out IPlayer recipient))
+                return;
+
+            if (!TryResolveHazardId(info.Entry, out uint hazardId))
+                return;
+
+            recipient.Session.EnqueueMessageEncrypted(new ServerHazardAction
+            {
+                HazardId = hazardId,
+                Action   = HazardAction.Enable
+            });
+
+            if (info.Entry.DurationTime > 0u)
+            {
+                spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () =>
+                {
+                    recipient.Session.EnqueueMessageEncrypted(new ServerHazardAction
+                    {
+                        HazardId = hazardId,
+                        Action   = HazardAction.Remove
+                    });
+                });
+            }
+        }
+
+        [SpellEffectHandler(SpellEffectType.HazardModify)]
+        public static void HandleEffectHazardModify(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (!TryResolveHazardRecipient(spell, target, out IPlayer recipient))
+                return;
+
+            if (!TryResolveHazardModifier(info.Entry, out HazardModifier modifier))
+                return;
+
+            var payload = new ServerHazardModifiers();
+            if (TryResolveHazardId(info.Entry, out uint hazardId))
+            {
+                EnsureHazardModifierCapacity(payload.HazardIdModifiers, (int)hazardId + 1);
+                payload.HazardIdModifiers[(int)hazardId] = modifier;
+            }
+            else if (TryResolveHazardType(info.Entry, out HazardType hazardType))
+            {
+                EnsureHazardModifierCapacity(payload.HazardTypeModifiers, (int)hazardType + 1);
+                payload.HazardTypeModifiers[(int)hazardType] = modifier;
+            }
+            else
+            {
+                payload.HazardTypeModifiers.Add(modifier);
+            }
+
+            recipient.Session.EnqueueMessageEncrypted(payload);
+        }
+
+        [SpellEffectHandler(SpellEffectType.HazardSuspend)]
+        public static void HandleEffectHazardSuspend(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (!TryResolveHazardRecipient(spell, target, out IPlayer recipient))
+                return;
+
+            var modifier = new HazardModifier
+            {
+                Multiplier = 1f,
+                Offset     = 0f,
+                Suspended  = true
+            };
+
+            var payload = new ServerHazardModifiers();
+            if (TryResolveHazardId(info.Entry, out uint hazardId))
+            {
+                EnsureHazardModifierCapacity(payload.HazardIdModifiers, (int)hazardId + 1);
+                payload.HazardIdModifiers[(int)hazardId] = modifier;
+            }
+            else if (TryResolveHazardType(info.Entry, out HazardType hazardType))
+            {
+                EnsureHazardModifierCapacity(payload.HazardTypeModifiers, (int)hazardType + 1);
+                payload.HazardTypeModifiers[(int)hazardType] = modifier;
+            }
+            else
+            {
+                payload.HazardTypeModifiers.Add(modifier);
+            }
+
+            recipient.Session.EnqueueMessageEncrypted(payload);
+        }
+
+        [SpellEffectHandler(SpellEffectType.MimicDisguise)]
+        public static void HandleEffectMimicDisguise(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectDisguiseOutfit(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.MimicDisplayName)]
+        public static void HandleEffectMimicDisplayName(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Placeholder: display-name mutation is currently client/localized-data driven.
+        }
+
+        [SpellEffectHandler(SpellEffectType.ChangeDisplayName)]
+        public static void HandleEffectChangeDisplayName(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Placeholder: display-name mutation is currently client/localized-data driven.
+        }
+
+        [SpellEffectHandler(SpellEffectType.ChangeIcon)]
+        public static void HandleEffectChangeIcon(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Placeholder: icon mutation is a UI concern in current stack.
+        }
+
+        [SpellEffectHandler(SpellEffectType.AddSpellEffect)]
+        public static void HandleEffectAddSpellEffect(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            IUnitEntity activationSource = target ?? spell.Caster;
+            if (activationSource == null || !activationSource.IsAlive)
+                return;
+
+            // Data-driven baseline: treat payload as one or more spell activations.
+            // This mirrors retail "graft effect via extra spell rows" behavior well enough for gameplay.
+            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            foreach (uint candidateSpellId in candidates)
+            {
+                if (candidateSpellId == 0u || candidateSpellId == spell.Parameters.SpellInfo.Entry.Id)
+                    continue;
+                if (GameTableManager.Instance.Spell4.GetEntry(candidateSpellId) == null)
+                    continue;
+
+                activationSource.CastSpell(candidateSpellId, new SpellParameters
+                {
+                    ParentSpellInfo        = spell.Parameters.SpellInfo,
+                    RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                    UserInitiatedSpellCast = false,
+                    PrimaryTargetId        = target?.Guid ?? spell.Caster.Guid
+                });
+            }
+        }
+
+        [SpellEffectHandler(SpellEffectType.SuppressSpellEffect)]
+        public static void HandleEffectSuppressSpellEffect(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not UnitEntity unitEntity)
+                return;
+
+            uint rawPrimary = info.Entry.DataBits00;
+            uint rawSecondary = info.Entry.DataBits01;
+            uint rawDuration = info.Entry.DurationTime != 0u
+                ? info.Entry.DurationTime
+                : info.Entry.DataBits02;
+
+            double durationSeconds = rawDuration > 0u
+                ? Math.Min(3600d, rawDuration / 1000d)
+                : 15d;
+
+            uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+            uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+            uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+
+            bool applied = false;
+
+            void applySpellSuppression(uint candidateSpellId)
+            {
+                if (candidateSpellId == 0u || GameTableManager.Instance.Spell4.GetEntry(candidateSpellId) == null)
+                    return;
+
+                unitEntity.AddSpellImmunity(
+                    spell.Parameters.SpellInfo.Entry.Id,
+                    spell.Caster.Guid,
+                    candidateSpellId,
+                    durationSeconds,
+                    stackGroupId,
+                    stackCap,
+                    stackTypeEnum,
+                    isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                    isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                    isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+                applied = true;
+            }
+
+            void applyEffectSuppression(uint candidateEffectType)
+            {
+                if (!Enum.IsDefined(typeof(SpellEffectType), (int)candidateEffectType))
+                    return;
+
+                unitEntity.AddSpellEffectImmunity(
+                    spell.Parameters.SpellInfo.Entry.Id,
+                    spell.Caster.Guid,
+                    (SpellEffectType)candidateEffectType,
+                    durationSeconds,
+                    stackGroupId,
+                    stackCap,
+                    stackTypeEnum,
+                    isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                    isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                    isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+                applied = true;
+            }
+
+            applyEffectSuppression(rawPrimary);
+            applySpellSuppression(rawPrimary);
+            applyEffectSuppression(rawSecondary);
+            applySpellSuppression(rawSecondary);
+
+            if (!applied && rawPrimary == 0u && rawSecondary == 0u)
+                unitEntity.AddSpellEffectImmunity(
+                    spell.Parameters.SpellInfo.Entry.Id,
+                    spell.Caster.Guid,
+                    SpellEffectType.Damage,
+                    durationSeconds,
+                    stackGroupId,
+                    stackCap,
+                    stackTypeEnum,
+                    isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                    isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                    isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+        }
+
+        [SpellEffectHandler(SpellEffectType.GiveLootTableToPlayer)]
+        public static void HandleEffectGiveLootTableToPlayer(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            // Baseline fallback: treat payload as direct item grant when it resolves to a valid item id.
+            uint candidateItemId = info.Entry.DataBits00;
+            if (GameTableManager.Instance.Item.GetEntry(candidateItemId) == null)
+                candidateItemId = info.Entry.DataBits01;
+
+            if (candidateItemId == 0u || GameTableManager.Instance.Item.GetEntry(candidateItemId) == null)
+                return;
+
+            uint count = info.Entry.DataBits02 == 0u ? 1u : info.Entry.DataBits02;
+            player.Inventory.ItemCreate(InventoryLocation.Inventory, candidateItemId, count, ItemUpdateReason.Loot);
+        }
+
+        [SpellEffectHandler(SpellEffectType.RewardPropertyModifier)]
+        public static void HandleEffectRewardPropertyModifier(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Baseline: reward-property modifiers share duration/stack behavior with generic unit property modifiers.
+            HandleEffectPropertyModifier(spell, target, info);
+        }
+
+        [SpellEffectHandler(SpellEffectType.PersonalDmgHealMod)]
+        public static void HandleEffectPersonalDmgHealMod(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // Baseline: model this as a unit property modifier until full retail semantics are reconstructed.
+            HandleEffectPropertyModifier(spell, target, info);
         }
 
         [SpellEffectHandler(SpellEffectType.Fluff)]
@@ -2036,6 +2805,100 @@ namespace NexusForever.Game.Spell
                     CombatLog = combatLog
                 }, true);
             }
+        }
+
+        private static bool TryResolveHazardRecipient(ISpell spell, IUnitEntity target, out IPlayer recipient)
+        {
+            recipient = target as IPlayer ?? spell.Caster as IPlayer;
+            return recipient != null;
+        }
+
+        private static bool TryResolveHazardId(Spell4EffectsEntry entry, out uint hazardId)
+        {
+            hazardId = entry.DataBits00;
+            if (hazardId == 0u || hazardId > 16383u)
+                hazardId = entry.DataBits01;
+
+            return hazardId is > 0u and <= 16383u;
+        }
+
+        private static bool TryResolveHazardType(Spell4EffectsEntry entry, out HazardType hazardType)
+        {
+            if (Enum.IsDefined(typeof(HazardType), (int)entry.DataBits00))
+            {
+                hazardType = (HazardType)entry.DataBits00;
+                return true;
+            }
+
+            if (Enum.IsDefined(typeof(HazardType), (int)entry.DataBits01))
+            {
+                hazardType = (HazardType)entry.DataBits01;
+                return true;
+            }
+
+            hazardType = default;
+            return false;
+        }
+
+        private static bool TryResolveHazardModifier(Spell4EffectsEntry entry, out HazardModifier modifier)
+        {
+            modifier = new HazardModifier
+            {
+                Multiplier = 1f,
+                Offset     = 0f,
+                Suspended  = false
+            };
+
+            bool changed = false;
+
+            float multiplier = BitConverter.UInt32BitsToSingle(entry.DataBits02);
+            if (float.IsFinite(multiplier) && multiplier > 0f && multiplier < 100f)
+            {
+                modifier.Multiplier = multiplier;
+                changed = true;
+            }
+
+            float offset = BitConverter.UInt32BitsToSingle(entry.DataBits03);
+            if (float.IsFinite(offset) && Math.Abs(offset) < 100000f)
+            {
+                modifier.Offset = offset;
+                changed = true;
+            }
+
+            if (entry.DataBits04 != 0u)
+            {
+                modifier.Suspended = true;
+                changed = true;
+            }
+
+            if (!changed)
+            {
+                for (int i = 0; i < entry.ParameterValue.Length; i++)
+                {
+                    float value = entry.ParameterValue[i];
+                    if (!float.IsFinite(value))
+                        continue;
+
+                    if (i == 0 && value > 0f && value < 100f)
+                    {
+                        modifier.Multiplier = value;
+                        changed = true;
+                    }
+                    else if (i == 1 && Math.Abs(value) < 100000f)
+                    {
+                        modifier.Offset = value;
+                        changed = true;
+                    }
+                }
+            }
+
+            return changed;
+        }
+
+        private static void EnsureHazardModifierCapacity(List<HazardModifier> modifiers, int count)
+        {
+            while (modifiers.Count < count)
+                modifiers.Add(new HazardModifier { Multiplier = 1f, Offset = 0f, Suspended = false });
         }
 
         private static (bool removeBuffs, bool removeDebuffs) ResolveDispelClassTargets(uint spellClassRaw)

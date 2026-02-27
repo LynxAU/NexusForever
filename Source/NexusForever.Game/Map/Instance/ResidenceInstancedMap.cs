@@ -71,7 +71,11 @@ namespace NexusForever.Game.Map.Instance
 
         protected override IResidenceMapInstance CreateInstance(IPlayer player, IMapLock mapLock)
         {
-            IResidence residence = globalResidenceManager.GetResidence((mapLock as IResidenceMapLock).ResidenceId);
+            IResidenceMapLock residenceMapLock = mapLock as IResidenceMapLock;
+            if (residenceMapLock == null)
+                throw new InvalidOperationException($"Expected IResidenceMapLock but got {mapLock?.GetType().Name ?? "null"}");
+
+            IResidence residence = globalResidenceManager.GetResidence(residenceMapLock.ResidenceId);
 
             IResidenceMapInstance residenceMapInstance = instanceFactory.Resolve();
             residenceMapInstance.Initialise(Entry, mapLock);

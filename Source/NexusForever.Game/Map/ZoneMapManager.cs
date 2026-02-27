@@ -36,6 +36,9 @@ namespace NexusForever.Game.Map
                 if (!zoneMaps.TryGetValue(hexGroupModel.ZoneMap, out IZoneMap zoneMap))
                 {
                     MapZoneEntry entry = GameTableManager.Instance.MapZone.GetEntry(hexGroupModel.ZoneMap);
+                    if (entry == null)
+                        continue;
+
                     zoneMap = new ZoneMap(entry, player);
                     zoneMaps.Add(hexGroupModel.ZoneMap, zoneMap);
                 }

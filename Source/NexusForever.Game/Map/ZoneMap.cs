@@ -115,6 +115,8 @@ namespace NexusForever.Game.Map
         /// </remarks>
         public float GetExploredPercent()
         {
+            if (maxHexCount == 0)
+                return 0f;
             return (float)Math.Floor(((float)GetCurrentHexCount() / (float)maxHexCount) * 100f);
         }
 

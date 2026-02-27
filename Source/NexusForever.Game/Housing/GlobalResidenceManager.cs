@@ -262,6 +262,9 @@ namespace NexusForever.Game.Housing
                 throw new HousingException();
 
             WorldLocation2Entry locationEntry = GameTableManager.Instance.WorldLocation2.GetEntry(propertyEntry.WorldLocation2Id);
+            if (locationEntry == null)
+                throw new HousingException();
+
             return new ResidenceEntrance(locationEntry);
         }
 

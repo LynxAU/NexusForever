@@ -397,7 +397,7 @@ namespace NexusForever.Game.Map
         public void GridAddVisiblePlayer(uint gridX, uint gridZ)
         {
             IMapGrid grid = GetGrid(gridX, gridZ);
-            grid.AddVisiblePlayer();
+            grid?.AddVisiblePlayer();
         }
 
         /// <summary>
@@ -406,7 +406,7 @@ namespace NexusForever.Game.Map
         public void GridRemoveVisiblePlayer(uint gridX, uint gridZ)
         {
             IMapGrid grid = GetGrid(gridX, gridZ);
-            grid.RemoveVisiblePlayer();
+            grid?.RemoveVisiblePlayer();
         }
 
         private IMapGrid GetGrid(uint gridX, uint gridZ)

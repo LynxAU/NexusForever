@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
@@ -80,20 +81,35 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Set instance lockout from completing a match.
+        /// </summary>
+        public void SetInstanceLockout(ushort worldId, TimeSpan lockoutDuration, byte difficulty, byte primeLevel)
+        {
+            var instance = new CharacterInstanceModel
+            {
+                WorldId = worldId,
+                LockoutExpiry = DateTime.UtcNow + lockoutDuration,
+                Difficulty = difficulty,
+                PrimeLevel = primeLevel
+            };
+            SetInstance(instance);
+        }
+
+        /// <summary>
         /// Save instance data to the provided CharacterContext.
-        /// Note: The CharacterInstance table needs to be added to CharacterContext and migrated.
         /// </summary>
         public void Save(CharacterContext context)
         {
-            // Database table CharacterInstance and migration required before this can be enabled
-            // var existingInstances = context.CharacterInstance.Where(i => i.CharacterId == player.CharacterId);
-            // context.CharacterInstance.RemoveRange(existingInstances);
+            // Remove all existing instance entries for this character
+            var existingInstances = context.CharacterInstance.Where(i => i.CharacterId == player.CharacterId);
+            context.CharacterInstance.RemoveRange(existingInstances);
             
-            // foreach (var instance in instances.Values)
-            // {
-            //     instance.CharacterId = player.CharacterId;
-            //     context.CharacterInstance.Add(instance);
-            // }
+            // Add all current instances
+            foreach (var instance in instances.Values)
+            {
+                instance.CharacterId = player.CharacterId;
+                context.CharacterInstance.Add(instance);
+            }
         }
     }
 }

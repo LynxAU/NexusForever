@@ -1,9 +1,10 @@
 ﻿using System.Numerics;
 using NexusForever.Game.Abstract.Entity;
-using NexusForever.Game.Abstract.PublicEvent;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Game.Abstract.Matching.Match;
+using NexusForever.Game.Abstract.PublicEvent;
+using NexusForever.Game.Map.Search;
 using NexusForever.Script;
 using NexusForever.Script.Template;
 
@@ -113,6 +114,22 @@ namespace NexusForever.Game.Map.Instance
         public void OnMatchFinish()
         {
             scriptCollection.Invoke<IContentMapScript>(s => s.OnMatchFinish());
+
+            // Save instance lockout for all players in the instance
+            SaveInstanceLockouts();
+        }
+
+        private void SaveInstanceLockouts()
+        {
+            // Use a default lockout time of 1 hour for all instances
+            // This can be made configurable via game tables in the future
+            var lockoutDuration = TimeSpan.FromHours(1);
+            ushort worldId = (ushort)Entry.Id;
+
+            foreach (IPlayer player in Search(Vector3.Zero, null, new SearchCheckRange<IPlayer>(Vector3.Zero, null)))
+            {
+                player.InstanceManager.SetInstanceLockout(worldId, lockoutDuration, 0, 0);
+            }
         }
     }
 }

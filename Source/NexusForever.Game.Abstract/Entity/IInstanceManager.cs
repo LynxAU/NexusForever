@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
@@ -50,5 +51,10 @@ namespace NexusForever.Game.Abstract.Entity
         /// Reset a specific instance lockout.
         /// </summary>
         void ResetInstance(ushort worldId);
+
+        /// <summary>
+        /// Set instance lockout from completing a match.
+        /// </summary>
+        void SetInstanceLockout(ushort worldId, TimeSpan lockoutDuration, byte difficulty, byte primeLevel);
     }
 }

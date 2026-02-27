@@ -29,10 +29,10 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity.Player
             session.EnqueueMessageEncrypted(new ServerInspectPlayerResponse
             {
                 Guid = inspectPlayer.Guid,
-                Items = player.Inventory
-                    .Single(b => b.Location == InventoryLocation.Equipped)
-                    .Select(i => i.Build())
-                    .ToList()
+                Items = (player.Inventory
+                    .FirstOrDefault(b => b.Location == InventoryLocation.Equipped)
+                    ?.Select(i => i.Build())
+                    .ToList()) ?? []
             });
         }
     }

@@ -19,6 +19,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterCustomisationModel> CharacterCustomisation { get; set; }
         public DbSet<CharacterDatacubeModel> CharacterDatacube { get; set; }
         public DbSet<CharacterEntitlementModel> CharacterEntitlement { get; set; }
+        public DbSet<CharacterInstanceModel> CharacterInstance { get; set; }
         public DbSet<CharacterKeybindingModel> CharacterKeybinding { get; set; }
         public DbSet<CharacterMailModel> CharacterMail { get; set; }
         public DbSet<CharacterMailAttachmentModel> CharacterMailAttachment { get; set; }
@@ -32,6 +33,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterStatModel> CharacterStat { get; set; }
         public DbSet<CharacterTitleModel> CharacterTitle { get; set; }
         public DbSet<CharacterTradeskillMaterialModel> CharacterTradeskillMaterial { get; set; }
+        public DbSet<CharacterVirtualItemModel> CharacterVirtualItem { get; set; }
         public DbSet<CharacterZonemapHexgroupModel> CharacterZonemapHexgroup { get; set; }
         public DbSet<ChatChannelModel> ChatChannel { get; set; }
         public DbSet<ChatChannelMemberModel> ChatChannelMember { get; set; }
@@ -1569,6 +1571,74 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.ZonemapHexgroup)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__character_zonemap_hexgroup_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterInstanceModel>(entity =>
+            {
+                entity.ToTable("character_instance");
+
+                entity.HasKey(e => e.Id)
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .ValueGeneratedOnAdd();
+
+                entity.Property(e => e.CharacterId)
+                    .HasColumnName("characterId")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.WorldId)
+                    .HasColumnName("worldId")
+                    .HasColumnType("smallint(5) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.InstanceId)
+                    .HasColumnName("instanceId")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.LockoutExpiry)
+                    .HasColumnName("lockoutExpiry")
+                    .HasColumnType("datetime")
+                    .HasDefaultValue(null);
+
+                entity.Property(e => e.Difficulty)
+                    .HasColumnName("difficulty")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.PrimeLevel)
+                    .HasColumnName("primeLevel")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.PositionX)
+                    .HasColumnName("positionX")
+                    .HasColumnType("float")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.PositionY)
+                    .HasColumnName("positionY")
+                    .HasColumnType("float")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.PositionZ)
+                    .HasColumnName("positionZ")
+                    .HasColumnType("float")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Rotation)
+                    .HasColumnName("rotation")
+                    .HasColumnType("float")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.Instance)
+                    .HasForeignKey(d => d.CharacterId)
+                    .HasConstraintName("FK__character_instance_characterId__character_id");
             });
 
             modelBuilder.Entity<ChatChannelModel>(entity =>

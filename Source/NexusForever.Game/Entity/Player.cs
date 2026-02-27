@@ -244,6 +244,7 @@ namespace NexusForever.Game.Entity
         public IAppearanceManager AppearanceManager { get; private set; }
         public IResurrectionManager ResurrectionManager { get; private set; }
         public IInstanceManager InstanceManager { get; private set; }
+        public IVirtualItemManager VirtualItemManager { get; private set; }
 
         public IVendorInfo SelectedVendorInfo { get; set; } // TODO unset this when too far away from vendor
 
@@ -360,6 +361,9 @@ namespace NexusForever.Game.Entity
             ResurrectionManager     = new ResurrectionManager(this);
             InstanceManager         = new InstanceManager(this);
             InstanceManager.Initialise(model.Instance);
+
+            VirtualItemManager      = new VirtualItemManager(this);
+            VirtualItemManager.Initialise(model.VirtualItem);
 
             // do dependant stat balance after all stats and properties have been set
             SetDependantStatBalance(true);
@@ -603,6 +607,7 @@ namespace NexusForever.Game.Entity
             EntitlementManager.Save(context);
             AppearanceManager.Save(context);
             InstanceManager.Save(context);
+            VirtualItemManager.Save(context);
         }
 
         protected override IEntityModel BuildEntityModel()

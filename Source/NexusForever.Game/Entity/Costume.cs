@@ -68,7 +68,7 @@ namespace NexusForever.Game.Entity
             Index = (byte)costumeSave.Index;
             mask  = costumeSave.Mask;
 
-            for (byte i = 0; i < costumeSave.Items.Count; i++)
+            for (byte i = 0; i < Math.Min(costumeSave.Items.Count, MaxCostumeItems); i++)
                 items[i] = new CostumeItem(this, costumeSave.Items[i], (CostumeItemSlot)i);
 
             saveMask = CostumeSaveMask.Create;
@@ -111,7 +111,7 @@ namespace NexusForever.Game.Entity
             }
 
             foreach (ICostumeItem costumeItem in items)
-                costumeItem.Save(context);
+                costumeItem?.Save(context);
         }
 
         /// <summary>
@@ -127,7 +127,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public ICostumeItem GetItem(ItemSlot slot)
         {
-            return items.SingleOrDefault(i => i.ItemSlot == slot);
+            return items.SingleOrDefault(i => i != null && i.ItemSlot == slot);
         }
 
         /// <summary>
@@ -155,7 +155,9 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public IEnumerable<IItemVisual> GetItemVisuals()
         {
-            return items.Select(GetItemVisual);
+            return items
+                .Where(i => i != null)
+                .Select(GetItemVisual);
         }
 
         /// <summary>
@@ -165,8 +167,11 @@ namespace NexusForever.Game.Entity
         {
             Mask = costumeSave.Mask;
 
-            for (int i = 0; i < costumeSave.Items.Count; i++)
+            for (int i = 0; i < Math.Min(costumeSave.Items.Count, MaxCostumeItems); i++)
             {
+                if (items[i] == null)
+                    items[i] = new CostumeItem(this, costumeSave.Items[i], (CostumeItemSlot)i);
+
                 items[i].ItemId  = costumeSave.Items[i].ItemId;
                 items[i].DyeData = CostumeItem.GenerateDyeMask(costumeSave.Items[i].Dyes);
             }
@@ -182,6 +187,9 @@ namespace NexusForever.Game.Entity
 
             foreach (ICostumeItem costumeItem in items)
             {
+                if (costumeItem == null)
+                    continue;
+
                 networkCostume.ItemIds[(byte)costumeItem.Slot] = costumeItem.ItemId ?? 0;
                 networkCostume.DyeData[(byte)costumeItem.Slot] = costumeItem.DyeData;
             }

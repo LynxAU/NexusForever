@@ -336,13 +336,20 @@ namespace NexusForever.Game.Entity
 
             if (result == GenericError.Ok)
             {
-                // TODO: Confirm that this user is allowed to delete this mail
-                mailItem.EnqueueDelete(true);
-
-                player.Session.EnqueueMessageEncrypted(new ServerMailUnavailable
+                // Confirm that this user is allowed to delete this mail (must be recipient)
+                if (mailItem.RecipientId != player.CharacterId)
                 {
-                    MailId = mailItem.Id
-                });
+                    result = GenericError.MailCannotDelete;
+                }
+                else
+                {
+                    mailItem.EnqueueDelete(true);
+
+                    player.Session.EnqueueMessageEncrypted(new ServerMailUnavailable
+                    {
+                        MailId = mailItem.Id
+                    });
+                }
             }
 
             player.Session.EnqueueMessageEncrypted(new ServerMailResult

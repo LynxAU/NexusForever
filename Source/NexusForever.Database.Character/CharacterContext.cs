@@ -48,6 +48,7 @@ namespace NexusForever.Database.Character
         public DbSet<ResidenceModel> Residence { get; set; }
         public DbSet<ResidenceDecor> ResidenceDecor { get; set; }
         public DbSet<ResidencePlotModel> ResidencePlot { get; set; }
+        public DbSet<CharacterAuctionModel> CharacterAuction { get; set; }
 
         private readonly IConnectionString config;
 
@@ -2558,6 +2559,106 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.Plot)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__residence_plot_id__residence_id");
+            });
+
+            modelBuilder.Entity<CharacterAuctionModel>(entity =>
+            {
+                entity.ToTable("character_auction");
+
+                entity.HasKey(e => e.AuctionId)
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.AuctionId)
+                    .HasColumnName("auctionId")
+                    .HasColumnType("bigint(20) unsigned");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ItemGuid)
+                    .HasColumnName("itemGuid")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ItemId)
+                    .HasColumnName("itemId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Quantity)
+                    .HasColumnName("quantity")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.MinimumBid)
+                    .HasColumnName("minimumBid")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.BuyoutPrice)
+                    .HasColumnName("buyoutPrice")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CurrentBid)
+                    .HasColumnName("currentBid")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.OwnerCharacterId)
+                    .HasColumnName("ownerCharacterId")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.TopBidderCharacterId)
+                    .HasColumnName("topBidderCharacterId")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ExpirationTime)
+                    .HasColumnName("expirationTime")
+                    .HasColumnType("datetime");
+
+                entity.Property(e => e.CreateTime)
+                    .HasColumnName("createTime")
+                    .HasColumnType("datetime")
+                    .HasDefaultValueSql("current_timestamp()");
+
+                entity.Property(e => e.WorldRequirementItem2Id)
+                    .HasColumnName("worldRequirement_Item2Id")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.GlyphData)
+                    .HasColumnName("glyphData")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ThresholdData)
+                    .HasColumnName("thresholdData")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CircuitData)
+                    .HasColumnName("circuitData")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Unknown2)
+                    .HasColumnName("unknown2")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasIndex(e => e.ItemId)
+                    .HasDatabaseName("itemId");
+
+                entity.HasIndex(e => e.OwnerCharacterId)
+                    .HasDatabaseName("ownerCharacterId");
+
+                entity.HasIndex(e => e.ExpirationTime)
+                    .HasDatabaseName("expirationTime");
             });
         }
     }

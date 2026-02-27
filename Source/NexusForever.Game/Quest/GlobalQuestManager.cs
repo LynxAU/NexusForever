@@ -26,6 +26,7 @@ namespace NexusForever.Game.Quest
         private ImmutableDictionary<ushort, IQuestInfo> questInfoStore;
         private ImmutableDictionary<ushort, ImmutableList<uint>> questGiverStore;
         private ImmutableDictionary<ushort, ImmutableList<uint>> questReceiverStore;
+        private ImmutableDictionary<ushort, ImmutableList<ushort>> questPrerequisiteStore;
 
         private ImmutableDictionary<uint, ICommunicatorMessage> communicatorStore;
         private ImmutableDictionary<ushort, ImmutableList<ICommunicatorMessage>> communicatorQuestStore;
@@ -43,7 +44,8 @@ namespace NexusForever.Game.Quest
             InitialiseCommunicatorQuests();
             InitialiseCommunicatorQuestStateTriggers();
 
-            log.Info($"Cached {questInfoStore.Count} quests in {sw.ElapsedMilliseconds}ms.");
+            log.Info($"Cached {questInfoStore.Count} quests with {questGiverStore.Sum(g => g.Value.Count)} quest givers and {questReceiverStore.Sum(r => r.Value.Count)} quest receivers.");
+            log.Info($"Quest chain prerequisites: {questPrerequisiteStore.Sum(p => p.Value.Count)} quest links loaded.");
         }
 
         private void CalculateResetTimes()
@@ -71,6 +73,7 @@ namespace NexusForever.Game.Quest
         {
             var questGivers = new Dictionary<ushort, List<uint>>();
             var questReceivers = new Dictionary<ushort, List<uint>>();
+            var questPrerequisites = new Dictionary<ushort, List<ushort>>();
 
             foreach (Creature2Entry entry in GameTableManager.Instance.Creature2.Entries)
             {
@@ -93,8 +96,26 @@ namespace NexusForever.Game.Quest
                 }
             }
 
+            // Build prerequisite lookup for episodic quest chains
+            // Quests can have up to 3 prerequisite quests
+            foreach (Quest2Entry questEntry in GameTableManager.Instance.Quest2.Entries)
+            {
+                foreach (uint prereqQuestId in questEntry.PrerequisiteQuests)
+                {
+                    if (prereqQuestId == 0u)
+                        continue;
+
+                    ushort prereqQuestId16 = (ushort)prereqQuestId;
+                    if (!questPrerequisites.ContainsKey(prereqQuestId16))
+                        questPrerequisites.Add(prereqQuestId16, new List<ushort>());
+
+                    questPrerequisites[prereqQuestId16].Add((ushort)questEntry.Id);
+                }
+            }
+
             questGiverStore = questGivers.ToImmutableDictionary(k => k.Key, v => v.Value.ToImmutableList());
             questReceiverStore = questReceivers.ToImmutableDictionary(k => k.Key, v => v.Value.ToImmutableList());
+            questPrerequisiteStore = questPrerequisites.ToImmutableDictionary(k => k.Key, v => v.Value.ToImmutableList());
         }
 
         private void InitialiseCommunicatorEntries()
@@ -183,6 +204,14 @@ namespace NexusForever.Game.Quest
         public IEnumerable<uint> GetQuestReceivers(ushort questId)
         {
             return questReceiverStore.TryGetValue(questId, out ImmutableList<uint> creatureIds) ? creatureIds : Enumerable.Empty<uint>();
+        }
+
+        /// <summary>
+        /// Return a collection of quest ids that have the supplied quest as a prerequisite (episodic chains).
+        /// </summary>
+        public IEnumerable<ushort> GetQuestsWithPrerequisite(ushort prerequisiteQuestId)
+        {
+            return questPrerequisiteStore.TryGetValue(prerequisiteQuestId, out ImmutableList<ushort> questIds) ? questIds : Enumerable.Empty<ushort>();
         }
 
         /// <summary>

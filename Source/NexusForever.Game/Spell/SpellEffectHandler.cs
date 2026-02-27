@@ -391,7 +391,7 @@ namespace NexusForever.Game.Spell
 
             uint durationMs = info.Entry.DurationTime > 0u
                 ? info.Entry.DurationTime
-                : (info.Entry.DataBits01 > 0u ? info.Entry.DataBits01 : 1000u);
+                : ResolveDurationMillisecondsFromRaw(info.Entry.DataBits01, info.Entry.ParameterValue, defaultMs: 1000u, maxMs: 60_000u);
 
             uint appliedDurationMs = target.ApplyCrowdControlState(CCState.AbilityRestriction, durationMs, spell.Caster.Guid, 0u);
             if (appliedDurationMs == 0u)
@@ -568,7 +568,7 @@ namespace NexusForever.Game.Spell
             if (triggerSpellId == 0u)
                 return;
 
-            double durationSeconds = info.Entry.DurationTime / 1000d;
+            double durationSeconds = ResolvePayloadDurationSeconds(info.Entry, defaultSeconds: 15d, maxSeconds: 3600d);
             double chance01 = ResolveProcChance(info.Entry);
             UnitEntity.ProcEventMask eventMask = ResolveProcEventMask(info.Entry.DataBits03);
             double internalCooldownSeconds = ResolveProcCooldownSeconds(info.Entry.DataBits04);
@@ -604,7 +604,7 @@ namespace NexusForever.Game.Spell
             var state = (CCState)info.Entry.DataBits00;
             uint durationMs = info.Entry.DurationTime > 0u
                 ? info.Entry.DurationTime
-                : info.Entry.DataBits01;
+                : ResolveDurationMillisecondsFromRaw(info.Entry.DataBits01, info.Entry.ParameterValue, defaultMs: 0u, maxMs: 300_000u);
             if (durationMs == 0u)
                 return;
 
@@ -713,7 +713,7 @@ namespace NexusForever.Game.Spell
             var state = (CCState)info.Entry.DataBits00;
             uint durationMs = info.Entry.DurationTime != 0u
                 ? info.Entry.DurationTime
-                : info.Entry.DataBits01;
+                : ResolveDurationMillisecondsFromRaw(info.Entry.DataBits01, info.Entry.ParameterValue, defaultMs: 0u, maxMs: 300_000u);
 
             CCStatesEntry ccStateEntry = GameTableManager.Instance.CCStates.GetEntry((uint)state);
             uint diminishingReturnsId = ccStateEntry?.CcStateDiminishingReturnsId ?? 0u;
@@ -3522,6 +3522,21 @@ namespace NexusForever.Game.Spell
             }
 
             return Math.Clamp(defaultSeconds, 0d, maxSeconds);
+        }
+
+        private static uint ResolveDurationMillisecondsFromRaw(uint rawDurationValue, float[] parameterValues, uint defaultMs, uint maxMs)
+        {
+            double seconds = ResolveDurationSecondsFromRaw(
+                rawDurationValue,
+                parameterValues,
+                defaultMs / 1000d,
+                maxMs / 1000d);
+
+            if (seconds <= 0d)
+                return 0u;
+
+            uint milliseconds = (uint)Math.Round(seconds * 1000d);
+            return (uint)Math.Clamp(milliseconds, 0u, maxMs);
         }
 
         private static void HandleEffectDisplayMutation(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)

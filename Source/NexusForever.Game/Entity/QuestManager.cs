@@ -591,6 +591,38 @@ namespace NexusForever.Game.Entity
             completedQuests.Add(questId, quest);
 
             player.AchievementManager.CheckAchievements(player, AchievementType.QuestComplete, questId);
+
+            // Auto-offer next quests in episodic chains
+            AutoOfferNextQuests(questId);
+        }
+
+        /// <summary>
+        /// Automatically offer next quests in episodic chains when a quest is completed.
+        /// </summary>
+        private void AutoOfferNextQuests(ushort completedQuestId)
+        {
+            foreach (ushort nextQuestId in GlobalQuestManager.Instance.GetQuestsWithPrerequisite(completedQuestId))
+            {
+                // Check if player already has this quest (active or inactive)
+                if (GetQuest(nextQuestId, GetQuestFlags.Active | GetQuestFlags.Inactive) != null)
+                    continue;
+
+                // Check if player has already completed this quest
+                if (GetQuest(nextQuestId, GetQuestFlags.Completed) != null)
+                    continue;
+
+                // Try to add the quest - this handles all validation (prerequisites, level, disabled, etc.)
+                try
+                {
+                    QuestAdd(nextQuestId, null);
+                    log.Trace($"Auto-offered next quest {nextQuestId} after completing {completedQuestId}.");
+                }
+                catch (QuestException ex)
+                {
+                    // QuestAdd throws if prerequisites aren't met or other issues - this is expected
+                    log.Trace($"Could not auto-offer quest {nextQuestId}: {ex.Message}");
+                }
+            }
         }
 
         private void RewardQuest(IQuestInfo info, ushort reward)
@@ -740,7 +772,12 @@ namespace NexusForever.Game.Entity
             if (recipient == null)
                 throw new QuestException($"Player {player.CharacterId} tried to share quest {questId} to an invalid player!");
 
-            // TODO
+            // Send share invite to target player
+            recipient.Session.EnqueueMessageEncrypted(new ServerQuestShared
+            {
+                SharerUnitId = player.Guid,
+                QuestId = (uint)questId
+            });
 
             log.Trace($"Shared quest {questId} with player {recipient.Name}.");
         }
@@ -750,7 +787,24 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void QuestShareResult(ushort questId, bool result)
         {
-            // TODO
+            // If declined, just log and return
+            if (!result)
+            {
+                log.Trace($"Player {player.CharacterId} declined shared quest {questId}.");
+                return;
+            }
+
+            // Accept the shared quest - call QuestAdd directly
+            // Validation for prerequisites will be handled by QuestAdd internally
+            try
+            {
+                QuestAdd(questId, null);
+                log.Trace($"Player {player.CharacterId} accepted shared quest {questId}.");
+            }
+            catch (QuestException ex)
+            {
+                log.Trace($"Player {player.CharacterId} cannot accept shared quest {questId}: {ex.Message}");
+            }
         }
 
         /// <summary>

@@ -21,6 +21,7 @@ using NexusForever.Game.Spell;
 using NexusForever.Game.Storefront;
 using NexusForever.Game.Loot;
 using NexusForever.Game.Trade;
+using NexusForever.Game.Marketplace;
 using NexusForever.Shared;
 
 namespace NexusForever.Game
@@ -59,6 +60,7 @@ namespace NexusForever.Game
             sc.AddGameSpell();
             sc.AddGameStore();
             sc.AddGameTrade();
+            sc.AddGameMarketplace();
         }
     }
 }

@@ -33,6 +33,11 @@ namespace NexusForever.Game.Abstract.Quest
         IEnumerable<uint> GetQuestReceivers(ushort questId);
 
         /// <summary>
+        /// Return a collection of quest ids that have the supplied quest as a prerequisite (episodic chains).
+        /// </summary>
+        IEnumerable<ushort> GetQuestsWithPrerequisite(ushort prerequisiteQuestId);
+
+        /// <summary>
         /// Return a collection of <see cref="ICommunicatorMessage"/>'s that start the supplied quest.
         /// </summary>
         IEnumerable<ICommunicatorMessage> GetQuestCommunicatorMessages(ushort questId);

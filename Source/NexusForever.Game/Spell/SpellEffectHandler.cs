@@ -845,20 +845,10 @@ namespace NexusForever.Game.Spell
             if (target is not IPlayer player)
                 return;
 
-            uint targetSpellId = info.Entry.DataBits00;
-            if (targetSpellId == 0u)
-                targetSpellId = spell.Parameters.SpellInfo.Entry.Id;
-
-            int rawDelta = unchecked((int)info.Entry.DataBits01);
-            if (rawDelta == 0 && info.Entry.ParameterValue.Length > 0)
-                rawDelta = (int)Math.Round(info.Entry.ParameterValue[0] * 1000f);
-
-            if (rawDelta == 0)
+            uint targetSpellId = ResolveEffectTargetSpellId(info.Entry, spell.Parameters.SpellInfo.Entry.Id);
+            double deltaSeconds = ResolveCooldownDeltaSeconds(info.Entry, targetSpellId);
+            if (deltaSeconds == 0d)
                 return;
-
-            double deltaSeconds = Math.Abs(rawDelta) > 1000
-                ? rawDelta / 1000d
-                : rawDelta;
 
             double currentCooldown = player.SpellManager.GetSpellCooldown(targetSpellId);
             double newCooldown = Math.Max(0d, currentCooldown + deltaSeconds);
@@ -893,9 +883,8 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.ModifySpellEffect)]
         public static void HandleEffectModifySpellEffect(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            if (info.Entry.DataBits00 != 0u
-                && GameTableManager.Instance.Spell4.GetEntry(info.Entry.DataBits00) == null
-                && GameTableManager.Instance.Spell4Base.GetEntry(info.Entry.DataBits00) == null)
+            uint targetSpellId = ResolveEffectTargetSpellId(info.Entry, 0u);
+            if (targetSpellId == 0u)
             {
                 // Avoid applying arbitrary cooldown deltas when payload does not identify a spell.
                 return;
@@ -910,7 +899,7 @@ namespace NexusForever.Game.Spell
             if (target is not IPlayer player)
                 return;
 
-            uint targetSpellId = info.Entry.DataBits00;
+            uint targetSpellId = ResolveEffectTargetSpellId(info.Entry, 0u);
             if (targetSpellId != 0u)
             {
                 player.SpellManager.SetSpellCooldown(targetSpellId, 0d);
@@ -926,9 +915,7 @@ namespace NexusForever.Game.Spell
             if (target is not IPlayer player)
                 return;
 
-            uint targetSpellId = info.Entry.DataBits00;
-            if (targetSpellId == 0u)
-                targetSpellId = spell.Parameters.SpellInfo.Entry.Id;
+            uint targetSpellId = ResolveEffectTargetSpellId(info.Entry, spell.Parameters.SpellInfo.Entry.Id);
 
             double cooldownSeconds = 0d;
             if (info.Entry.DataBits01 > 0u)
@@ -3329,6 +3316,56 @@ namespace NexusForever.Game.Spell
 
             return GameTableManager.Instance.Spell4.GetEntry(spellId) != null
                 || GameTableManager.Instance.Spell4Base.GetEntry(spellId) != null;
+        }
+
+        private static uint ResolveEffectTargetSpellId(Spell4EffectsEntry entry, uint fallbackSpellId)
+        {
+            if (IsKnownSpellId(entry.DataBits00))
+                return entry.DataBits00;
+
+            if (IsKnownSpellId(entry.DataBits01))
+                return entry.DataBits01;
+
+            if (IsKnownSpellId(entry.DataBits02))
+                return entry.DataBits02;
+
+            if (IsKnownSpellId(entry.DataBits03))
+                return entry.DataBits03;
+
+            if (IsKnownSpellId(entry.DataBits04))
+                return entry.DataBits04;
+
+            return fallbackSpellId;
+        }
+
+        private static double ResolveCooldownDeltaSeconds(Spell4EffectsEntry entry, uint targetSpellId)
+        {
+            bool dataBits01LooksLikeSpellId = entry.DataBits01 != 0u && IsKnownSpellId(entry.DataBits01);
+
+            if (!dataBits01LooksLikeSpellId && entry.DataBits01 != 0u)
+            {
+                int rawDelta = unchecked((int)entry.DataBits01);
+                return Math.Abs(rawDelta) > 1000 ? rawDelta / 1000d : rawDelta;
+            }
+
+            float payloadDelta = DecodeFlexibleEffectNumber(entry.DataBits03);
+            if (payloadDelta == 0f && entry.DataBits02 != 0u && entry.DataBits02 != targetSpellId)
+                payloadDelta = DecodeFlexibleEffectNumber(entry.DataBits02);
+
+            if (payloadDelta != 0f)
+                return Math.Abs(payloadDelta) > 1000f ? payloadDelta / 1000d : payloadDelta;
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                if (entry.ParameterValue[i] == 0f)
+                    continue;
+
+                return Math.Abs(entry.ParameterValue[i]) > 1000f
+                    ? entry.ParameterValue[i] / 1000d
+                    : entry.ParameterValue[i];
+            }
+
+            return 0d;
         }
 
         private static List<uint> ResolveRavelSignalLinkedSpellIds(Spell4EffectsEntry entry)

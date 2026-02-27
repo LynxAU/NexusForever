@@ -387,7 +387,9 @@ namespace NexusForever.Game.Entity
                 CastSpell(action.ActionData00, new SpellParameters { PrimaryTargetId = target.Guid });
                 bool hasActiveAfter = GetActiveSpell(s => !s.IsFinished && s.Parameters.SpellInfo.Entry.Id == spellEntry.Id) != null;
 
-                if (!hadActiveBefore && hasActiveAfter)
+                // Instant casts may execute and finish in the same tick, so they can bypass active-spell detection.
+                bool castLikelySucceeded = !hadActiveBefore && (hasActiveAfter || spellEntry.CastTime == 0u);
+                if (castLikelySucceeded)
                 {
                     double cooldown = action.DelayMS > 0u ? action.DelayMS / 1000.0 : DefaultSpellCooldown;
                     spellCooldowns[action.Id] = cooldown;

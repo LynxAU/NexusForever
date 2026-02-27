@@ -405,7 +405,8 @@ namespace NexusForever.Game.Entity
         {
             float dx = Position.X - target.Position.X;
             float dz = Position.Z - target.Position.Z;
-            float horizontalDistance = MathF.Sqrt((dx * dx) + (dz * dz));
+            float centerDistance = MathF.Sqrt((dx * dx) + (dz * dz));
+            float horizontalDistance = MathF.Max(0f, centerDistance - HitRadius - target.HitRadius);
             float verticalDistance = MathF.Abs(Position.Y - target.Position.Y);
             float minRange = Math.Max(0f, spellEntry.TargetMinRange);
             float maxRange = spellEntry.TargetMaxRange <= 0f ? float.MaxValue : spellEntry.TargetMaxRange;

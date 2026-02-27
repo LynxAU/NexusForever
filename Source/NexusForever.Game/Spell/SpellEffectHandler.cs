@@ -3434,8 +3434,11 @@ namespace NexusForever.Game.Spell
                 return Math.Abs(rawDelta) > 1000 ? rawDelta / 1000d : rawDelta;
             }
 
-            float payloadDelta = DecodeFlexibleEffectNumber(entry.DataBits03);
-            if (payloadDelta == 0f && entry.DataBits02 != 0u && entry.DataBits02 != targetSpellId)
+            float payloadDelta = 0f;
+            if (entry.DataBits03 != 0u && entry.DataBits03 != targetSpellId && !IsKnownSpellId(entry.DataBits03))
+                payloadDelta = DecodeFlexibleEffectNumber(entry.DataBits03);
+
+            if (payloadDelta == 0f && entry.DataBits02 != 0u && entry.DataBits02 != targetSpellId && !IsKnownSpellId(entry.DataBits02))
                 payloadDelta = DecodeFlexibleEffectNumber(entry.DataBits02);
 
             if (payloadDelta != 0f)
@@ -3462,10 +3465,10 @@ namespace NexusForever.Game.Spell
 
             float candidate = 0f;
 
-            if (entry.DataBits02 != 0u && entry.DataBits02 != targetSpellId)
+            if (entry.DataBits02 != 0u && entry.DataBits02 != targetSpellId && !IsKnownSpellId(entry.DataBits02))
                 candidate = DecodeFlexibleEffectNumber(entry.DataBits02);
 
-            if (candidate == 0f && entry.DataBits03 != 0u && entry.DataBits03 != targetSpellId)
+            if (candidate == 0f && entry.DataBits03 != 0u && entry.DataBits03 != targetSpellId && !IsKnownSpellId(entry.DataBits03))
                 candidate = DecodeFlexibleEffectNumber(entry.DataBits03);
 
             if (candidate == 0f)

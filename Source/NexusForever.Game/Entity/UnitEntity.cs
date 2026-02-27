@@ -373,7 +373,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public virtual bool CanAttack(IUnitEntity target)
         {
-            if (!IsAlive)
+            if (!IsAlive || target == null)
                 return false;
 
             if (!target.IsValidAttackTarget() || !IsValidAttackTarget())

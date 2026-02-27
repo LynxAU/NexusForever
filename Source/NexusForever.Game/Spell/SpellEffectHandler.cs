@@ -3000,20 +3000,7 @@ namespace NexusForever.Game.Spell
         }
         private static uint DecodeUnsignedEffectAmount(Spell4EffectsEntry entry)
         {
-            if (entry.DataBits01 != 0u)
-                return entry.DataBits01;
-
-            if (entry.DataBits00 != 0u)
-                return entry.DataBits00;
-
-            for (int i = 0; i < entry.ParameterValue.Length; i++)
-            {
-                float value = entry.ParameterValue[i];
-                if (value > 0f)
-                    return (uint)Math.Round(value);
-            }
-
-            return 0u;
+            return DecodeFlexiblePositiveEffectAmount(entry);
         }
 
         private static uint DecodeFlexiblePositiveEffectAmount(Spell4EffectsEntry entry)
@@ -3051,11 +3038,26 @@ namespace NexusForever.Game.Spell
 
         private static int DecodeSignedEffectAmount(Spell4EffectsEntry entry)
         {
-            if (entry.DataBits01 != 0u)
-                return unchecked((int)entry.DataBits01);
+            if (entry.DataBits01 != 0u && entry.DataBits01 != uint.MaxValue)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits01);
+                if (value != 0f)
+                    return (int)Math.Round(value);
+            }
 
-            if (entry.DataBits00 != 0u)
-                return unchecked((int)entry.DataBits00);
+            if (entry.DataBits00 != 0u && entry.DataBits00 != uint.MaxValue)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits00);
+                if (value != 0f)
+                    return (int)Math.Round(value);
+            }
+
+            if (entry.DataBits02 != 0u && entry.DataBits02 != uint.MaxValue)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits02);
+                if (value != 0f)
+                    return (int)Math.Round(value);
+            }
 
             for (int i = 0; i < entry.ParameterValue.Length; i++)
             {

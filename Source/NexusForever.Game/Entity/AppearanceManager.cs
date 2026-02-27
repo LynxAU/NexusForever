@@ -131,9 +131,9 @@ namespace NexusForever.Game.Entity
             foreach (IItemVisual visual in itemVisuals)
             {
                 if (characterAppearances.TryGetValue(visual.Slot, out IAppearance appearance))
-                    appearance.DisplayId = visual.DisplayId.Value;
+                    appearance.DisplayId = visual.DisplayId ?? 0;
                 else
-                    characterAppearances.TryAdd(visual.Slot, new Appearance(owner.CharacterId, visual.Slot, visual.DisplayId.Value));
+                    characterAppearances.TryAdd(visual.Slot, new Appearance(owner.CharacterId, visual.Slot, visual.DisplayId ?? 0));
 
                 owner.AddVisual(visual);
             }

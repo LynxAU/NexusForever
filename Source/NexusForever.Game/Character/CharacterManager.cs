@@ -167,7 +167,7 @@ namespace NexusForever.Game.Character
         /// </summary>
         public ulong? GetCharacterIdByName(string name)
         {
-            return characterNameToId.TryGetValue(name, out ulong characterId) ? characterId : 0;
+            return characterNameToId.TryGetValue(name, out ulong characterId) ? characterId : null;
         }
 
         /// <summary>

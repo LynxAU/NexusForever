@@ -25,6 +25,7 @@ using NexusForever.Game.Guild;
 using NexusForever.Game.Housing;
 using NexusForever.Game.Map;
 using NexusForever.Game.Reputation;
+using NexusForever.Game.Static.Crafting;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Guild;
@@ -44,6 +45,7 @@ using NexusForever.Network.World.Entity.Model;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Model.Abilities;
 using NexusForever.Network.World.Message.Model.Chat;
+using NexusForever.Network.World.Message.Model.Crafting;
 using NexusForever.Network.World.Message.Model.Pregame;
 using NexusForever.Network.World.Message.Model.Shared;
 using NexusForever.Network.World.Message.Static;
@@ -250,6 +252,8 @@ namespace NexusForever.Game.Entity
         private PlayerSaveMask saveMask;
 
         private Dictionary<Property, Dictionary<ItemSlot, /*value*/float>> itemProperties = new();
+        private readonly HashSet<TradeskillType> learnedTradeskills = [];
+        private readonly HashSet<uint> learnedSchematicIds = [];
 
         private UpdateTimer relocationTimer = new(TimeSpan.FromSeconds(1));
 
@@ -785,6 +789,17 @@ namespace NexusForever.Game.Entity
 
             playerCreate.SpecIndex = SpellManager.ActiveActionSet;
             Session.EnqueueMessageEncrypted(playerCreate);
+            Session.EnqueueMessageEncrypted(new ServerProfessionsLoad
+            {
+                Tradeskills = learnedTradeskills
+                    .Select(t => new TradeskillInfo
+                    {
+                        TradeskillId = t,
+                        IsActive     = 1u
+                    })
+                    .ToList(),
+                LearnedSchematics = learnedSchematicIds.ToList()
+            });
 
             TitleManager.SendTitles();
             SpellManager.SendInitialPackets();
@@ -819,6 +834,27 @@ namespace NexusForever.Game.Entity
             if (classEntry == null)
                 return (ItemProficiency)0;
             return (ItemProficiency)classEntry.StartingItemProficiencies;
+        }
+
+        public IEnumerable<TradeskillType> GetLearnedTradeskills() => learnedTradeskills;
+
+        public IEnumerable<uint> GetLearnedSchematicIds() => learnedSchematicIds;
+
+        public bool HasLearnedSchematic(uint schematicId) => learnedSchematicIds.Contains(schematicId);
+
+        public bool TryLearnTradeskill(TradeskillType tradeskillId)
+        {
+            return learnedTradeskills.Add(tradeskillId);
+        }
+
+        public bool TryDropTradeskill(TradeskillType tradeskillId)
+        {
+            return learnedTradeskills.Remove(tradeskillId);
+        }
+
+        public bool TryLearnSchematic(uint schematicId)
+        {
+            return learnedSchematicIds.Add(schematicId);
         }
 
         public override void OnRemoveFromMap()

@@ -1,3 +1,4 @@
+using System;
 using System.Numerics;
 using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Game.Abstract;
@@ -5,6 +6,7 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Combat;
 using NexusForever.Game.Entity;
+using NexusForever.Game.Static.Crafting;
 using NexusForever.Game.Map;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
@@ -13,6 +15,7 @@ using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Combat;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Network.World.Message.Model.Crafting;
 using NexusForever.Shared;
 
 namespace NexusForever.Game.Spell
@@ -379,6 +382,19 @@ namespace NexusForever.Game.Spell
 
             // DataBits00 is expected to carry the tradeskill id when present.
             uint tradeskillId = info.Entry.DataBits00;
+            if (Enum.IsDefined(typeof(TradeskillType), (int)tradeskillId))
+            {
+                player.TryLearnTradeskill((TradeskillType)tradeskillId);
+                player.Session.EnqueueMessageEncrypted(new ServerProfessionUpdate
+                {
+                    Tradeskill = new Network.World.Message.Model.Shared.TradeskillInfo
+                    {
+                        TradeskillId = (TradeskillType)tradeskillId,
+                        IsActive     = 1u
+                    }
+                });
+            }
+
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.LearnTradeskill, tradeskillId, 1u);
         }
 
@@ -390,6 +406,16 @@ namespace NexusForever.Game.Spell
 
             // DataBits00 is expected to carry the tradeskill schematic id when present.
             uint schematicId = info.Entry.DataBits00;
+            TradeskillSchematic2Entry entry = GameTableManager.Instance.TradeskillSchematic2.GetEntry(schematicId);
+            if (entry != null && player.TryLearnSchematic(schematicId) && Enum.IsDefined(typeof(TradeskillType), (int)entry.TradeSkillId))
+            {
+                player.Session.EnqueueMessageEncrypted(new ServerSchematicAddLearned
+                {
+                    TradeskillId = (TradeskillType)entry.TradeSkillId,
+                    TradeskillSchematic2Id = schematicId
+                });
+            }
+
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ObtainSchematic, schematicId, 1u);
         }
 

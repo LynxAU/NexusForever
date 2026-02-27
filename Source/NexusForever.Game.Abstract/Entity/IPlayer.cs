@@ -9,6 +9,7 @@ using NexusForever.Game.Abstract.Housing;
 using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Abstract.Reputation;
+using NexusForever.Game.Static.Crafting;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Setting;
 using NexusForever.GameTable.Model;
@@ -115,6 +116,12 @@ namespace NexusForever.Game.Abstract.Entity
         void SaveDirect();
 
         ItemProficiency GetItemProficiencies();
+        IEnumerable<TradeskillType> GetLearnedTradeskills();
+        IEnumerable<uint> GetLearnedSchematicIds();
+        bool HasLearnedSchematic(uint schematicId);
+        bool TryLearnTradeskill(TradeskillType tradeskillId);
+        bool TryDropTradeskill(TradeskillType tradeskillId);
+        bool TryLearnSchematic(uint schematicId);
 
         /// <summary>
         /// Set the <see cref="IWorldEntity"/> that currently being controlled by the <see cref="IPlayer"/>.

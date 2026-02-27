@@ -105,6 +105,12 @@ namespace NexusForever.Game.Abstract.Entity
         IItem ItemDelete(ItemLocation from, ItemUpdateReason reason = ItemUpdateReason.Loot);
 
         /// <summary>
+        /// Delete a supplied amount from <see cref="IItem"/> at <see cref="ItemLocation"/>.
+        /// Returns the removed item (full item for complete delete, synthetic stack for partial delete).
+        /// </summary>
+        IItem ItemDelete(ItemLocation from, uint count, ItemUpdateReason reason = ItemUpdateReason.Loot);
+
+        /// <summary>
         /// Delete a supplied amount of an item.
         /// </summary>
         void ItemDelete(uint itemId, uint count = 1, ItemUpdateReason reason = ItemUpdateReason.Loot);

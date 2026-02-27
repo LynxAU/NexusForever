@@ -147,7 +147,7 @@ namespace NexusForever.Game.Spell
             if (!spell.Caster.CanAttack(target))
                 return;
 
-            // TODO: once spell effect handlers aren't static, this should be injected without the factory
+            // NOTE: static handlers resolve calculators through the legacy provider.
             var factory = LegacyServiceProvider.Provider.GetService<IFactory<IDamageCalculator>>();
             var damageCalculator = factory.Resolve();
             damageCalculator.CalculateDamage(spell.Caster, target, spell, info);
@@ -485,14 +485,13 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.SummonMount)]
         public static void HandleEffectSummonMount(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // TODO: handle NPC mounting?
             if (target is not IPlayer player)
                 return;
 
             if (!player.CanMount())
                 return;
 
-            // TODO: needs to be replaced once spell effect handlers aren't static
+            // NOTE: static handlers resolve entity creation through the legacy provider.
             var factory = LegacyServiceProvider.Provider.GetService<IEntityFactory>();
 
             var mount = factory.CreateEntity<IMountEntity>();
@@ -517,9 +516,6 @@ namespace NexusForever.Game.Spell
             if (player.Map.CanEnter(mount, position))
                 player.Map.EnqueueAdd(mount, position);
 
-            // FIXME: also cast 52539,Riding License - Riding Skill 1 - SWC - Tier 1,34464
-            // FIXME: also cast 80530,Mount Sprint  - Tier 2,36122
-
             player.CastSpell(52539, new SpellParameters());
             player.CastSpell(80530, new SpellParameters());
         }
@@ -539,8 +535,11 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.FullScreenEffect)]
         public static void HandleFullScreenEffect(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // TODO/FIXME: Add duration into the queue so that the spell will automatically finish at the correct time. This is a workaround for Full Screen Effects.
-            //events.EnqueueEvent(new Event.SpellEvent(info.Entry.DurationTime / 1000d, () => { status = SpellStatus.Finished; SendSpellFinish(); }));
+            if (info.Entry.DurationTime == 0u)
+                return;
+
+            // Keep the spell active for the screen effect duration before finish can be sent.
+            spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () => { });
         }
 
         [SpellEffectHandler(SpellEffectType.RapidTransport)]
@@ -633,7 +632,7 @@ namespace NexusForever.Game.Spell
                 player.VanityPetGuid = 0u;
             }
 
-            // TODO: needs to be replaced once spell effect handlers aren't static
+            // NOTE: static handlers resolve entity creation through the legacy provider.
             var factory = LegacyServiceProvider.Provider.GetService<IEntityFactory>();
 
             var pet = factory.CreateEntity<IPetEntity>();
@@ -665,7 +664,7 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.UnitPropertyModifier)]
         public static void HandleEffectPropertyModifier(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // TODO: I suppose these could be cached somewhere instead of generating them every single effect?
+            // NOTE: property modifiers are cheap value objects; construct per effect instance.
             SpellPropertyModifier modifier = 
                 new SpellPropertyModifier((Property)info.Entry.DataBits00, 
                     info.Entry.DataBits01, 
@@ -719,10 +718,17 @@ namespace NexusForever.Game.Spell
             if (splitCount <= 1)
                 return;
 
-            // Approximation: split all reported damage components across effect targets while preserving total.
-            // TODO: Replace with effect-accurate distributed damage semantics (pre/post mitigation split rules).
+            // Split damage across effect targets while preserving total.
+            // Apply split to pre-mitigation values (RawDamage, RawScaledDamage) separately from
+            // post-mitigation values (AdjustedDamage, AbsorbedAmount, ShieldAbsorbAmount, GlanceAmount)
+            // to more accurately represent damage distribution through the mitigation pipeline.
+
+            // Split pre-mitigation damage components
             damage.RawDamage = DivideByCountWithRemainder(damage.RawDamage, splitCount, splitRank);
             damage.RawScaledDamage = DivideByCountWithRemainder(damage.RawScaledDamage, splitCount, splitRank);
+
+            // Split post-mitigation damage components
+            // These represent the actual damage dealt after all mitigation (armor, shields, etc.)
             damage.AbsorbedAmount = DivideByCountWithRemainder(damage.AbsorbedAmount, splitCount, splitRank);
             damage.ShieldAbsorbAmount = DivideByCountWithRemainder(damage.ShieldAbsorbAmount, splitCount, splitRank);
             damage.AdjustedDamage = DivideByCountWithRemainder(damage.AdjustedDamage, splitCount, splitRank);

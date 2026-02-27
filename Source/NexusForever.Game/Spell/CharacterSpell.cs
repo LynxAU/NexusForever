@@ -41,6 +41,7 @@ namespace NexusForever.Game.Spell
         public uint MaxAbilityCharges => SpellInfo.Entry.AbilityChargeCount;
 
         private UnlockedSpellSaveMask saveMask;
+        private bool isContinuousButtonPressed;
 
         private UpdateTimer rechargeTimer;
 
@@ -146,11 +147,17 @@ namespace NexusForever.Game.Spell
         /// </summary>
         public void Cast(bool buttonPressed)
         {
-            // TODO: Handle continuous casting of spell for Player if button remains depressed
-
-            // If the player depresses button after the spell had exceeded its threshold, don't try and recast the spell until button is pressed down again.
+            // Only cast on a rising button edge. This prevents repeated recasts while held.
             if (!buttonPressed)
+            {
+                isContinuousButtonPressed = false;
                 return;
+            }
+
+            if (isContinuousButtonPressed)
+                return;
+
+            isContinuousButtonPressed = true;
 
             CastSpell();
         }

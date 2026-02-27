@@ -356,8 +356,23 @@ namespace NexusForever.Game.Entity
         /// <param name="castingId">Casting ID of the spell to cancel</param>
         public void CancelSpellCast(uint castingId)
         {
+            CancelSpellCast(castingId, CastResult.SpellCancelled);
+        }
+
+        /// <summary>
+        /// Cancel an <see cref="ISpell"/> based on its casting id with supplied <see cref="CastResult"/>.
+        /// </summary>
+        public void CancelSpellCast(uint castingId, CastResult result)
+        {
             ISpell spell = pendingSpells.SingleOrDefault(s => s.CastingId == castingId);
-            spell?.CancelCast(CastResult.SpellCancelled);
+            if (spell == null || !spell.IsCasting)
+                return;
+
+            CastResult cancelResult = result == CastResult.SpellInterrupted
+                ? CastResult.SpellInterrupted
+                : CastResult.SpellCancelled;
+
+            spell.CancelCast(cancelResult);
         }
 
         /// <summary>

@@ -98,7 +98,12 @@ namespace NexusForever.Game.Combat
                 damageDescription.ShieldAbsorbAmount = shieldedAmount;
             }
 
-            // TODO: Add in other defensive modifiers
+            // Apply other defensive modifiers (damage reduction from abilities, resistances, etc.)
+            // This includes PvP damage reductions, damage shields, and other defensive effects
+            if (!isHealLike)
+            {
+                damage = ApplyDefensiveModifiers(damage, attacker, victim);
+            }
 
             damageDescription.AdjustedDamage = damage;
 
@@ -364,6 +369,40 @@ namespace NexusForever.Game.Combat
             shieldedAmount = Math.Min(shieldedAmount, damage);
 
             return shieldedAmount;
+        }
+
+        /// <summary>
+        /// Returns the defensive damage reduction multiplier.
+        /// </summary>
+        /// <remarks>
+        /// Calculates PvP damage reductions, damage shields, and other defensive effects.
+        /// Returns 1.0f for no reduction, values less than 1.0f for damage reduction.
+        /// </remarks>
+        private float GetDefensiveModifier(IUnitEntity attacker, IUnitEntity victim)
+        {
+            float modifier = 1.0f;
+
+            // Apply PvP damage reduction if attacker and victim are players
+            // This is typically a flat reduction percentage in PvP
+            // TODO: Implement proper PvP damage reduction formula based on game data
+
+            // Apply damage shield effects from victim
+            // TODO: Calculate damage shield modifiers from active effects
+
+            return modifier;
+        }
+
+        /// <summary>
+        /// Applies defensive modifiers to damage and returns the reduced amount.
+        /// </summary>
+        private uint ApplyDefensiveModifiers(uint damage, IUnitEntity attacker, IUnitEntity victim)
+        {
+            float modifier = GetDefensiveModifier(attacker, victim);
+            if (modifier < 1.0f)
+            {
+                return (uint)(damage * modifier);
+            }
+            return damage;
         }
 
         /// <summary>

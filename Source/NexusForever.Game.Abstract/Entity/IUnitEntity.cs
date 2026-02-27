@@ -3,6 +3,7 @@ using NexusForever.Game.Abstract.Spell;
 using System;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Spell;
+using NexusForever.Network.World.Message.Static;
 
 namespace NexusForever.Game.Abstract.Entity
 {
@@ -70,6 +71,11 @@ namespace NexusForever.Game.Abstract.Entity
         /// </summary>
         /// <param name="castingId">Casting ID of the spell to cancel</param>
         void CancelSpellCast(uint castingId);
+
+        /// <summary>
+        /// Cancel an <see cref="ISpell"/> based on its casting id with supplied <see cref="CastResult"/>.
+        /// </summary>
+        void CancelSpellCast(uint castingId, CastResult result);
 
         /// <summary>
         /// Determine if this <see cref="IUnitEntity"/> can attack supplied <see cref="IUnitEntity"/>.

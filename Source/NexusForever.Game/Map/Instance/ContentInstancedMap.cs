@@ -13,15 +13,18 @@ namespace NexusForever.Game.Map.Instance
 
         private readonly IMapLockManager mapLockManager;
         private readonly IMatchManager matchManager;
+        private readonly IPlayerManager playerManager;
         private readonly IFactory<T> instanceFactory;
 
         public ContentInstancedMap(
             IMapLockManager mapLockManager,
             IMatchManager matchManager,
+            IPlayerManager playerManager,
             IFactory<T> instanceFactory)
         {
             this.mapLockManager = mapLockManager;
             this.matchManager = matchManager;
+            this.playerManager = playerManager;
             this.instanceFactory = instanceFactory;
         }
 
@@ -36,7 +39,22 @@ namespace NexusForever.Game.Map.Instance
                 return matchMapLock ?? mapLockManager.CreateMatchLock(match);
             }
 
-            // TODO: check group lock
+            if (player.GroupAssociation != 0)
+            {
+                foreach (IPlayer groupMember in playerManager)
+                {
+                    if (groupMember.CharacterId == player.CharacterId
+                        || groupMember.GroupAssociation != player.GroupAssociation)
+                        continue;
+
+                    IMapLock groupLock = mapLockManager.GetSoloLock(groupMember.Identity, Entry.Id);
+                    if (groupLock != null)
+                    {
+                        mapLockManager.AssignSoloLock(player.Identity, groupLock);
+                        return groupLock;
+                    }
+                }
+            }
 
             IMapLock soloMapLock = mapLockManager.GetSoloLock(player.Identity, Entry.Id);
             return soloMapLock ?? mapLockManager.CreateSoloLock(player.Identity, Entry.Id);

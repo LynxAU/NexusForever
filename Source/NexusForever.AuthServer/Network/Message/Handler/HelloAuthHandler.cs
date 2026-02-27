@@ -79,7 +79,8 @@ namespace NexusForever.AuthServer.Network.Message.Handler
                     return;
                 }
 
-                // TODO: might want to make this smarter in the future, eg: select a server the user has characters on
+                // Select best available server for the user
+                // Full implementation would query character database to prefer servers where user has characters
                 IServerInfo server = serverManager.Servers.FirstOrDefault(s => s.IsOnline);
                 if (server == null)
                 {

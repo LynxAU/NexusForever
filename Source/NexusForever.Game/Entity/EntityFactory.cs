@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Entity;
 
@@ -9,11 +10,14 @@ namespace NexusForever.Game.Entity
         #region Dependency Injection
 
         private readonly IServiceProvider serviceProvider;
+        private readonly ILogger<EntityFactory> log;
 
         public EntityFactory(
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            ILogger<EntityFactory> log)
         {
             this.serviceProvider = serviceProvider;
+            this.log             = log;
         }
 
         #endregion
@@ -34,7 +38,7 @@ namespace NexusForever.Game.Entity
         /// </remarks>
         public IWorldEntity CreateWorldEntity(EntityType type)
         {
-            return type switch
+            IWorldEntity entity = type switch
             {
                 EntityType.NonPlayer          => serviceProvider.GetService<INonPlayerEntity>(),
                 EntityType.Chest              => serviceProvider.GetService<IChestEntity>(),
@@ -73,8 +77,15 @@ namespace NexusForever.Game.Entity
                 EntityType.HousingHarvestPlug => serviceProvider.GetService<IHousingHarvestPlugEntity>(),
                 EntityType.HousingPlant       => serviceProvider.GetService<IHousingPlantEntity>(),
                 EntityType.Lockbox            => serviceProvider.GetService<ILockboxEntity>(),
-                _                             => throw new NotImplementedException()
+                _                             => null
             };
+
+            if (entity != null)
+                return entity;
+
+            log.LogWarning("Unknown entity type {EntityType}, falling back to Hidden entity.", type);
+            return serviceProvider.GetService<IHiddenEntity>() as IWorldEntity
+                ?? serviceProvider.GetService<ISimpleEntity>() as IWorldEntity;
         }
     }
 }

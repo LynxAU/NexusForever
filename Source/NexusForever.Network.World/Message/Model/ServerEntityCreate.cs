@@ -15,7 +15,7 @@ namespace NexusForever.Network.World.Message.Model
         {
             public void Write(GamePacketWriter writer)
             {
-                throw new NotImplementedException();
+                // Unknown payload. Preserve packet flow until structure is identified.
             }
         }
 

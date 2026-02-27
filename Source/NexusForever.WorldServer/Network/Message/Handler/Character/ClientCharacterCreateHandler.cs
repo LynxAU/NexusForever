@@ -102,13 +102,19 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
                     return;
                 }
 
+                // Validate entitlement if required (e.g., Aurin engineer)
                 CharacterCreationEntry creationEntry = gameTableManager.CharacterCreation.GetEntry(characterCreate.CharacterCreationId);
                 if (creationEntry == null)
                     throw new InvalidPacketValueException();
 
-                if (creationEntry.EntitlementIdRequired != 0u)
+                if (creationEntry.EntitlementIdRequired != 0u
+                    && session.Account.EntitlementManager.GetEntitlement((EntitlementType)creationEntry.EntitlementIdRequired) == null)
                 {
-                    // TODO: Aurin engineer has this
+                    session.EnqueueMessageEncrypted(new ServerCharacterCreate
+                    {
+                        Result = CharacterModifyResult.CreateFailed_Internal
+                    });
+                    return;
                 }
 
                 var character = new CharacterModel
@@ -213,6 +219,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
                     .Select(i => i);
 
                 //TODO: handle starting stats per class/race
+                // Starting stats should be derived from ClassSecondaryStatBonusEntry and other game tables
+                // For now, using default values that will be recalculated on level up
                 character.Stat.Add(new CharacterStatModel
                 {
                     Id    = character.Id,

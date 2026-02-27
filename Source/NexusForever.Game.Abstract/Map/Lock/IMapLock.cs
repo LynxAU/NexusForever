@@ -11,7 +11,7 @@ namespace NexusForever.Game.Abstract.Map.Lock
         /// <summary>
         /// Initialise new map lock with supplied <see cref="MapLockType"/> and world id.
         /// </summary>
-        void Initialise(MapLockType mapLockType, uint worldId);
+        void Initialise(MapLockType mapLockType, uint worldId, Guid? instanceId = null);
 
         /// <summary>
         /// Add a character to the map lock.

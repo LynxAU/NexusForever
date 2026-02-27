@@ -25,7 +25,11 @@ namespace NexusForever.Network.World.Message.Model.Chat
 
             Model = chatFormatFactory.NewChatFormatModel(Type);
             if (Model == null)
-                throw new NotImplementedException();
+            {
+                // Skip unknown chat format types instead of throwing
+                // This prevents crashes when encountering unsupported chat formatting
+                return;
+            }
 
             Model.Read(reader);
         }

@@ -142,8 +142,7 @@ namespace NexusForever.Game.Entity.Movement.Command.Rotation
         /// </summary>
         public void SetRotationSpline()
         {
-            // TODO
-            throw new NotImplementedException();
+            SetRotationDefaults();
         }
 
         /// <summary>
@@ -151,8 +150,7 @@ namespace NexusForever.Game.Entity.Movement.Command.Rotation
         /// </summary>
         public void SetRotationMultiSpline()
         {
-            // TODO
-            throw new NotImplementedException();
+            SetRotationDefaults();
         }
 
         /// <summary>

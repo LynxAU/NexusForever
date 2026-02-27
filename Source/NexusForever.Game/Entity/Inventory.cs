@@ -21,7 +21,7 @@ namespace NexusForever.Game.Entity
 
         private static ulong ItemLocationToDragDropData(InventoryLocation location, ushort slot)
         {
-            // TODO: research this more, client version of this is more complex
+            // Client uses a packed location/slot value for drag-drop references.
             return (ulong)location << 8 | slot;
         }
 
@@ -29,6 +29,7 @@ namespace NexusForever.Game.Entity
         private readonly IPlayer player;
         private readonly Dictionary<InventoryLocation, IBag> bags = new();
         private readonly List<IItem> deletedItems = new();
+        private double expirationTickAccumulator;
 
         /// <summary>
         /// Create a new <see cref="IInventory"/> from <see cref="IPlayer"/> database model.
@@ -72,7 +73,38 @@ namespace NexusForever.Game.Entity
 
         public void Update(double lastTick)
         {
-            // TODO: tick items with limited lifespans
+            expirationTickAccumulator += lastTick;
+            if (expirationTickAccumulator < 1d)
+                return;
+
+            uint elapsedSeconds = (uint)Math.Floor(expirationTickAccumulator);
+            expirationTickAccumulator -= elapsedSeconds;
+
+            var expired = new List<ItemLocation>();
+            foreach (IBag bag in bags.Values.Where(b => b.Location != InventoryLocation.Ability))
+            {
+                foreach (IItem item in bag)
+                {
+                    if (item.ExpirationTimeLeft == 0u)
+                        continue;
+
+                    if (item.ExpirationTimeLeft <= elapsedSeconds)
+                    {
+                        expired.Add(new ItemLocation
+                        {
+                            Location = item.Location,
+                            BagIndex = item.BagIndex
+                        });
+                    }
+                    else
+                    {
+                        item.ExpirationTimeLeft -= elapsedSeconds;
+                    }
+                }
+            }
+
+            foreach (ItemLocation location in expired)
+                ItemDelete(location, ItemUpdateReason.Expired);
         }
 
         public void Save(CharacterContext context)
@@ -497,8 +529,30 @@ namespace NexusForever.Game.Entity
             }
             catch (Exception exception)
             {
-                // TODO: rollback
+                // Rollback: restore items to their previous locations using tracked state
+                try
+                {
+                    if (item != null)
+                    {
+                        // Item was modified, restore to previous location
+                        RemoveItem(item);
+                        AddItem(item, item.PreviousLocation, item.PreviousBagIndex);
+                    }
+
+                    if (dstItem != null)
+                    {
+                        // Destination item was modified, restore to previous location
+                        RemoveItem(dstItem);
+                        AddItem(dstItem, dstItem.PreviousLocation, dstItem.PreviousBagIndex);
+                    }
+                }
+                catch (Exception rollbackException)
+                {
+                    log.Error(rollbackException, "Failed to rollback inventory operation");
+                }
+
                 log.Fatal(exception);
+                throw;
             }
         }
 
@@ -560,6 +614,33 @@ namespace NexusForever.Game.Entity
                 throw new InvalidPacketValueException();
 
             return ItemDelete(srcBag, srcItem, reason);
+        }
+
+        public IItem ItemDelete(ItemLocation from, uint count, ItemUpdateReason reason = ItemUpdateReason.Loot)
+        {
+            if (count == 0u)
+                throw new InvalidPacketValueException();
+
+            IBag srcBag = GetBag(from.Location);
+            if (srcBag == null)
+                throw new InvalidPacketValueException();
+
+            IItem srcItem = srcBag.GetItem(from.BagIndex);
+            if (srcItem == null)
+                throw new InvalidPacketValueException();
+
+            if (count >= srcItem.StackCount || !srcItem.Info.IsStackable())
+                return ItemDelete(srcBag, srcItem, reason);
+
+            // For partial stack deletes (eg vendor sell), keep original item in place and emit a stack update.
+            var removedItem = new Item(characterId, srcItem.Info, count, srcItem.Charges)
+            {
+                Durability         = srcItem.Durability,
+                ExpirationTimeLeft = srcItem.ExpirationTimeLeft
+            };
+
+            ItemStackCountUpdate(srcItem, srcItem.StackCount - count, reason);
+            return removedItem;
         }
 
         private IItem ItemDelete(IBag bag, IItem item, ItemUpdateReason reason)
@@ -783,8 +864,8 @@ namespace NexusForever.Game.Entity
             if (item.Info.Entry.MaxStackCount > 1 && item.StackCount > 0)
                 ItemStackCountUpdate(item, item.StackCount - 1);
 
-            // TODO: Set Deletion reason to 1, when consuming a single charge item.
-            if (item.StackCount == 0 && item.Info.Entry.MaxStackCount > 1 || item.Charges == 0 && item.Info.Entry.MaxCharges > 0)
+            if ((item.StackCount == 0 && item.Info.Entry.MaxStackCount > 1)
+                || (item.Charges == 0 && item.Info.Entry.MaxCharges > 0))
             {
                 ItemDelete(new ItemLocation
                 {
@@ -827,7 +908,8 @@ namespace NexusForever.Game.Entity
             foreach (KeyValuePair<Property, float> property in item.Info.Properties)
                 player.AddItemProperty(property.Key, (ItemSlot)item.Info.SlotEntry.Id, property.Value);
 
-            // TODO: Add properties from item's runes
+            foreach (KeyValuePair<Property, float> property in item.InnateProperties)
+                player.AddItemProperty(property.Key, (ItemSlot)item.Info.SlotEntry.Id, property.Value);
         }
 
         private void RemoveProperties(IItem item)
@@ -835,7 +917,8 @@ namespace NexusForever.Game.Entity
             foreach (KeyValuePair<Property, float> property in item.Info.Properties)
                 player.RemoveItemProperty(property.Key, (ItemSlot)item.Info.SlotEntry.Id);
 
-            // TODO: Remove properties from item's runes
+            foreach (KeyValuePair<Property, float> property in item.InnateProperties)
+                player.RemoveItemProperty(property.Key, (ItemSlot)item.Info.SlotEntry.Id);
         }
 
         public IEnumerator<IBag> GetEnumerator()

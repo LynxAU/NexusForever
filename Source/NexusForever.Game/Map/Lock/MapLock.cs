@@ -28,12 +28,12 @@ namespace NexusForever.Game.Map.Lock
         /// <summary>
         /// Initialise new map lock with supplied <see cref="MapLockType"/> and world id.
         /// </summary>
-        public void Initialise(MapLockType mapLockType, uint worldId)
+        public void Initialise(MapLockType mapLockType, uint worldId, Guid? instanceId = null)
         {
             if (InstanceId != Guid.Empty)
                 throw new InvalidOperationException();
 
-            InstanceId = Guid.NewGuid();
+            InstanceId = instanceId ?? Guid.NewGuid();
             Type       = mapLockType;
             WorldId    = worldId;
 

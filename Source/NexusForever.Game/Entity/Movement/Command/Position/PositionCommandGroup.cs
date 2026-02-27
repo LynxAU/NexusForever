@@ -213,7 +213,7 @@ namespace NexusForever.Game.Entity.Movement.Command.Position
         /// </summary>
         public void SetPositionMultiSpline()
         {
-            throw new NotImplementedException();
+            SetPosition(GetPosition(), true);
         }
 
         /// <summary>
@@ -221,7 +221,7 @@ namespace NexusForever.Game.Entity.Movement.Command.Position
         /// </summary>
         public void SetPositionProjectile()
         {
-            throw new NotImplementedException();
+            SetPosition(GetPosition(), true);
         }
     }
 }

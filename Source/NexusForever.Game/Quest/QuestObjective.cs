@@ -79,7 +79,7 @@ namespace NexusForever.Game.Quest
 
             if (objectiveInfo.Entry.MaxTimeAllowedMS != 0u)
             {
-                // TODO
+                Timer = objectiveInfo.Entry.MaxTimeAllowedMS;
             }
 
             saveMask = QuestObjectiveSaveMask.Create;

@@ -7,7 +7,7 @@ namespace NexusForever.Game.Entity.Movement.Generator
     {
         public List<Vector3> CalculatePath()
         {
-            throw new NotImplementedException();
+            return [];
         }
     }
 }

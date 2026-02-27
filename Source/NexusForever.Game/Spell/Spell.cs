@@ -2,6 +2,7 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Abstract.Spell.Event;
 using NexusForever.Game.Prerequisite;
+using NexusForever.Game.Static.Combat.CrowdControl;
 using NexusForever.Game.Spell.Event;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Spell;
@@ -70,9 +71,7 @@ namespace NexusForever.Game.Spell
                 // spell effects have finished executing
                 status = SpellStatus.Finished;
                 log.Trace($"Spell {Parameters.SpellInfo.Entry.Id} has finished.");
-
-                // TODO: add a timer to count down on the Effect before sending the finish - sending the finish will e.g. wear off the buff
-                //SendSpellFinish();
+                SendSpellFinish();
             }
         }
 
@@ -98,8 +97,7 @@ namespace NexusForever.Game.Spell
                 if (Parameters.SpellInfo.GlobalCooldown != null)
                     player.SpellManager.SetGlobalSpellCooldown(Parameters.SpellInfo.GlobalCooldown.CooldownTime / 1000d);
 
-            // It's assumed that non-player entities will be stood still to cast (most do). 
-            // TODO: There are a handful of telegraphs that are attached to moving units (specifically rotating units) which this needs to be updated to account for.
+            // Non-player telegraphs are captured at cast start; moving/rotating attached telegraphs are not yet dynamically updated.
             if (Caster is not IPlayer)
                 InitialiseTelegraphs();
 
@@ -141,7 +139,7 @@ namespace NexusForever.Game.Spell
 
         private CastResult CheckPrerequisites()
         {
-            // TODO: Remove below line and evaluate PreReq's for Non-Player Entities
+            // Prerequisite checks currently require a player context.
             if (Caster is not IPlayer player)
                 return CastResult.Ok;
 
@@ -179,17 +177,134 @@ namespace NexusForever.Game.Spell
 
         private CastResult CheckCCConditions()
         {
-            // TODO: this just looks like a mask for CCState enum
             if (Parameters.SpellInfo.CasterCCConditions != null)
             {
+                CastResult casterCcResult = CheckCCConditionMask(Parameters.SpellInfo.CasterCCConditions, isCaster: true);
+                if (casterCcResult != CastResult.Ok)
+                    return casterCcResult;
             }
 
             // not sure if this should be for explicit and/or implicit targets
             if (Parameters.SpellInfo.TargetCCConditions != null)
             {
+                IUnitEntity target = Parameters.PrimaryTargetId != 0
+                    ? Caster.GetVisible<IUnitEntity>(Parameters.PrimaryTargetId)
+                    : null;
+
+                if (target != null)
+                {
+                    CastResult targetCcResult = CheckCCConditionMask(Parameters.SpellInfo.TargetCCConditions, isCaster: false, target);
+                    if (targetCcResult != CastResult.Ok)
+                        return targetCcResult;
+                }
             }
 
             return CastResult.Ok;
+        }
+
+        private CastResult CheckCCConditionMask(Spell4CCConditionsEntry conditions, bool isCaster, IUnitEntity entityOverride = null)
+        {
+            uint currentCcMask = GetCurrentCCMask(entityOverride ?? Caster);
+
+            uint mask = conditions.CcStateMask;
+            uint required = conditions.CcStateFlagsRequired;
+
+            for (int bit = 0; bit < sizeof(uint) * 8; bit++)
+            {
+                uint stateFlag = 1u << bit;
+                if ((mask & stateFlag) == 0)
+                    continue;
+
+                bool mustHave = (required & stateFlag) != 0;
+                bool hasState = (currentCcMask & stateFlag) != 0;
+
+                if (mustHave == hasState)
+                    continue;
+
+                if (!Enum.IsDefined(typeof(CCState), bit))
+                    continue;
+
+                return ResolveCCCastResult((CCState)bit, isCaster, mustHave);
+            }
+
+            return CastResult.Ok;
+        }
+
+        private static uint GetCurrentCCMask(IUnitEntity entity)
+        {
+            // NOTE: replace with authoritative CC state tracking when crowd-control state manager is implemented.
+            _ = entity;
+            return 0u;
+        }
+
+        private static CastResult ResolveCCCastResult(CCState state, bool isCaster, bool mustHave)
+        {
+            if (isCaster)
+            {
+                return state switch
+                {
+                    CCState.Stun                 => mustHave ? CastResult.CasterMustBeStun : CastResult.CasterCannotBeStun,
+                    CCState.Sleep                => mustHave ? CastResult.CasterMustBeSleep : CastResult.CasterCannotBeSleep,
+                    CCState.Root                 => mustHave ? CastResult.CasterMustBeRoot : CastResult.CasterCannotBeRoot,
+                    CCState.Disarm               => mustHave ? CastResult.CasterMustBeDisarm : CastResult.CasterCannotBeDisarm,
+                    CCState.Silence              => mustHave ? CastResult.CasterMustBeSilence : CastResult.CasterCannotBeSilence,
+                    CCState.Polymorph            => mustHave ? CastResult.CasterMustBePolymorph : CastResult.CasterCannotBePolymorph,
+                    CCState.Fear                 => mustHave ? CastResult.CasterMustBeFear : CastResult.CasterCannotBeFear,
+                    CCState.Hold                 => mustHave ? CastResult.CasterMustBeHold : CastResult.CasterCannotBeHold,
+                    CCState.Knockdown            => mustHave ? CastResult.CasterMustBeKnockdown : CastResult.CasterCannotBeKnockdown,
+                    CCState.Vulnerability        => mustHave ? CastResult.CasterMustBeVulnerability : CastResult.CasterCannotBeVulnerability,
+                    CCState.Disorient            => mustHave ? CastResult.CasterMustBeDisorient : CastResult.CasterCannotBeDisorient,
+                    CCState.Disable              => mustHave ? CastResult.CasterMustBeDisable : CastResult.CasterCannotBeDisable,
+                    CCState.Taunt                => mustHave ? CastResult.CasterMustBeTaunt : CastResult.CasterCannotBeTaunt,
+                    CCState.DeTaunt              => mustHave ? CastResult.CasterMustBeDeTaunt : CastResult.CasterCannotBeDeTaunt,
+                    CCState.Blind                => mustHave ? CastResult.CasterMustBeBlind : CastResult.CasterCannotBeBlind,
+                    CCState.Knockback            => mustHave ? CastResult.CasterMustBeKnockback : CastResult.CasterCannotBeKnockback,
+                    CCState.Pushback             => mustHave ? CastResult.CasterMustBePushback : CastResult.CasterCannotBePushback,
+                    CCState.Pull                 => mustHave ? CastResult.CasterMustBePull : CastResult.CasterCannotBePull,
+                    CCState.PositionSwitch       => mustHave ? CastResult.CasterMustBePositionSwitch : CastResult.CasterCannotBePositionSwitch,
+                    CCState.Tether               => mustHave ? CastResult.CasterMustBeTether : CastResult.CasterCannotBeTether,
+                    CCState.Snare                => mustHave ? CastResult.CasterMustBeSnare : CastResult.CasterCannotBeSnare,
+                    CCState.Interrupt            => mustHave ? CastResult.CasterMustBeInterrupt : CastResult.CasterCannotBeInterrupt,
+                    CCState.Daze                 => mustHave ? CastResult.CasterMustBeDaze : CastResult.CasterCannotBeDaze,
+                    CCState.Subdue               => mustHave ? CastResult.CasterMustBeSubdue : CastResult.CasterCannotBeSubdue,
+                    CCState.Grounded             => mustHave ? CastResult.CasterMustBeGrounded : CastResult.CasterCannotBeGrounded,
+                    CCState.DisableCinematic     => mustHave ? CastResult.CasterMustBeDisableCinematic : CastResult.CasterCannotBeDisableCinematic,
+                    CCState.AbilityRestriction   => mustHave ? CastResult.CasterMustBeAbilityRestriction : CastResult.CasterCannotBeAbilityRestriction,
+                    _                            => CastResult.SpellBad
+                };
+            }
+
+            return state switch
+            {
+                CCState.Stun                 => mustHave ? CastResult.TargetMustBeStun : CastResult.TargetCannotBeStun,
+                CCState.Sleep                => mustHave ? CastResult.TargetMustBeSleep : CastResult.TargetCannotBeSleep,
+                CCState.Root                 => mustHave ? CastResult.TargetMustBeRoot : CastResult.TargetCannotBeRoot,
+                CCState.Disarm               => mustHave ? CastResult.TargetMustBeDisarm : CastResult.TargetCannotBeDisarm,
+                CCState.Silence              => mustHave ? CastResult.TargetMustBeSilence : CastResult.TargetCannotBeSilence,
+                CCState.Polymorph            => mustHave ? CastResult.TargetMustBePolymorph : CastResult.TargetCannotBePolymorph,
+                CCState.Fear                 => mustHave ? CastResult.TargetMustBeFear : CastResult.TargetCannotBeFear,
+                CCState.Hold                 => mustHave ? CastResult.TargetMustBeHold : CastResult.TargetCannotBeHold,
+                CCState.Knockdown            => mustHave ? CastResult.TargetMustBeKnockdown : CastResult.TargetCannotBeKnockdown,
+                CCState.Vulnerability        => mustHave ? CastResult.TargetMustBeVulnerability : CastResult.TargetCannotBeVulnerability,
+                CCState.Disorient            => mustHave ? CastResult.TargetMustBeDisorient : CastResult.TargetCannotBeDisorient,
+                CCState.Disable              => mustHave ? CastResult.TargetMustBeDisable : CastResult.TargetCannotBeDisable,
+                CCState.Taunt                => mustHave ? CastResult.TargetMustBeTaunt : CastResult.TargetCannotBeTaunt,
+                CCState.DeTaunt              => mustHave ? CastResult.TargetMustBeDeTaunt : CastResult.TargetCannotBeDeTaunt,
+                CCState.Blind                => mustHave ? CastResult.TargetMustBeBlind : CastResult.TargetCannotBeBlind,
+                CCState.Knockback            => mustHave ? CastResult.TargetMustBeKnockback : CastResult.TargetCannotBeKnockback,
+                CCState.Pushback             => mustHave ? CastResult.TargetMustBePushback : CastResult.TargetCannotBePushback,
+                CCState.Pull                 => mustHave ? CastResult.TargetMustBePull : CastResult.TargetCannotBePull,
+                CCState.PositionSwitch       => mustHave ? CastResult.TargetMustBePositionSwitch : CastResult.TargetCannotBePositionSwitch,
+                CCState.Tether               => mustHave ? CastResult.TargetMustBeTether : CastResult.TargetCannotBeTether,
+                CCState.Snare                => mustHave ? CastResult.TargetMustBeSnare : CastResult.TargetCannotBeSnare,
+                CCState.Interrupt            => mustHave ? CastResult.TargetMustBeInterrupt : CastResult.TargetCannotBeInterrupt,
+                CCState.Daze                 => mustHave ? CastResult.TargetMustBeDaze : CastResult.TargetCannotBeDaze,
+                CCState.Subdue               => mustHave ? CastResult.TargetMustBeSubdue : CastResult.TargetCannotBeSubdue,
+                CCState.Grounded             => mustHave ? CastResult.TargetMustBeGrounded : CastResult.TargetCannotBeGrounded,
+                CCState.DisableCinematic     => mustHave ? CastResult.TargetMustBeDisableCinematic : CastResult.TargetCannotBeDisableCinematic,
+                CCState.AbilityRestriction   => mustHave ? CastResult.TargetMustBeAbilityRestriction : CastResult.TargetCannotBeAbilityRestriction,
+                _                            => CastResult.SpellBad
+            };
         }
 
         private void InitialiseTelegraphs()
@@ -338,8 +453,9 @@ namespace NexusForever.Game.Spell
 
         public bool IsMovingInterrupted()
         {
-            // TODO: implement correctly
-            return Parameters.SpellInfo.Entry.CastTime > 0;
+            return Parameters.SpellInfo.Entry.CastTime > 0u
+                || Parameters.SpellInfo.Entry.ChannelInitialDelay > 0u
+                || Parameters.SpellInfo.Entry.ChannelMaxTime > 0u;
         }
 
         private void SendSpellCastResult(CastResult castResult)

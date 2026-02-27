@@ -310,6 +310,16 @@ namespace NexusForever.Game.Map.Instance
             player.Session.EnqueueMessageEncrypted(new ServerPendingWorldRemovalCancel());
         }
 
+        public bool TryLeavePendingRemoval(IPlayer player)
+        {
+            if (!instanceRemovals.TryGetValue(player.Guid, out IMapInstanceRemoval removal))
+                return false;
+
+            instanceRemovals.Remove(player.Guid);
+            player.TeleportTo(removal.Position);
+            return true;
+        }
+
         /// <summary>
         /// Return a string containing debug information about the map.
         /// </summary>

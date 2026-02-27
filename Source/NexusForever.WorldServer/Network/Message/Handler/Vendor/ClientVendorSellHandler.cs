@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Network.Message;
@@ -35,28 +36,30 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Vendor
             if (info == null)
                 return;
 
-            float costMultiplier = vendorInfo.SellPriceMultiplier * vendorSell.Quantity;
+            if (vendorSell.Quantity == 0u || vendorSell.Quantity > item.StackCount)
+                return;
 
-            // do all sanity checks before modifying currency
+            // Build vendor payout from canonical item sell currencies/amounts.
             var currencyChange = new List<(CurrencyType CurrencyTypeId, ulong CurrencyAmount)>();
-            for (int i = 0; i < info.Entry.CurrencyTypeIdSellToVendor.Length; i++)
+            for (byte i = 0; i < 2; i++)
             {
-                CurrencyType currencyId = info.Entry.CurrencyTypeIdSellToVendor[i];
+                CurrencyType currencyId = item.GetVendorSellCurrency(i);
                 if (currencyId == CurrencyType.None)
                     continue;
 
-                ulong currencyAmount = (ulong)(info.Entry.CurrencyAmountSellToVendor[i] * costMultiplier);
+                float baseAmount = item.GetVendorSellAmount(i);
+                float scaledAmount = baseAmount * vendorInfo.SellPriceMultiplier * vendorSell.Quantity;
+                ulong currencyAmount = (ulong)MathF.Floor(scaledAmount);
+                if (currencyAmount == 0ul)
+                    continue;
+
                 currencyChange.Add((currencyId, currencyAmount));
             }
-
-            // TODO Insert calculation for cost here
-            currencyChange.Add((CurrencyType.Credits, (ulong)(item.GetVendorSellAmount(0) * costMultiplier)));
 
             foreach ((CurrencyType currencyTypeId, ulong currencyAmount) in currencyChange)
                 session.Player.CurrencyManager.CurrencyAddAmount(currencyTypeId, currencyAmount);
 
-            // TODO Figure out why this is showing "You deleted [item]"
-            IItem soldItem = session.Player.Inventory.ItemDelete(vendorSell.ItemLocation, ItemUpdateReason.Vendor);
+            IItem soldItem = session.Player.Inventory.ItemDelete(vendorSell.ItemLocation, vendorSell.Quantity, ItemUpdateReason.Vendor);
             buybackManager.AddItem(session.Player, soldItem, vendorSell.Quantity, currencyChange);
         }
     }

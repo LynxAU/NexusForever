@@ -39,13 +39,19 @@ namespace NexusForever.Game.Spell
 
             public void AddDamage(DamageType damageType, uint damage)
             {
-                // TODO: handle this correctly
                 Damage = new DamageDescription
                 {
-                    DamageType      = damageType,
-                    RawDamage       = damage,
-                    RawScaledDamage = damage,
-                    AdjustedDamage  = damage
+                    DamageType        = damageType,
+                    RawDamage         = damage,
+                    RawScaledDamage   = damage,
+                    AbsorbedAmount    = 0u,
+                    ShieldAbsorbAmount = 0u,
+                    AdjustedDamage    = damage,
+                    GlanceAmount      = 0u,
+                    MultiHitAmount    = 0u,
+                    OverkillAmount    = 0u,
+                    KilledTarget      = false,
+                    CombatResult      = CombatResult.Hit
                 };
             }
 

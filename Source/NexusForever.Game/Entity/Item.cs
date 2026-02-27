@@ -332,11 +332,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public uint GetVendorSellAmount(byte index)
         {
-            // TODO: Rawaho was lazy and didn't finish this
-            // GameFormulaEntry entry = GameTableManager.Instance.GameFormula.GetEntry(559);
-            // uint cost = Entry.PowerLevel * entry.Dataint01;
-
-            // TODO: Add calculations for Runes or other things that would increase worth amount.
+            // Uses precomputed sell values from item info. Additional dynamic modifiers can be layered later.
             return Info.GetVendorSellAmount(index);
         }
     }

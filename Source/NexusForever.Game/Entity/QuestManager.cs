@@ -348,7 +348,28 @@ namespace NexusForever.Game.Entity
                     player.Inventory.ItemCreate(InventoryLocation.Inventory, itemId, info.Entry.PushedItemCounts[i]);
             }
 
-            // TODO: virtual items
+            // Handle virtual items pushed with the quest
+            var virtualItemIds = new[]
+            {
+                info.Entry.VirtualItemIdPushed00,
+                info.Entry.VirtualItemIdPushed01,
+                info.Entry.VirtualItemIdPushed02,
+                info.Entry.VirtualItemIdPushed03
+            };
+            var virtualItemCounts = new[]
+            {
+                info.Entry.VirtualItemPushedCount00,
+                info.Entry.VirtualItemPushedCount01,
+                info.Entry.VirtualItemPushedCount02,
+                info.Entry.VirtualItemPushedCount03
+            };
+
+            for (int i = 0; i < virtualItemIds.Length; i++)
+            {
+                ushort virtualItemId = (ushort)virtualItemIds[i];
+                if (virtualItemId != 0)
+                    player.VirtualItemManager.AddVirtualItem(virtualItemId, virtualItemCounts[i]);
+            }
 
             IQuest quest = GetQuest((ushort)info.Entry.Id);
             if (quest == null)

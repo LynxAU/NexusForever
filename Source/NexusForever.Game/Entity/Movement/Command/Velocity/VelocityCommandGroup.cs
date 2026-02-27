@@ -110,7 +110,13 @@ namespace NexusForever.Game.Entity.Movement.Command.Velocity
         /// </summary>
         public void SetVelocityKeys(List<uint> times, List<Vector3> modes)
         {
-            throw new NotImplementedException();
+            if (modes == null || modes.Count == 0)
+            {
+                SetVelocityDefaults();
+                return;
+            }
+
+            SetVelocity(modes[0], false);
         }
 
         /// <summary>

@@ -22,6 +22,7 @@ namespace NexusForever.Game.Abstract.Entity
         uint Charges { get; set; }
         float Durability { get; set; }
         uint ExpirationTimeLeft { get; set; }
+        Dictionary<Property, float> InnateProperties { get; }
 
         // <summary>
         /// Returns the <see cref="CurrencyType"/> this <see cref="IItem"/> sells for at a vendor.

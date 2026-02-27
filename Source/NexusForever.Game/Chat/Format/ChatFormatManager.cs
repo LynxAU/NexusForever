@@ -146,7 +146,10 @@ namespace NexusForever.Game.Chat.Format
 
                 if (!internalFormatterTypes.TryGetValue(format.Type, out Type type)
                     || !internalFormatters.TryGetValue(format.Type, out Func<object, IPlayer, IChatFormatModel, IChatChannelTextFormatModel> formatterDelegate))
-                    throw new NotImplementedException();
+                {
+                    // Skip unknown formatter types instead of throwing
+                    continue;
+                }
 
                 object formatter = serviceProvider.GetService(type);
                 if (formatter == null)
@@ -175,7 +178,10 @@ namespace NexusForever.Game.Chat.Format
 
                 if (!networkFormatterTypes.TryGetValue(format.Type, out Type type)
                     || !networkFormatters.TryGetValue(format.Type, out Func<object, IChatChannelTextFormatModel, IChatFormatModel> formatterDelegate))
-                    throw new NotImplementedException();
+                {
+                    // Skip unknown formatter types instead of throwing
+                    continue;
+                }
 
                 object formatter = serviceProvider.GetService(type);
                 if (formatter == null)

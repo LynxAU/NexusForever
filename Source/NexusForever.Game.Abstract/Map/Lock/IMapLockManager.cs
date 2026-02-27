@@ -14,6 +14,11 @@ namespace NexusForever.Game.Abstract.Map.Lock
         IMapLock CreateSoloLock(Identity identity, uint worldId);
 
         /// <summary>
+        /// Assign an existing solo <see cref="IMapLock"/> to supplied character id.
+        /// </summary>
+        IMapLock AssignSoloLock(Identity identity, IMapLock mapLock);
+
+        /// <summary>
         /// Create a new match <see cref="IMapLock"/> for supplied <see cref="IMatch"/>.
         /// </summary>
         IMapLock CreateMatchLock(IMatch match);

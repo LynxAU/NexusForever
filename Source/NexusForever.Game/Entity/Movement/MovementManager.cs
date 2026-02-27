@@ -406,7 +406,16 @@ namespace NexusForever.Game.Entity.Movement
         /// </summary>
         public void SetPositionMultiSpline(List<ushort> splineIds, SplineMode mode, float speed)
         {
-            throw new NotImplementedException();
+            if (!ServerControl)
+                return;
+
+            if (splineIds == null || splineIds.Count == 0)
+            {
+                SetPosition(GetPosition(), true);
+                return;
+            }
+
+            SetPositionSpline(splineIds[0], mode, speed);
         }
 
         /// <summary>
@@ -414,7 +423,10 @@ namespace NexusForever.Game.Entity.Movement
         /// </summary>
         public void SetPositionProjectile()
         {
-            throw new NotImplementedException();
+            if (!ServerControl)
+                return;
+
+            SetPosition(GetPosition(), true);
         }
 
         /// <summary>
@@ -438,7 +450,10 @@ namespace NexusForever.Game.Entity.Movement
         /// </summary>
         public void SetVelocityKeys()
         {
-            throw new NotImplementedException();
+            if (!ServerControl)
+                return;
+
+            SetVelocityDefaults();
         }
 
         /// <summary>
@@ -525,7 +540,10 @@ namespace NexusForever.Game.Entity.Movement
         /// </summary>
         public void SetRotationSpline()
         {
-            throw new NotImplementedException();
+            if (!ServerControl)
+                return;
+
+            SetRotationDefaults();
         }
 
         /// <summary>
@@ -533,7 +551,10 @@ namespace NexusForever.Game.Entity.Movement
         /// </summary>
         public void SetRotationMultiSpline()
         {
-            throw new NotImplementedException();
+            if (!ServerControl)
+                return;
+
+            SetRotationDefaults();
         }
 
         /// <summary>

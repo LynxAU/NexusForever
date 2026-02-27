@@ -1537,7 +1537,14 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.RestedXpDecorBonus)]
         public static void HandleEffectRestedXpDecorBonus(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Placeholder: rest XP modifier persistence/rates are owned by XP manager progression model.
+            if (target is not IPlayer player)
+                return;
+
+            int delta = DecodeSignedEffectAmount(info.Entry);
+            if (delta == 0)
+                delta = 1;
+
+            player.XpManager.ModifyRestBonusXp(delta);
         }
 
         [SpellEffectHandler(SpellEffectType.SetMatchingEligibility)]
@@ -1917,11 +1924,11 @@ namespace NexusForever.Game.Spell
             if (target is not IPlayer player)
                 return;
 
-            uint amount = DecodeUnsignedEffectAmount(info.Entry);
-            if (amount == 0u)
+            int delta = DecodeSignedEffectAmount(info.Entry);
+            if (delta == 0)
                 return;
 
-            player.XpManager.GrantXp(amount, Network.World.Message.Static.ExpReason.Cheat);
+            player.XpManager.ModifyRestBonusXp(delta);
         }
 
         [SpellEffectHandler(SpellEffectType.HousingPlantSeed)]

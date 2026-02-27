@@ -21,5 +21,10 @@ namespace NexusForever.Game.Abstract.Entity
         /// <param name="newLevel">New level to be set</param>
         /// <param name="reason"><see cref="ExpReason"/> for the level grant</param>
         void SetLevel(byte newLevel, ExpReason reason = ExpReason.Cheat);
+
+        /// <summary>
+        /// Modifies rested XP bonus pool by supplied signed delta.
+        /// </summary>
+        void ModifyRestBonusXp(int delta);
     }
 }

@@ -206,5 +206,18 @@ namespace NexusForever.Game.Entity
             // Unlock AMPs
             // Add feature access
         }
+
+        public void ModifyRestBonusXp(int delta)
+        {
+            if (delta == 0 || player.Level >= 50)
+                return;
+
+            float xpForLevel     = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level)?.MinXpForLevel ?? 0f;
+            float xpForNextLevel = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level + 1)?.MinXpForLevel ?? 0f;
+            uint maximumBonusXp  = (uint)Math.Max(0f, (xpForNextLevel - xpForLevel) * 1.5f);
+
+            long updated = (long)RestBonusXp + delta;
+            RestBonusXp = (uint)Math.Clamp(updated, 0L, maximumBonusXp);
+        }
     }
 }

@@ -5,6 +5,8 @@ using NexusForever.Database.World.Model;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Loot;
 using NexusForever.Game.Static.Loot;
+using NexusForever.GameTable;
+using NexusForever.GameTable.Model;
 using NexusForever.Shared;
 using NLog;
 
@@ -16,13 +18,16 @@ namespace NexusForever.Game.Loot
 
         private readonly IDatabaseManager databaseManager;
         private readonly IItemManager itemManager;
+        private readonly IGameTableManager gameTableManager;
 
         public DatabaseLootSourceProvider(
             IDatabaseManager databaseManager,
-            IItemManager itemManager)
+            IItemManager itemManager,
+            IGameTableManager gameTableManager)
         {
             this.databaseManager = databaseManager;
             this.itemManager     = itemManager;
+            this.gameTableManager = gameTableManager;
         }
 
         private ImmutableDictionary<uint, ImmutableList<CreatureLootEntryModel>> creatureLootEntries
@@ -30,7 +35,11 @@ namespace NexusForever.Game.Loot
 
         public void Initialise()
         {
-            var entries = databaseManager.GetDatabase<WorldDatabase>()
+            WorldDatabase worldDatabase = databaseManager.GetDatabase<WorldDatabase>();
+
+            EnsureBootstrappedCreatureLoot(worldDatabase);
+
+            var entries = worldDatabase
                 .GetCreatureLootEntries()
                 .Where(e => e.Enabled)
                 .Where(e => e.ItemId != 0u)
@@ -61,6 +70,115 @@ namespace NexusForever.Game.Loot
                 t => t.Value.ToImmutableList());
 
             log.Info($"Loaded {creatureLootEntries.Sum(t => t.Value.Count)} creature loot row(s) across {creatureLootEntries.Count} creature(s).");
+        }
+
+        private void EnsureBootstrappedCreatureLoot(WorldDatabase worldDatabase)
+        {
+            if (worldDatabase.GetCreatureLootEntries().Count > 0)
+                return;
+
+            var lootPinataRows = gameTableManager.LootPinataInfo.Entries
+                .Where(r => r.Item2Id != 0u)
+                .Where(r => r.Creature2IdChest != 0u)
+                .GroupBy(r => r.Creature2IdChest)
+                .ToList();
+
+            var seedRows = new List<CreatureLootEntryModel>();
+            uint seedPinataRows = 0u;
+            uint seedLootSpellRows = 0u;
+
+            foreach (var creatureRows in lootPinataRows)
+            {
+                float positiveMassTotal = creatureRows
+                    .Where(r => r.Mass > 0f)
+                    .Sum(r => r.Mass);
+
+                uint rowCount = (uint)creatureRows.Count();
+
+                foreach (LootPinataInfoEntry row in creatureRows)
+                {
+                    if (itemManager.GetItemInfo(row.Item2Id) == null)
+                        continue;
+
+                    float dropRate = positiveMassTotal > 0f
+                        ? row.Mass / positiveMassTotal
+                        : 1f / rowCount;
+
+                    seedRows.Add(new CreatureLootEntryModel
+                    {
+                        CreatureId       = row.Creature2IdChest,
+                        LootGroupId      = row.Id,
+                        ItemId           = row.Item2Id,
+                        Context          = (byte)LootContext.Any,
+                        SourceConfidence = (byte)LootSourceConfidence.ClientReverse,
+                        MinCount         = 1u,
+                        MaxCount         = 1u,
+                        DropRate         = Math.Clamp(dropRate, 0f, 1f),
+                        EvidenceRef      = $"LootPinataInfo.tbl:{row.Id}",
+                        Enabled          = true
+                    });
+
+                    seedPinataRows++;
+                }
+            }
+
+            // LootSpell does not provide explicit item semantics in all cases.
+            // Seed only rows where we can deterministically resolve a single Item2 id, and keep disabled by default.
+            foreach (var creatureRows in gameTableManager.LootSpell.Entries
+                .Where(r => r.Creature2Id != 0u)
+                .GroupBy(r => r.Creature2Id))
+            {
+                uint candidateCount = 0u;
+                var resolvedRows = new List<(LootSpellEntry Entry, uint ItemId)>();
+
+                foreach (LootSpellEntry row in creatureRows)
+                {
+                    uint[] candidates = [row.Data, row.DataValue];
+                    uint[] validItemCandidates = candidates
+                        .Where(id => id != 0u)
+                        .Distinct()
+                        .Where(id => itemManager.GetItemInfo(id) != null)
+                        .ToArray();
+
+                    if (validItemCandidates.Length != 1)
+                        continue;
+
+                    resolvedRows.Add((row, validItemCandidates[0]));
+                    candidateCount++;
+                }
+
+                if (candidateCount == 0u)
+                    continue;
+
+                float defaultRate = 1f / candidateCount;
+                foreach ((LootSpellEntry entry, uint itemId) in resolvedRows)
+                {
+                    seedRows.Add(new CreatureLootEntryModel
+                    {
+                        CreatureId       = entry.Creature2Id,
+                        LootGroupId      = entry.Id,
+                        ItemId           = itemId,
+                        Context          = (byte)LootContext.Any,
+                        SourceConfidence = (byte)LootSourceConfidence.Inferred,
+                        MinCount         = 1u,
+                        MaxCount         = 1u,
+                        DropRate         = defaultRate,
+                        EvidenceRef      = $"LootSpell.tbl:{entry.Id} type={entry.LootSpellTypeEnum} data={entry.Data} dataValue={entry.DataValue}",
+                        Enabled          = false
+                    });
+
+                    seedLootSpellRows++;
+                }
+            }
+
+            if (seedRows.Count == 0)
+            {
+                log.Warn("Creature loot bootstrap found no usable LootPinataInfo rows.");
+                return;
+            }
+
+            worldDatabase.UpsertCreatureLootEntries(seedRows);
+            log.Info($"Bootstrapped {seedRows.Count} creature loot row(s): {seedPinataRows} from LootPinataInfo.tbl, {seedLootSpellRows} inferred from LootSpell.tbl.");
         }
 
         public IEnumerable<LootDrop> RollCreatureLoot(uint creatureId, LootContext context = LootContext.Any)

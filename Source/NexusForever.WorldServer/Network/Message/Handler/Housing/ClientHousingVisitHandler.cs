@@ -53,7 +53,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Housing
                 residence = globalResidenceManager.GetResidence(residenceId);
             }
             else
-                throw new NotImplementedException();
+                throw new InvalidPacketValueException();
 
             if (residence == null)
             {

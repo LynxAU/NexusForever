@@ -46,7 +46,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Spell
                     // TODO: Is any validation required here?
                     break;
                 default:
-                    throw new NotImplementedException();
+                    throw new InvalidPacketValueException();
             }
 
             IActionSet actionSet = session.Player.SpellManager.GetActionSet(requestActionSetChanges.SpecIndex);

@@ -1,6 +1,6 @@
 # Spell Data-Driven Report
 
-Generated: 2026-02-27 05:27:29 UTC
+Generated: 2026-02-27 05:45:12 UTC
 Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 
 ## Coverage Snapshot
@@ -229,8 +229,6 @@ Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 | SpellEffectImmunity | 79 | 229 |
 | SpellCounter | 2 | 200 |
 | RewardPropertyModifier | 50 | 197 |
-| ProxyRandomExclusive | 96 | 195 |
-| ChangePhase | 34 | 161 |
 | PersonalDmgHealMod | 151 | 145 |
 | Script | 13 | 104 |
 | ForcedAction | 24 | 95 |
@@ -252,6 +250,8 @@ Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 | GiveLootTableToPlayer | 44 | 29 |
 | AddSpellEffect | 58 | 25 |
 | RestedXpDecorBonus | 109 | 25 |
+| DelayDeath | 121 | 25 |
+| ChangeIcon | 75 | 23 |
 
 ## ForcedMove Payload Patterns (Top 20)
 | DataBits00 | DataBits01 | DataBits02 | DataBits03 | DataBits04 | Flags | TargetFlags | Tick(ms) | Duration(ms) | Rows |

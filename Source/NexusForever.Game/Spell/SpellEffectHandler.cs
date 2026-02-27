@@ -310,6 +310,23 @@ namespace NexusForever.Game.Spell
             spell.EnqueueEvent(info.Entry.DurationTime / 1000d, target.RemoveTemporaryFaction);
         }
 
+        [SpellEffectHandler(SpellEffectType.ChangePhase)]
+        public static void HandleEffectChangePhase(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint phaseMask = info.Entry.DataBits00 != 0u
+                ? info.Entry.DataBits00
+                : (info.Entry.DataBits01 != 0u ? info.Entry.DataBits01 : 1u);
+
+            player.Session.EnqueueMessageEncrypted(new ServerPhaseVisibilityWorldLocation
+            {
+                PhasesIPerceive      = phaseMask,
+                PhasesThatPerceiveMe = phaseMask
+            });
+        }
+
         [SpellEffectHandler(SpellEffectType.ActionBarSet)]
         public static void HandleEffectActionBarSet(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -1112,6 +1129,23 @@ namespace NexusForever.Game.Spell
             });
         }
 
+        [SpellEffectHandler(SpellEffectType.ProxyRandomExclusive)]
+        public static void HandleEffectProxyRandomExclusive(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            if (candidates.Count == 0)
+                return;
+
+            uint selectedSpellId = candidates[Random.Shared.Next(candidates.Count)];
+            IUnitEntity castSource = target ?? spell.Caster;
+            castSource.CastSpell(selectedSpellId, new SpellParameters
+            {
+                ParentSpellInfo        = spell.Parameters.SpellInfo,
+                RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                UserInitiatedSpellCast = false
+            });
+        }
+
         [SpellEffectHandler(SpellEffectType.Disguise)]
         public static void HandleEffectDisguise(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -1893,6 +1927,34 @@ namespace NexusForever.Game.Spell
                 return false;
 
             return true;
+        }
+
+        private static List<uint> ResolveProxyCandidateSpellIds(Spell4EffectsEntry entry)
+        {
+            var candidates = new List<uint>(8);
+
+            void add(uint spellId)
+            {
+                if (spellId != 0u)
+                    candidates.Add(spellId);
+            }
+
+            add(entry.DataBits00);
+            add(entry.DataBits01);
+            add(entry.DataBits02);
+            add(entry.DataBits03);
+            add(entry.DataBits04);
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                float value = entry.ParameterValue[i];
+                if (value <= 0f)
+                    continue;
+
+                add((uint)Math.Round(value));
+            }
+
+            return candidates.Distinct().ToList();
         }
 
         private static bool TryResolveItemVisualSwapSlot(uint rawSlot, out ItemSlot slot)

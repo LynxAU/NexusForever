@@ -11,9 +11,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Instance
     {
         public void HandleMessage(IWorldSession session, ClientResetInstances resetInstances)
         {
-            // TODO: Reset all instance lockouts for the player
-            // This would involve clearing any saved instance data from the database
-            // and sending the appropriate response to the client
+            session.Player.InstanceManager.ResetAllInstances();
             
             session.EnqueueMessageEncrypted(new ServerInstanceResetResult());
         }

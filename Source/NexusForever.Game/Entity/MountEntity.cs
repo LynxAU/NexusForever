@@ -42,6 +42,9 @@ namespace NexusForever.Game.Entity
             Rotation         = owner.Rotation;
             Position         = owner.Position;
 
+            if (CreatureEntry == null)
+                return;
+
             Creature2DisplayGroupEntryEntry displayGroupEntry = GameTableManager.Instance.Creature2DisplayGroupEntry.Entries
                 .SingleOrDefault(x => x.Creature2DisplayGroupId == CreatureEntry.Creature2DisplayGroupId);
             DisplayInfo = displayGroupEntry?.Creature2DisplayInfoId ?? 0u;
@@ -53,8 +56,8 @@ namespace NexusForever.Game.Entity
         {
             return new MountEntityModel
             {
-                CreatureId    = CreatureEntry.Id,
-                UnitVehicleId = (ushort)VehicleEntry.Id,
+                CreatureId    = CreatureEntry?.Id ?? 0u,
+                UnitVehicleId = (ushort)(VehicleEntry?.Id ?? 0u),
                 OwnerId       = OwnerGuid,
                 Passengers    = passengers
                     .Select(p => new NetworkVehiclePassenger

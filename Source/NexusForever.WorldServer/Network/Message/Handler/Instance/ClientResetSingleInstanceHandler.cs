@@ -11,10 +11,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Instance
     {
         public void HandleMessage(IWorldSession session, ClientResetSingleInstance resetSingleInstance)
         {
-            // TODO: Reset instance lockout for the specific instance portal
-            // InstancePortalUnitId identifies which instance to reset
-            // This would involve clearing the saved instance data for that specific instance
-            
+            // TODO: resolve portal entity -> worldId mapping when portal type is known
             session.EnqueueMessageEncrypted(new ServerInstanceResetResult());
         }
     }

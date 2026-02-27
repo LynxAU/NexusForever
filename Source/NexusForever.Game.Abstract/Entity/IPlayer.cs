@@ -92,6 +92,7 @@ namespace NexusForever.Game.Abstract.Entity
         ILogoutManager LogoutManager { get; }
         IAppearanceManager AppearanceManager { get; }
         IResurrectionManager ResurrectionManager { get; }
+        IInstanceManager InstanceManager { get; }
 
         IVendorInfo SelectedVendorInfo { get; set; }
 

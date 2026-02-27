@@ -156,7 +156,7 @@ namespace NexusForever.Game.Entity
         private uint GetCurrentLevel(Path path)
         {
             return GameTableManager.Instance.PathLevel.Entries
-                .Last(x => x.PathXP <= paths[path].TotalXp && x.PathTypeEnum == (uint)path).PathLevel;
+                .LastOrDefault(x => x.PathXP <= paths[path].TotalXp && x.PathTypeEnum == (uint)path)?.PathLevel ?? 1u;
         }
 
         /// <summary>
@@ -166,7 +166,7 @@ namespace NexusForever.Game.Entity
         private uint GetLevelByExperience(uint xp)
         {
             return GameTableManager.Instance.PathLevel.Entries
-                .Last(x => x.PathXP <= xp && x.PathTypeEnum == (uint)player.Path).PathLevel;
+                .LastOrDefault(x => x.PathXP <= xp && x.PathTypeEnum == (uint)player.Path)?.PathLevel ?? 1u;
         }
 
         /// <summary>
@@ -176,7 +176,7 @@ namespace NexusForever.Game.Entity
         /// <param name="xpGained">XP just earned</param>
         private IEnumerable<uint> CheckForLevelUp(uint totalXp, uint xpGained)
         {
-            uint currentLevel = GetLevelByExperience(totalXp - xpGained);
+            uint currentLevel = GetLevelByExperience(totalXp >= xpGained ? totalXp - xpGained : 0u);
             return GameTableManager.Instance.PathLevel.Entries
                 .Where(x => x.PathLevel > currentLevel && x.PathXP <= totalXp && x.PathTypeEnum == (uint)player.Path)
                 .Select(e => e.PathLevel);

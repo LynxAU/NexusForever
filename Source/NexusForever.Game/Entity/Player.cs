@@ -241,6 +241,7 @@ namespace NexusForever.Game.Entity
         public ILogoutManager LogoutManager { get; private set; }
         public IAppearanceManager AppearanceManager { get; private set; }
         public IResurrectionManager ResurrectionManager { get; private set; }
+        public IInstanceManager InstanceManager { get; private set; }
 
         public IVendorInfo SelectedVendorInfo { get; set; } // TODO unset this when too far away from vendor
 
@@ -353,6 +354,8 @@ namespace NexusForever.Game.Entity
 
             AppearanceManager       = new AppearanceManager(this, model);
             ResurrectionManager     = new ResurrectionManager(this);
+            InstanceManager         = new InstanceManager(this);
+            InstanceManager.Initialise(model.Instance);
 
             // do dependant stat balance after all stats and properties have been set
             SetDependantStatBalance(true);
@@ -595,6 +598,7 @@ namespace NexusForever.Game.Entity
             GuildManager.Save(context);
             EntitlementManager.Save(context);
             AppearanceManager.Save(context);
+            InstanceManager.Save(context);
         }
 
         protected override IEntityModel BuildEntityModel()
@@ -762,7 +766,11 @@ namespace NexusForever.Game.Entity
             };
 
             foreach (ICurrency currency in CurrencyManager)
-                playerCreate.Money[(byte)currency.Id - 1] = currency.Amount;
+            {
+                int moneyIdx = (int)currency.Id - 1;
+                if (moneyIdx >= 0 && moneyIdx < playerCreate.Money.Length)
+                    playerCreate.Money[moneyIdx] = currency.Amount;
+            }
 
             foreach (IItem item in Inventory
                 .Where(b => b.Location != InventoryLocation.Ability)

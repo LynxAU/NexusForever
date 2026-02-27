@@ -46,6 +46,9 @@ namespace NexusForever.Game.Entity
 
         public override void OnActivateCast(IPlayer activator)
         {
+            if (QuestChecklistIdx >= 32)
+                return;
+
             uint progress = (uint)(1 << QuestChecklistIdx);
 
             if (CreatureEntry.DatacubeId != 0u)

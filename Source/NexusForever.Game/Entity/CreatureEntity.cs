@@ -9,9 +9,11 @@ using NexusForever.Game.Abstract.Entity.Movement;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Entity.Movement.Generator;
 using NexusForever.Game.Spell;
+using NexusForever.Game.Static.Spell;
 using NexusForever.Game.Static.Entity.Movement.Spline;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
+using NexusForever.Network.World.Combat;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Script;
 using NexusForever.Script.Template;
@@ -420,8 +422,71 @@ namespace NexusForever.Game.Entity
         {
             var factory = LegacyServiceProvider.Provider.GetService<IFactory<IDamageCalculator>>();
             IDamageDescription desc = factory?.Resolve()?.CalculateMeleeDamage(this, target);
-            if (desc != null)
-                target.TakeDamage(this, desc);
+            if (desc == null)
+                return;
+
+            uint healthBefore = target.Health;
+            target.TakeDamage(this, desc);
+
+            uint overkill = desc.AdjustedDamage > healthBefore
+                ? desc.AdjustedDamage - healthBefore
+                : 0u;
+
+            bool isMultiHit = desc.MultiHitAmount != 0u;
+            if (isMultiHit)
+            {
+                EnqueueToVisible(new ServerCombatLog
+                {
+                    CombatLog = new CombatLogMultiHit
+                    {
+                        DamageAmount      = desc.AdjustedDamage,
+                        RawDamage         = desc.RawDamage,
+                        Shield            = desc.ShieldAbsorbAmount,
+                        Absorption        = desc.AbsorbedAmount,
+                        Overkill          = overkill,
+                        GlanceAmount      = desc.GlanceAmount,
+                        BTargetVulnerable = false,
+                        BKilled           = !target.IsAlive,
+                        BPeriodic         = false,
+                        DamageType        = desc.DamageType,
+                        EffectType        = SpellEffectType.Damage,
+                        CastData          = new CombatLogCastData
+                        {
+                            CasterId     = Guid,
+                            TargetId     = target.Guid,
+                            SpellId      = 0u,
+                            CombatResult = desc.CombatResult
+                        }
+                    }
+                }, true);
+            }
+            else
+            {
+                EnqueueToVisible(new ServerCombatLog
+                {
+                    CombatLog = new CombatLogDamage
+                    {
+                        MitigatedDamage   = desc.AdjustedDamage,
+                        RawDamage         = desc.RawDamage,
+                        Shield            = desc.ShieldAbsorbAmount,
+                        Absorption        = desc.AbsorbedAmount,
+                        Overkill          = overkill,
+                        Glance            = desc.GlanceAmount,
+                        BTargetVulnerable = false,
+                        BKilled           = !target.IsAlive,
+                        BPeriodic         = false,
+                        DamageType        = desc.DamageType,
+                        EffectType        = SpellEffectType.Damage,
+                        CastData          = new CombatLogCastData
+                        {
+                            CasterId     = Guid,
+                            TargetId     = target.Guid,
+                            SpellId      = 0u,
+                            CombatResult = desc.CombatResult
+                        }
+                    }
+                }, true);
+            }
         }
 
         /// <summary>

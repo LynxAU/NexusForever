@@ -51,6 +51,7 @@ namespace NexusForever.Database.Character.Model
         public ICollection<CharacterCustomisationModel> Customisation { get; set; } = new HashSet<CharacterCustomisationModel>();
         public ICollection<CharacterDatacubeModel> Datacube { get; set; } = new HashSet<CharacterDatacubeModel>();
         public ICollection<CharacterEntitlementModel> Entitlement { get; set; } = new HashSet<CharacterEntitlementModel>();
+        public ICollection<CharacterInstanceModel> Instance { get; set; } = new HashSet<CharacterInstanceModel>();
         public ICollection<CharacterKeybindingModel> Keybinding { get; set; } = new HashSet<CharacterKeybindingModel>();
         public ICollection<CharacterMailModel> Mail { get; set; } = new HashSet<CharacterMailModel>();
         public ICollection<CharacterPathModel> Path { get; set; } = new HashSet<CharacterPathModel>();

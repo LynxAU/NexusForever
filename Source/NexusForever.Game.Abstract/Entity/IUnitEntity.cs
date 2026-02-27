@@ -1,6 +1,7 @@
 ﻿using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Spell;
 using System;
+using NexusForever.Game.Static.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Spell;
 using NexusForever.Network.World.Message.Static;
@@ -29,6 +30,11 @@ namespace NexusForever.Game.Abstract.Entity
         /// </summary>
         bool InCombat { get; }
 
+        /// <summary>
+        /// Bitmask of active crowd-control states on this <see cref="IUnitEntity"/>.
+        /// </summary>
+        uint CrowdControlStateMask { get; }
+
         public IThreatManager ThreatManager { get; }
 
         /// <summary>
@@ -45,6 +51,27 @@ namespace NexusForever.Game.Abstract.Entity
         /// Remove all <see cref="Property"/> modifiers by a Spell that is currently affecting this <see cref="IUnitEntity"/>
         /// </summary>
         void RemoveSpellProperties(uint spell4Id);
+
+        /// <summary>
+        /// Apply a crowd-control state for the supplied duration in milliseconds.
+        /// Returns the applied duration after diminishing-returns scaling (0 when fully resisted).
+        /// </summary>
+        uint ApplyCrowdControlState(CCState state, uint durationMs, uint sourceCasterId, uint diminishingReturnsId = 0u);
+
+        /// <summary>
+        /// Remove one active instance of the supplied crowd-control state.
+        /// </summary>
+        bool RemoveCrowdControlState(CCState state, uint sourceCasterId = 0u);
+
+        /// <summary>
+        /// Remove all active crowd-control states.
+        /// </summary>
+        uint RemoveAllCrowdControlStates(uint sourceCasterId = 0u);
+
+        /// <summary>
+        /// Remove all active crowd-control states included by the supplied bitmask.
+        /// </summary>
+        uint RemoveCrowdControlStatesByMask(uint stateMask, uint sourceCasterId = 0u);
 
         /// <summary>
         /// Cast a <see cref="ISpell"/> with the supplied spell id and <see cref="ISpellParameters"/>.

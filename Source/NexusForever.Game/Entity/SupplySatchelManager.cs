@@ -145,6 +145,8 @@ namespace NexusForever.Game.Entity
             RemoveAmount(materialId, amount);
         }
 
+        public void RemoveAmount(uint materialId, uint amount) => RemoveAmount((ushort)materialId, amount);
+
         private void RemoveAmount(ushort materialId, uint amount)
         {
             if (amount > tradeskillMaterials[materialId].Amount)

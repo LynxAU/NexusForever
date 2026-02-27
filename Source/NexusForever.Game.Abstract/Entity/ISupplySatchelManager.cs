@@ -28,6 +28,11 @@ namespace NexusForever.Game.Abstract.Entity
         void RemoveAmount(IItem item, uint amount);
 
         /// <summary>
+        /// Remove the provided amount from the <see cref="ITradeskillMaterial"/> with the given material ID.
+        /// </summary>
+        void RemoveAmount(uint materialId, uint amount);
+
+        /// <summary>
         /// Moves the given amount of the given material to the player's <see cref="IInventory"/>
         /// </summary>
         void MoveToInventory(ushort materialId, uint amount);

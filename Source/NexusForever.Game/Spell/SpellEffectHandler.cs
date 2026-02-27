@@ -2,12 +2,14 @@ using System;
 using System.Numerics;
 using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Game.Abstract;
+using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Combat;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Static.Crafting;
 using NexusForever.Game.Map;
+using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Static.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
@@ -430,6 +432,54 @@ namespace NexusForever.Game.Spell
             });
         }
 
+        [SpellEffectHandler(SpellEffectType.ThreatModification)]
+        public static void HandleEffectThreatModification(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null || spell.Caster == null || !target.IsAlive)
+                return;
+
+            int threatDelta = DecodeSignedEffectAmount(info.Entry);
+            if (threatDelta == 0)
+                return;
+
+            target.ThreatManager.UpdateThreat(spell.Caster, threatDelta);
+        }
+
+        [SpellEffectHandler(SpellEffectType.ThreatTransfer)]
+        public static void HandleEffectThreatTransfer(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (spell.Caster == null || target == null || spell.Caster.Guid == target.Guid)
+                return;
+
+            // Approximation:
+            // DataBits00/DataBits01 may encode transfer percentage depending on spell data.
+            // Favor DataBits01 first, then DataBits00, then first parameter value.
+            int percent = DecodeSignedEffectAmount(info.Entry);
+            if (percent == 0 && info.Entry.ParameterValue.Length > 0)
+                percent = (int)Math.Round(info.Entry.ParameterValue[0] * 100f);
+            percent = Math.Clamp(percent, 0, 100);
+            if (percent == 0)
+                return;
+
+            foreach (IHostileEntity hostile in spell.Caster.ThreatManager.ToList())
+            {
+                IUnitEntity hostileUnit = spell.Caster.GetVisible<IUnitEntity>(hostile.HatedUnitId);
+                if (hostileUnit == null || !hostileUnit.IsAlive)
+                    continue;
+
+                IHostileEntity casterThreat = hostileUnit.ThreatManager.GetHostile(spell.Caster.Guid);
+                if (casterThreat == null || casterThreat.Threat == 0u)
+                    continue;
+
+                uint transferAmount = (uint)Math.Min((ulong)int.MaxValue, (ulong)casterThreat.Threat * (ulong)percent / 100UL);
+                if (transferAmount == 0u)
+                    continue;
+
+                hostileUnit.ThreatManager.UpdateThreat(spell.Caster, -(int)transferAmount);
+                hostileUnit.ThreatManager.UpdateThreat(target, (int)transferAmount);
+            }
+        }
+
         [SpellEffectHandler(SpellEffectType.CCStateSet)]
         public static void HandleEffectCCStateSet(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -526,6 +576,83 @@ namespace NexusForever.Game.Spell
                 InstancesRemoved       = removed,
                 SpellRemovedId         = 0u
             });
+        }
+
+        [SpellEffectHandler(SpellEffectType.SpellForceRemoveChanneled)]
+        public static void HandleEffectSpellForceRemoveChanneled(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            uint spellFilterId = info.Entry.DataBits00;
+            ISpell activeSpell = target.GetActiveSpell(s =>
+                s.IsCasting && (spellFilterId == 0u || s.Parameters.SpellInfo.Entry.Id == spellFilterId));
+            if (activeSpell == null)
+                return;
+
+            target.CancelSpellCast(activeSpell.CastingId, CastResult.SpellInterrupted);
+        }
+
+        [SpellEffectHandler(SpellEffectType.SpellForceRemove)]
+        public static void HandleEffectSpellForceRemove(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            uint spellIdToRemove = info.Entry.DataBits00;
+            if (spellIdToRemove == 0u)
+                return;
+
+            if (target is UnitEntity unitEntity)
+                unitEntity.RemoveTimedAurasBySpellId(spellIdToRemove);
+
+            target.RemoveSpellProperties(spellIdToRemove);
+
+            ISpell activeSpell = target.GetActiveSpell(s => s.Parameters.SpellInfo.Entry.Id == spellIdToRemove);
+            if (activeSpell?.IsCasting == true)
+                target.CancelSpellCast(activeSpell.CastingId, CastResult.SpellCancelled);
+        }
+
+        [SpellEffectHandler(SpellEffectType.ModifySpellCooldown)]
+        public static void HandleEffectModifySpellCooldown(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint targetSpellId = info.Entry.DataBits00;
+            if (targetSpellId == 0u)
+                targetSpellId = spell.Parameters.SpellInfo.Entry.Id;
+
+            int rawDelta = unchecked((int)info.Entry.DataBits01);
+            if (rawDelta == 0 && info.Entry.ParameterValue.Length > 0)
+                rawDelta = (int)Math.Round(info.Entry.ParameterValue[0] * 1000f);
+
+            if (rawDelta == 0)
+                return;
+
+            double deltaSeconds = Math.Abs(rawDelta) > 1000
+                ? rawDelta / 1000d
+                : rawDelta;
+
+            double currentCooldown = player.SpellManager.GetSpellCooldown(targetSpellId);
+            double newCooldown = Math.Max(0d, currentCooldown + deltaSeconds);
+            player.SpellManager.SetSpellCooldown(targetSpellId, newCooldown);
+        }
+
+        [SpellEffectHandler(SpellEffectType.CooldownReset)]
+        public static void HandleEffectCooldownReset(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint targetSpellId = info.Entry.DataBits00;
+            if (targetSpellId != 0u)
+            {
+                player.SpellManager.SetSpellCooldown(targetSpellId, 0d);
+                return;
+            }
+
+            player.SpellManager.ResetAllSpellCooldowns();
         }
 
         [SpellEffectHandler(SpellEffectType.Resurrect)]
@@ -1145,6 +1272,10 @@ namespace NexusForever.Game.Spell
                     {
                         if (!target.IsAlive)
                             return;
+                        if (!MeetsEffectPersistencePrerequisites(spell, target, info.Entry))
+                            return;
+                        if (IsEffectSuspendedForTarget(target, info.Entry))
+                            return;
 
                         var tickInfo = new SpellTargetInfo.SpellTargetEffectInfo(GlobalSpellManager.Instance.NextEffectId, info.Entry);
                         tickHandler.Invoke(tickInfo);
@@ -1166,6 +1297,10 @@ namespace NexusForever.Game.Spell
                 spell.EnqueueEvent(delay, () =>
                 {
                     if (!target.IsAlive)
+                        return;
+                    if (!MeetsEffectPersistencePrerequisites(spell, target, info.Entry))
+                            return;
+                    if (IsEffectSuspendedForTarget(target, info.Entry))
                         return;
 
                     var tickInfo = new SpellTargetInfo.SpellTargetEffectInfo(GlobalSpellManager.Instance.NextEffectId, info.Entry);
@@ -1241,6 +1376,38 @@ namespace NexusForever.Game.Spell
                 return rawValue;
 
             return rawValue / 1000d;
+        }
+
+        private static bool MeetsEffectPersistencePrerequisites(ISpell spell, IUnitEntity target, Spell4EffectsEntry entry)
+        {
+            if (spell.Caster is IPlayer casterPlayer
+                && entry.PrerequisiteIdCasterPersistence != 0u
+                && !PrerequisiteManager.Instance.Meets(casterPlayer, entry.PrerequisiteIdCasterPersistence))
+            {
+                return false;
+            }
+
+            if (target is IPlayer targetPlayer
+                && entry.PrerequisiteIdTargetPersistence != 0u
+                && !PrerequisiteManager.Instance.Meets(targetPlayer, entry.PrerequisiteIdTargetPersistence))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsEffectSuspendedForTarget(IUnitEntity target, Spell4EffectsEntry entry)
+        {
+            if (entry.PrerequisiteIdTargetSuspend == 0u)
+                return false;
+
+            // Approximation: treat target suspend prerequisite as a "pause while condition is met" gate.
+            // This prevents periodic ticks from applying when data marks a suspend condition.
+            if (target is not IPlayer targetPlayer)
+                return false;
+
+            return PrerequisiteManager.Instance.Meets(targetPlayer, entry.PrerequisiteIdTargetSuspend);
         }
     }
 }

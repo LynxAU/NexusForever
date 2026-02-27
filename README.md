@@ -4,6 +4,14 @@
 ### Information
 A server emulator for WildStar written in C# that supports build 16042.
 
+### Completion Standard
+Project progress uses two separate metrics:
+
+- `Implementation Baseline %`: server-side feature/code coverage.
+- `Live Fidelity %`: how closely gameplay matches live WildStar behavior end-to-end.
+
+`100% complete` means **Live Fidelity 100%** with reproducible validation (tests/replays/log comparisons), not only implemented handlers or successful builds.
+
 ### Getting Started
 [Server Setup Guide](https://www.emulator.ws/installation/server-guide)
 

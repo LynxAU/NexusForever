@@ -8,6 +8,7 @@ using NexusForever.Game.Spell;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.PublicEvent;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Spell;
@@ -290,10 +291,10 @@ namespace NexusForever.Game.Entity
 
             if (stackGroupId != 0u)
             {
+                bool sharedAcrossSources = stackTypeEnum is 4u or 5u;
                 List<ActiveTimedAura> stackGroupAuras = activeTimedAuras
                     .Where(a => a.StackGroupId == stackGroupId
-                             && a.EffectType == effectType
-                             && a.SourceCasterId == sourceCasterId)
+                             && (sharedAcrossSources || (a.EffectType == effectType && a.SourceCasterId == sourceCasterId)))
                     .OrderBy(a => a.AuraId)
                     .ToList();
                 ActiveTimedAura existingAura = stackGroupAuras.LastOrDefault();
@@ -378,6 +379,21 @@ namespace NexusForever.Game.Entity
         {
             List<ActiveTimedAura> matching = activeTimedAuras
                 .Where(a => a.SpellId == spellId && a.EffectType == effectType && (sourceCasterId == 0u || a.SourceCasterId == sourceCasterId))
+                .ToList();
+
+            foreach (ActiveTimedAura aura in matching)
+                RemoveTimedAura(aura.AuraId);
+
+            return (uint)matching.Count;
+        }
+
+        public uint RemoveTimedAurasBySpellId(uint spellId, uint sourceCasterId = 0u)
+        {
+            if (spellId == 0u)
+                return 0u;
+
+            List<ActiveTimedAura> matching = activeTimedAuras
+                .Where(a => a.SpellId == spellId && (sourceCasterId == 0u || a.SourceCasterId == sourceCasterId))
                 .ToList();
 
             foreach (ActiveTimedAura aura in matching)
@@ -1032,10 +1048,14 @@ namespace NexusForever.Game.Entity
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillCreature, CreatureId, 1u);
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillCreature2, CreatureId, 1u);
 
+            // Update public event kill objectives for this creature
+            Map?.PublicEventManager.UpdateObjective(player, PublicEventObjectiveType.KillEventUnit, CreatureId, 1);
+
             foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureId))
             {
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroup, targetGroupId, 1u);
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroups, targetGroupId, 1u);
+                Map?.PublicEventManager.UpdateObjective(player, PublicEventObjectiveType.KillTargetGroup, targetGroupId, 1);
             }
 
             // Trigger PvPKills quest objectives when a player kills another player

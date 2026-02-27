@@ -21,6 +21,7 @@ namespace NexusForever.Game.Entity
         public Vector3 Position { get; protected set; }
 
         public IMapInfo PreviousMap { get; private set; }
+        public Vector3 PreviousPosition { get; private set; }
 
         /// <summary>
         /// Determines if the <see cref="IGridEntity"/> is on a <see cref="IBaseMap"/>.
@@ -149,12 +150,10 @@ namespace NexusForever.Game.Entity
 
             inRangeEntities.Clear();
 
-            Guid        = 0;
-            PreviousMap = new MapInfo
-            {
-                Entry = Map.Entry
-            };
-            Map         = null;
+            Guid             = 0;
+            PreviousMap      = new MapInfo { Entry = Map.Entry };
+            PreviousPosition = Position;
+            Map              = null;
         }
 
         /// <summary>

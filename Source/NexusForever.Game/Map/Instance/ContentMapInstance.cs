@@ -63,8 +63,16 @@ namespace NexusForever.Game.Map.Instance
                     return mapPosition;
             }
 
-            // TODO: fallback to default return location
-            // maybe recall position?
+            // Fall back to where the player was before entering this instance.
+            // PreviousMap/PreviousPosition are set by GridEntity.OnRemoveFromMap().
+            if (player.PreviousMap != null)
+            {
+                return new MapPosition
+                {
+                    Info     = player.PreviousMap,
+                    Position = player.PreviousPosition
+                };
+            }
 
             return null;
         }

@@ -14,6 +14,7 @@ namespace NexusForever.Game.Abstract.Entity
         Vector3 Position { get; }
 
         IMapInfo PreviousMap { get; }
+        Vector3 PreviousPosition { get; }
 
         /// <summary>
         /// Determines if the <see cref="IGridEntity"/> is on a <see cref="IBaseMap"/>.

@@ -152,15 +152,35 @@ namespace NexusForever.Game.Spell
             // not sure if this should be for explicit and/or implicit targets
             if (Parameters.SpellInfo.TargetCastPrerequisites != null)
             {
+                IUnitEntity target = Parameters.PrimaryTargetId != 0u
+                    ? Caster.GetVisible<IUnitEntity>(Parameters.PrimaryTargetId)
+                    : null;
+
+                if (target is IPlayer targetPlayer)
+                {
+                    if (!PrerequisiteManager.Instance.Meets(targetPlayer, Parameters.SpellInfo.TargetCastPrerequisites.Id))
+                        return CastResult.PrereqTargetCast;
+                }
             }
 
             // this probably isn't the correct place, name implies this should be constantly checked
             if (Parameters.SpellInfo.CasterPersistencePrerequisites != null)
             {
+                if (!PrerequisiteManager.Instance.Meets(player, Parameters.SpellInfo.CasterPersistencePrerequisites.Id))
+                    return CastResult.PrereqCasterPersistence;
             }
 
             if (Parameters.SpellInfo.TargetPersistencePrerequisites != null)
             {
+                IUnitEntity target = Parameters.PrimaryTargetId != 0u
+                    ? Caster.GetVisible<IUnitEntity>(Parameters.PrimaryTargetId)
+                    : null;
+
+                if (target is IPlayer targetPlayer)
+                {
+                    if (!PrerequisiteManager.Instance.Meets(targetPlayer, Parameters.SpellInfo.TargetPersistencePrerequisites.Id))
+                        return CastResult.PrereqTargetPersistence;
+                }
             }
 
             return CastResult.Ok;
@@ -232,9 +252,7 @@ namespace NexusForever.Game.Spell
 
         private static uint GetCurrentCCMask(IUnitEntity entity)
         {
-            // NOTE: replace with authoritative CC state tracking when crowd-control state manager is implemented.
-            _ = entity;
-            return 0u;
+            return entity.CrowdControlStateMask;
         }
 
         private static CastResult ResolveCCCastResult(CCState state, bool isCaster, bool mustHave)
@@ -434,6 +452,9 @@ namespace NexusForever.Game.Spell
                     uint effectId = GlobalSpellManager.Instance.NextEffectId;
                     foreach (SpellTargetInfo effectTarget in effectTargets)
                     {
+                        if (!MeetsEffectApplyPrerequisites(effectTarget.Entity, spell4EffectsEntry))
+                            continue;
+
                         var info = new SpellTargetInfo.SpellTargetEffectInfo(effectId, spell4EffectsEntry);
                         effectTarget.Effects.Add(info);
 
@@ -449,6 +470,25 @@ namespace NexusForever.Game.Spell
                     }
                 }
             }
+        }
+
+        private bool MeetsEffectApplyPrerequisites(IUnitEntity target, Spell4EffectsEntry effect)
+        {
+            if (Caster is IPlayer casterPlayer
+                && effect.PrerequisiteIdCasterApply != 0u
+                && !PrerequisiteManager.Instance.Meets(casterPlayer, effect.PrerequisiteIdCasterApply))
+            {
+                return false;
+            }
+
+            if (target is IPlayer targetPlayer
+                && effect.PrerequisiteIdTargetApply != 0u
+                && !PrerequisiteManager.Instance.Meets(targetPlayer, effect.PrerequisiteIdTargetApply))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         public bool IsMovingInterrupted()

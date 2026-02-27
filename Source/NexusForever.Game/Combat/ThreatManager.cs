@@ -156,16 +156,30 @@ namespace NexusForever.Game.Combat
                 SrcUnitId = owner.Guid,
             };
 
-            // TODO: should this be target plus top 4?
-            IHostileEntity[] hostileEntities = hostiles.Values
+            IHostileEntity[] sortedHostiles = hostiles.Values
                 .OrderByDescending(h => h.Threat)
-                .Take(5)
                 .ToArray();
 
-            for (uint i = 0u; i < hostileEntities.Length; i++)
+            var selectedHostiles = new List<IHostileEntity>(5);
+
+            if (owner.TargetGuid.HasValue && hostiles.TryGetValue(owner.TargetGuid.Value, out IHostileEntity currentTargetHostile))
+                selectedHostiles.Add(currentTargetHostile);
+
+            foreach (IHostileEntity hostile in sortedHostiles)
             {
-                threatUpdate.ThreatUnitIds[i] = hostileEntities[i].HatedUnitId;
-                threatUpdate.ThreatLevels[i] = hostileEntities[i].Threat;
+                if (selectedHostiles.Count >= 5)
+                    break;
+
+                if (selectedHostiles.Any(h => h.HatedUnitId == hostile.HatedUnitId))
+                    continue;
+
+                selectedHostiles.Add(hostile);
+            }
+
+            for (uint i = 0u; i < selectedHostiles.Count; i++)
+            {
+                threatUpdate.ThreatUnitIds[i] = selectedHostiles[(int)i].HatedUnitId;
+                threatUpdate.ThreatLevels[i] = selectedHostiles[(int)i].Threat;
             }
 
             return threatUpdate;

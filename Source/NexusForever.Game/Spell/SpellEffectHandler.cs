@@ -265,15 +265,15 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Activate)]
         public static void HandleEffectActivate(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            uint activateSpellId = info.Entry.DataBits00;
-            if (activateSpellId == 0u)
+            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            if (candidates.Count == 0)
                 return;
 
             IUnitEntity activationSource = target ?? spell.Caster;
             if (activationSource == null || !activationSource.IsAlive)
                 return;
 
-            activationSource.CastSpell(activateSpellId, new SpellParameters
+            activationSource.CastSpell(candidates[0], new SpellParameters
             {
                 ParentSpellInfo        = spell.Parameters.SpellInfo,
                 RootSpellInfo          = spell.Parameters.RootSpellInfo,

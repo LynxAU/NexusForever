@@ -520,7 +520,7 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Absorption)]
         public static void HandleEffectAbsorption(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            uint amount = DecodeFlexiblePositiveEffectAmount(info.Entry);
             if (amount == 0u)
                 return;
 
@@ -540,7 +540,7 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.HealingAbsorption)]
         public static void HandleEffectHealingAbsorption(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            uint amount = DecodeFlexiblePositiveEffectAmount(info.Entry);
             if (amount == 0u)
                 return;
 
@@ -2970,6 +2970,39 @@ namespace NexusForever.Game.Spell
                 float value = entry.ParameterValue[i];
                 if (value > 0f)
                     return (uint)Math.Round(value);
+            }
+
+            return 0u;
+        }
+
+        private static uint DecodeFlexiblePositiveEffectAmount(Spell4EffectsEntry entry)
+        {
+            if (entry.DataBits01 != 0u)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits01);
+                if (value > 0f)
+                    return (uint)Math.Min(Math.Round(value), uint.MaxValue);
+            }
+
+            if (entry.DataBits00 != 0u)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits00);
+                if (value > 0f)
+                    return (uint)Math.Min(Math.Round(value), uint.MaxValue);
+            }
+
+            if (entry.DataBits02 != 0u)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits02);
+                if (value > 0f)
+                    return (uint)Math.Min(Math.Round(value), uint.MaxValue);
+            }
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                float value = entry.ParameterValue[i];
+                if (value > 0f)
+                    return (uint)Math.Min(Math.Round(value), uint.MaxValue);
             }
 
             return 0u;

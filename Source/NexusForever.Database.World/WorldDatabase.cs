@@ -134,5 +134,42 @@ namespace NexusForever.Database.World
                 .AsNoTracking()
                 .ToImmutableList();
         }
+
+        public ImmutableList<CreatureLootEntryModel> GetCreatureLootEntries()
+        {
+            using var context = new WorldContext(config);
+            return context.CreatureLootEntry
+                .AsNoTracking()
+                .ToImmutableList();
+        }
+
+        public void UpsertCreatureLootEntries(IEnumerable<CreatureLootEntryModel> models)
+        {
+            using var context = new WorldContext(config);
+
+            foreach (CreatureLootEntryModel model in models)
+            {
+                CreatureLootEntryModel existing = context.CreatureLootEntry.Find(
+                    model.CreatureId,
+                    model.LootGroupId,
+                    model.ItemId,
+                    model.Context,
+                    model.SourceConfidence);
+
+                if (existing == null)
+                {
+                    context.CreatureLootEntry.Add(model);
+                    continue;
+                }
+
+                existing.MinCount    = model.MinCount;
+                existing.MaxCount    = model.MaxCount;
+                existing.DropRate    = model.DropRate;
+                existing.EvidenceRef = model.EvidenceRef;
+                existing.Enabled     = model.Enabled;
+            }
+
+            context.SaveChanges();
+        }
     }
 }

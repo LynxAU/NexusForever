@@ -19,6 +19,7 @@ using NexusForever.Game.Reputation;
 using NexusForever.Game.Server;
 using NexusForever.Game.Spell;
 using NexusForever.Game.Storefront;
+using NexusForever.Game.Loot;
 using NexusForever.Shared;
 
 namespace NexusForever.Game
@@ -42,6 +43,7 @@ namespace NexusForever.Game
             sc.AddGameCombat();
             sc.AddGameCustomisation();
             sc.AddGameEntity();
+            sc.AddGameLoot();
             sc.AddGameEvent();
             sc.AddGameGuild();
             sc.AddGameHousing();

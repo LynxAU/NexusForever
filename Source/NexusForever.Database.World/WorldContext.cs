@@ -10,6 +10,7 @@ namespace NexusForever.Database.World
     public class WorldContext : DbContext
     {
         public DbSet<DisableModel> Disable { get; set; }
+        public DbSet<CreatureLootEntryModel> CreatureLootEntry { get; set; }
         public DbSet<EntityModel> Entity { get; set; }
         public DbSet<EntityEventModel> EventEntity { get; set; }
         public DbSet<EntitySplineModel> EntitySpline { get; set; }
@@ -69,6 +70,68 @@ namespace NexusForever.Database.World
                     .HasColumnName("note")
                     .HasColumnType("varchar(500)")
                     .HasDefaultValue("");
+            });
+
+            modelBuilder.Entity<CreatureLootEntryModel>(entity =>
+            {
+                entity.ToTable("creature_loot_entry");
+
+                entity.HasKey(e => new { e.CreatureId, e.LootGroupId, e.ItemId, e.Context, e.SourceConfidence })
+                    .HasName("PRIMARY");
+
+                entity.HasIndex(e => new { e.CreatureId, e.Context, e.Enabled })
+                    .HasDatabaseName("ix_creature_loot_entry_creature_context_enabled");
+
+                entity.Property(e => e.CreatureId)
+                    .HasColumnName("creatureId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.Property(e => e.LootGroupId)
+                    .HasColumnName("lootGroupId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.Property(e => e.ItemId)
+                    .HasColumnName("itemId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.Property(e => e.Context)
+                    .HasColumnName("context")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue((byte)0);
+
+                entity.Property(e => e.SourceConfidence)
+                    .HasColumnName("sourceConfidence")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue((byte)0);
+
+                entity.Property(e => e.MinCount)
+                    .HasColumnName("minCount")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(1u);
+
+                entity.Property(e => e.MaxCount)
+                    .HasColumnName("maxCount")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(1u);
+
+                entity.Property(e => e.DropRate)
+                    .HasColumnName("dropRate")
+                    .HasColumnType("float")
+                    .HasDefaultValue(1f);
+
+                entity.Property(e => e.EvidenceRef)
+                    .IsRequired()
+                    .HasColumnName("evidenceRef")
+                    .HasColumnType("varchar(255)")
+                    .HasDefaultValue("");
+
+                entity.Property(e => e.Enabled)
+                    .HasColumnName("enabled")
+                    .HasColumnType("tinyint(1)")
+                    .HasDefaultValue(true);
             });
 
             modelBuilder.Entity<EntityEventModel>(entity =>

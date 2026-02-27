@@ -17,6 +17,7 @@ using NexusForever.Game.Customisation;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Guild;
 using NexusForever.Game.Housing;
+using NexusForever.Game.Loot;
 using NexusForever.Game.Map;
 using NexusForever.Game.Quest;
 using NexusForever.Game.RBAC;
@@ -124,6 +125,7 @@ namespace NexusForever.WorldServer.Service
 
             AssetManager.Instance.Initialise();
             ItemManager.Instance.Initialise();
+            DatabaseLootSourceProvider.Instance.Initialise();
             GlobalSpellManager.Instance.Initialise();
             GlobalQuestManager.Instance.Initialise();
 

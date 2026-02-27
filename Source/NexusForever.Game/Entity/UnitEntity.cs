@@ -2,8 +2,10 @@
 using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Abstract.Loot;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Combat;
+using NexusForever.Game.Loot;
 using NexusForever.Game.Spell;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Achievement;
@@ -1101,12 +1103,21 @@ namespace NexusForever.Game.Entity
             ulong killCredits = Math.Max(1u, (ulong)(Level * Level * 3u));
             player.CurrencyManager.CurrencyAddAmount(CurrencyType.Credits, killCredits, isLoot: true);
 
+            RewardKillLoot(player);
+
             // Handle kill-related achievements
             player.AchievementManager.CheckAchievements(player, AchievementType.KillCreatureEntry, CreatureId);
             foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureId))
             {
                 player.AchievementManager.CheckAchievements(player, AchievementType.KillCreatureGroup, targetGroupId);
             }
+        }
+
+        private void RewardKillLoot(IPlayer player)
+        {
+            IEnumerable<LootDrop> drops = DatabaseLootSourceProvider.Instance.RollCreatureLoot(CreatureId);
+            foreach (LootDrop drop in drops)
+                player.Inventory.ItemCreate(InventoryLocation.Inventory, drop.ItemId, drop.Count, ItemUpdateReason.Loot);
         }
 
         /// <summary>

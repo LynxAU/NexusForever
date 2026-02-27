@@ -200,8 +200,52 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Transference)]
         public static void HandleEffectTransference(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // TODO: Implement transfer-specific behavior (e.g. heal/restore side effects).
-            HandleEffectDamage(spell, target, info);
+            HandleEffectDamageInternal(spell, target, info, splitCount: 1, shieldOnly: false);
+
+            if (info.DropEffect || info.Damage == null || !spell.Caster.IsAlive)
+                return;
+
+            // Table scan indicates DataBits00 maps to Vital for transfer destination (commonly Health=1, Shield=3).
+            Vital transferVital = Enum.IsDefined(typeof(Vital), (int)info.Entry.DataBits00)
+                ? (Vital)info.Entry.DataBits00
+                : Vital.Health;
+            if (transferVital == Vital.Invalid)
+                transferVital = Vital.Health;
+
+            uint requestedTransferAmount = (uint)Math.Min((ulong)uint.MaxValue, (ulong)info.Damage.AdjustedDamage + info.Damage.ShieldAbsorbAmount);
+            if (requestedTransferAmount == 0u)
+                return;
+
+            float preTransferVital = spell.Caster.GetVitalValue(transferVital);
+            uint healingAbsorptionBefore = transferVital == Vital.Health ? spell.Caster.HealingAbsorptionPool : 0u;
+
+            spell.Caster.ModifyVital(transferVital, requestedTransferAmount);
+
+            float postTransferVital = spell.Caster.GetVitalValue(transferVital);
+            uint appliedTransferAmount = postTransferVital > preTransferVital
+                ? (uint)Math.Round(postTransferVital - preTransferVital)
+                : 0u;
+            uint absorbedTransferAmount = transferVital == Vital.Health
+                ? healingAbsorptionBefore - spell.Caster.HealingAbsorptionPool
+                : 0u;
+            uint overheal = requestedTransferAmount > appliedTransferAmount + absorbedTransferAmount
+                ? requestedTransferAmount - appliedTransferAmount - absorbedTransferAmount
+                : 0u;
+
+            CombatLogTransference transferenceLog = info.CombatLogs
+                .OfType<CombatLogTransference>()
+                .LastOrDefault();
+            if (transferenceLog == null)
+                return;
+
+            transferenceLog.HealedUnits.Add(new CombatLogTransference.CombatHealData
+            {
+                HealedUnitId = spell.Caster.Guid,
+                HealAmount   = appliedTransferAmount,
+                Vital        = transferVital,
+                Overheal     = overheal,
+                Absorption   = absorbedTransferAmount
+            });
         }
 
         [SpellEffectHandler(SpellEffectType.Heal)]

@@ -662,7 +662,7 @@ namespace NexusForever.Game.Spell
             if (target == null || spell.Caster == null || !target.IsAlive)
                 return;
 
-            int threatDelta = DecodeSignedEffectAmount(info.Entry);
+            int threatDelta = ResolveThreatModificationDelta(info.Entry);
             if (threatDelta == 0)
                 return;
 
@@ -675,12 +675,7 @@ namespace NexusForever.Game.Spell
             if (spell.Caster == null || target == null || spell.Caster.Guid == target.Guid)
                 return;
 
-            // Approximation:
-            // DataBits00/DataBits01 may encode transfer percentage depending on spell data.
-            // Favor DataBits01 first, then DataBits00, then first parameter value.
-            int percent = DecodeSignedEffectAmount(info.Entry);
-            if (percent == 0 && info.Entry.ParameterValue.Length > 0)
-                percent = (int)Math.Round(info.Entry.ParameterValue[0] * 100f);
+            int percent = ResolveThreatTransferPercent(info.Entry);
             percent = Math.Clamp(percent, 0, 100);
             if (percent == 0)
                 return;
@@ -3425,6 +3420,76 @@ namespace NexusForever.Game.Spell
                 return 0d;
 
             return Math.Abs(candidate) > 1000f ? candidate / 1000d : candidate;
+        }
+
+        private static int ResolveThreatModificationDelta(Spell4EffectsEntry entry)
+        {
+            if (entry.DataBits01 != 0u)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits01);
+                if (value != 0f)
+                    return (int)Math.Round(value);
+            }
+
+            if (entry.DataBits03 != 0u)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits03);
+                if (value != 0f)
+                    return (int)Math.Round(value);
+            }
+
+            if (entry.DataBits02 != 0u)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits02);
+                if (value != 0f)
+                    return (int)Math.Round(value);
+            }
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                if (entry.ParameterValue[i] != 0f)
+                    return (int)Math.Round(entry.ParameterValue[i]);
+            }
+
+            // Fallback to legacy behavior for rows that only carry raw integer payloads.
+            return DecodeSignedEffectAmount(entry);
+        }
+
+        private static int ResolveThreatTransferPercent(Spell4EffectsEntry entry)
+        {
+            float candidate = 0f;
+
+            if (entry.DataBits01 != 0u)
+                candidate = DecodeFlexibleEffectNumber(entry.DataBits01);
+
+            if (candidate == 0f && entry.DataBits03 != 0u)
+                candidate = DecodeFlexibleEffectNumber(entry.DataBits03);
+
+            if (candidate == 0f && entry.DataBits02 != 0u)
+                candidate = DecodeFlexibleEffectNumber(entry.DataBits02);
+
+            if (candidate == 0f)
+            {
+                for (int i = 0; i < entry.ParameterValue.Length; i++)
+                {
+                    if (entry.ParameterValue[i] != 0f)
+                    {
+                        candidate = entry.ParameterValue[i];
+                        break;
+                    }
+                }
+            }
+
+            if (candidate == 0f)
+                return 0;
+
+            if (candidate is > 0f and <= 1f)
+                return (int)Math.Round(candidate * 100f);
+
+            if (candidate > 100f && candidate <= 10000f)
+                return (int)Math.Round(candidate / 100f);
+
+            return (int)Math.Round(candidate);
         }
 
         private static List<uint> ResolveRavelSignalLinkedSpellIds(Spell4EffectsEntry entry)

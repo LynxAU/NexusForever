@@ -247,6 +247,7 @@ namespace NexusForever.Game.Entity
         public IResurrectionManager ResurrectionManager { get; private set; }
         public IInstanceManager InstanceManager { get; private set; }
         public IVirtualItemManager VirtualItemManager { get; private set; }
+        public IFriendManager FriendManager { get; private set; }
 
         private TradeskillManager _tradeskillManager;
         public ITradeskillManager TradeskillManager => _tradeskillManager ??= new TradeskillManager(this);
@@ -352,6 +353,7 @@ namespace NexusForever.Game.Entity
             KeybindingManager       = new CharacterKeybindingManager(this, model);
             DatacubeManager         = new DatacubeManager(this, model);
             MailManager             = new MailManager(this, model);
+            FriendManager            = new FriendManager(this, model);
             ZoneMapManager          = new ZoneMapManager(this, model);
             QuestManager            = new QuestManager(this, model);
             AchievementManager      = new CharacterAchievementManager(this, model);
@@ -616,6 +618,7 @@ namespace NexusForever.Game.Entity
             AppearanceManager.Save(context);
             InstanceManager.Save(context);
             VirtualItemManager.Save(context);
+            FriendManager.Save(context);
         }
 
         protected override IEntityModel BuildEntityModel()
@@ -819,6 +822,7 @@ namespace NexusForever.Game.Entity
             PetCustomisationManager.SendInitialPackets();
             DatacubeManager.SendInitialPackets();
             MailManager.SendInitialPackets();
+            FriendManager.SendInitialPackets();
             ZoneMapManager.SendInitialPackets();
             Account.CurrencyManager.SendInitialPackets();
             QuestManager.SendInitialPackets();

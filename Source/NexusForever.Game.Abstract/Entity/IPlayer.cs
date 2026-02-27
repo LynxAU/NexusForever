@@ -80,6 +80,7 @@ namespace NexusForever.Game.Abstract.Entity
         ICharacterKeybindingManager KeybindingManager { get; }
         IDatacubeManager DatacubeManager { get; }
         IMailManager MailManager { get; }
+        IFriendManager FriendManager { get; }
         IZoneMapManager ZoneMapManager { get; }
         IQuestManager QuestManager { get; }
         ICharacterAchievementManager AchievementManager { get; }

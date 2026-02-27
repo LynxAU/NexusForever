@@ -127,7 +127,18 @@ namespace NexusForever.Game.Quest
 
         public void Update(double lastTick)
         {
-            // TODO: update timer
+            // Update quest objective timer
+            if (timer.HasValue && timer > 0)
+            {
+                // Convert delta time from seconds to milliseconds
+                uint deltaMs = (uint)(lastTick * 1000);
+                if (timer > deltaMs)
+                    timer -= deltaMs;
+                else
+                    timer = 0;
+
+                saveMask |= QuestObjectiveSaveMask.Timer;
+            }
         }
 
         private bool IsDynamic()

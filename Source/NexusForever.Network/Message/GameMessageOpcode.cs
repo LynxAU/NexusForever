@@ -320,6 +320,7 @@ namespace NexusForever.Network.Message
         ClientFriendAccountAddByIdentity = 0x03B3,
         ClientFriendAccountAddByName    = 0x03B4,
         ServerFriendAdd                 = 0x03B5,
+        ClientFriendAdd                 = 0x03B6,
         ClientFriendPersonalAwayMessage = 0x03B7,
         ServerFriendInviteList          = 0x03BA,
         ServerFriendInviteRemove        = 0x03BB,

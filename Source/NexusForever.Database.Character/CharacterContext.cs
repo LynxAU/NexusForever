@@ -19,6 +19,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterCustomisationModel> CharacterCustomisation { get; set; }
         public DbSet<CharacterDatacubeModel> CharacterDatacube { get; set; }
         public DbSet<CharacterEntitlementModel> CharacterEntitlement { get; set; }
+        public DbSet<CharacterFriendModel> CharacterFriend { get; set; }
         public DbSet<CharacterInstanceModel> CharacterInstance { get; set; }
         public DbSet<CharacterKeybindingModel> CharacterKeybinding { get; set; }
         public DbSet<CharacterMailModel> CharacterMail { get; set; }

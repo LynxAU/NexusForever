@@ -234,6 +234,7 @@ namespace NexusForever.Game.Quest
         {
             scriptCollection?.Invoke<IUpdate>(s => s.Update(lastTick));
 
+            // Update quest-level timer
             if (questTimer != null)
             {
                 questTimer.Update(lastTick);
@@ -245,6 +246,12 @@ namespace NexusForever.Game.Quest
                     State = QuestState.Botched;
                     questTimer = null;
                 }
+            }
+
+            // Update individual objective timers
+            foreach (var objective in objectives)
+            {
+                objective.Update(lastTick);
             }
         }
 

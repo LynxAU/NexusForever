@@ -1479,13 +1479,25 @@ namespace NexusForever.Game.Spell
             if (target is not IPlayer player)
                 return;
 
-            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            XpPerLevelEntry xpEntry = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level);
+            uint baseQuestXp = xpEntry != null
+                ? Math.Max(1u, xpEntry.BaseQuestXpPerLevel)
+                : 1u;
+
+            float scale = ResolvePositiveScaleFactor(info.Entry);
+            uint amount = 0u;
+            if (scale > 0f)
+            {
+                // GrantLevelScaledXP rows predominantly use percentage-like payloads in DataBits00
+                // (e.g. 5, 9.5, 22.5), so scale against base quest XP.
+                amount = scale > 100f
+                    ? (uint)Math.Min(Math.Round(scale), uint.MaxValue)
+                    : (uint)Math.Max(1d, Math.Round(baseQuestXp * (scale / 100f)));
+            }
+
             if (amount == 0u)
             {
-                XpPerLevelEntry xpEntry = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level);
-                amount = xpEntry != null
-                    ? Math.Max(1u, (uint)(xpEntry.BaseQuestXpPerLevel * 0.10f))
-                    : 1u;
+                amount = Math.Max(1u, (uint)(baseQuestXp * 0.10f));
             }
 
             player.XpManager.GrantXp(amount, Network.World.Message.Static.ExpReason.Cheat);
@@ -1497,7 +1509,17 @@ namespace NexusForever.Game.Spell
             if (target is not IPlayer player)
                 return;
 
-            uint amount = DecodeUnsignedEffectAmount(info.Entry);
+            float scale = ResolvePositiveScaleFactor(info.Entry);
+            uint amount = 0u;
+            if (scale > 0f)
+            {
+                // Prestige scaled rows encode compact factors (0.4..22.5 observed).
+                // Scale by current level to avoid raw-bit overflows while preserving relative tuning.
+                amount = scale > 100f
+                    ? (uint)Math.Min(Math.Round(scale), uint.MaxValue)
+                    : (uint)Math.Max(1d, Math.Round(player.Level * scale));
+            }
+
             if (amount == 0u)
                 amount = Math.Max(1u, (uint)player.Level);
 
@@ -3490,6 +3512,38 @@ namespace NexusForever.Game.Spell
                 return (int)Math.Round(candidate / 100f);
 
             return (int)Math.Round(candidate);
+        }
+
+        private static float ResolvePositiveScaleFactor(Spell4EffectsEntry entry)
+        {
+            if (entry.DataBits00 != 0u)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits00);
+                if (value > 0f)
+                    return value;
+            }
+
+            if (entry.DataBits01 != 0u)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits01);
+                if (value > 0f)
+                    return value;
+            }
+
+            if (entry.DataBits02 != 0u)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits02);
+                if (value > 0f)
+                    return value;
+            }
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                if (entry.ParameterValue[i] > 0f)
+                    return entry.ParameterValue[i];
+            }
+
+            return 0f;
         }
 
         private static List<uint> ResolveRavelSignalLinkedSpellIds(Spell4EffectsEntry entry)

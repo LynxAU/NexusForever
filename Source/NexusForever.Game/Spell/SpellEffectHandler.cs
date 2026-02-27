@@ -334,6 +334,35 @@ namespace NexusForever.Game.Spell
             });
         }
 
+        [SpellEffectHandler(SpellEffectType.SetBusy)]
+        public static void HandleEffectSetBusy(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            bool setBusy = info.Entry.DataBits00 != 0u || info.Entry.DurationTime > 0u || info.Entry.DataBits01 > 0u;
+            if (!setBusy)
+            {
+                target.RemoveCrowdControlState(CCState.AbilityRestriction, spell.Caster.Guid);
+                return;
+            }
+
+            uint durationMs = info.Entry.DurationTime > 0u
+                ? info.Entry.DurationTime
+                : (info.Entry.DataBits01 > 0u ? info.Entry.DataBits01 : 1000u);
+
+            uint appliedDurationMs = target.ApplyCrowdControlState(CCState.AbilityRestriction, durationMs, spell.Caster.Guid, 0u);
+            if (appliedDurationMs == 0u)
+                return;
+
+            spell.Caster.EnqueueToVisible(new ServerEntityCCStateSet
+            {
+                UnitId              = target.Guid,
+                CCType              = CCState.AbilityRestriction,
+                SpellEffectUniqueId = info.EffectId
+            }, true);
+        }
+
         [SpellEffectHandler(SpellEffectType.Heal)]
         public static void HandleEffectHeal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {

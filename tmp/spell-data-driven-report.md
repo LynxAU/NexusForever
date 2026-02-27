@@ -1,6 +1,6 @@
 # Spell Data-Driven Report
 
-Generated: 2026-02-27 05:06:00 UTC
+Generated: 2026-02-27 05:18:02 UTC
 Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 
 ## Coverage Snapshot
@@ -225,7 +225,6 @@ Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 | RavelSignal | 81 | 5262 |
 | ItemVisualSwap | 76 | 1542 |
 | FacilityModification | 71 | 771 |
-| SetBusy | 107 | 571 |
 | ProxyLinearAE | 19 | 521 |
 | DisguiseOutfit | 112 | 358 |
 | UnlockInlaidAugment | 127 | 281 |
@@ -252,6 +251,7 @@ Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 | Disembark | 132 | 63 |
 | ShieldOverload | 64 | 55 |
 | SpellImmunity | 32 | 53 |
+| HazardModify | 87 | 49 |
 
 ## ForcedMove Payload Patterns (Top 20)
 | DataBits00 | DataBits01 | DataBits02 | DataBits03 | DataBits04 | Flags | TargetFlags | Tick(ms) | Duration(ms) | Rows |

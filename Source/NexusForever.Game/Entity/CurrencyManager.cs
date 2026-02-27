@@ -97,16 +97,18 @@ namespace NexusForever.Game.Entity
             if (!currencies.TryGetValue((CurrencyType)currencyEntry.Id, out ICurrency currency))
                 currency = CurrencyCreate(currencyEntry);
 
+            ulong oldAmount = currency.Amount;
             amount += currency.Amount;
             if (currency.Entry.CapAmount > 0)
                 amount = Math.Min(amount, currency.Entry.CapAmount);
 
             CurrencyAmountUpdate(currency, amount, isLoot);
 
-            // Update EarnCurrency quest objectives when currency is gained
+            // Update EarnCurrency quest objectives with the amount actually earned (not the new total)
             if (player != null && isLoot)
             {
-                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.EarnCurrency, (uint)currencyEntry.Id, (uint)amount);
+                ulong earned = amount - oldAmount;
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.EarnCurrency, (uint)currencyEntry.Id, (uint)earned);
             }
         }
 

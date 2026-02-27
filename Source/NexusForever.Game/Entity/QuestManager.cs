@@ -520,6 +520,8 @@ namespace NexusForever.Game.Entity
 
                 QuestAdd(questId, null);
                 quest = GetQuest(questId);
+                if (quest == null)
+                    return; // inventory was full; error already sent to client
                 quest.State = QuestState.Achieved;
             }
 

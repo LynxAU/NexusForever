@@ -273,10 +273,10 @@ namespace NexusForever.Game.Entity
                 {
                     // If there is remaining count left, and this was created by SupplySatchelManager, then return the rest to the client.
                     if (count > 0 && reason == ItemUpdateReason.ResourceConversion)
-                        player.SupplySatchelManager.AddAmount(new Item(characterId, info, count, charges), count);
+                        player?.SupplySatchelManager.AddAmount(new Item(characterId, info, count, charges), count);
                     else
                     {
-                        player.Session.EnqueueMessageEncrypted(new ServerItemError
+                        player?.Session.EnqueueMessageEncrypted(new ServerItemError
                         {
                             ErrorCode = GenericError.ItemInventoryFull
                         });
@@ -410,7 +410,7 @@ namespace NexusForever.Game.Entity
 
                         // ensure slot is still valid
                         // this can happen when removing a bag to a slot that was removed during the resize
-                        if (dstBag.Slots < bagIndex - 1)
+                        if (bagIndex >= dstBag.Slots)
                         {
                             uint? newBagIndex = dstBag.GetFirstAvailableBagIndex();
                             if (!newBagIndex.HasValue)
@@ -571,7 +571,7 @@ namespace NexusForever.Game.Entity
                 deletedItems.Add(item);
             }
 
-            player.Session.EnqueueMessageEncrypted(new ServerItemDelete
+            player?.Session.EnqueueMessageEncrypted(new ServerItemDelete
             {
                 Guid   = item.Guid,
                 Reason = reason
@@ -621,7 +621,7 @@ namespace NexusForever.Game.Entity
             RemoveItem(item);
             item.CharacterId = null;
 
-            player.Session.EnqueueMessageEncrypted(new ServerItemDelete
+            player?.Session.EnqueueMessageEncrypted(new ServerItemDelete
             {
                 Guid   = item.Guid,
                 Reason = reason
@@ -724,9 +724,9 @@ namespace NexusForever.Game.Entity
 
             if (capacityChange < 0)
             {
-                for (uint bagIndex = bag.Slots - 1; bagIndex >= bag.Slots + capacityChange; bagIndex--)
+                for (int bagIndex = (int)bag.Slots - 1; bagIndex >= (int)bag.Slots + capacityChange; bagIndex--)
                 {
-                    IItem item = bag.GetItem(bagIndex);
+                    IItem item = bag.GetItem((uint)bagIndex);
                     if (item == null)
                         continue;
 

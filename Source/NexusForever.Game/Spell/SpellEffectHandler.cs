@@ -231,7 +231,7 @@ namespace NexusForever.Game.Spell
             uint effectiveHeal = target.Health > healthBefore
                 ? target.Health - healthBefore
                 : 0u;
-            uint overheal = healAfterAbsorption - effectiveHeal;
+            uint overheal = healAfterAbsorption > effectiveHeal ? healAfterAbsorption - effectiveHeal : 0u;
 
             info.Damage.AdjustedDamage = effectiveHeal;
             info.Damage.AbsorbedAmount = healAbsorption;
@@ -273,8 +273,8 @@ namespace NexusForever.Game.Spell
             uint shieldBefore = target.Shield;
             target.Shield = (uint)Math.Min((ulong)target.MaxShieldCapacity, (ulong)target.Shield + shieldHealAfterAbsorption);
 
-            uint effectiveShieldHeal = target.Shield - shieldBefore;
-            uint overheal = shieldHealAfterAbsorption - effectiveShieldHeal;
+            uint effectiveShieldHeal = target.Shield >= shieldBefore ? target.Shield - shieldBefore : 0u;
+            uint overheal = shieldHealAfterAbsorption >= effectiveShieldHeal ? shieldHealAfterAbsorption - effectiveShieldHeal : 0u;
             info.Damage.AdjustedDamage = effectiveShieldHeal;
             info.Damage.AbsorbedAmount = healAbsorption;
             info.Damage.OverkillAmount = 0u;

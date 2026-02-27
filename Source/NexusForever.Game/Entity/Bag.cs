@@ -49,7 +49,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public IItem GetItem(ulong guid)
         {
-            return items.SingleOrDefault(i => i.Guid == guid);
+            return items.SingleOrDefault(i => i != null && i.Guid == guid);
         }
 
         /// <summary>

@@ -2077,19 +2077,134 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.RavelSignal)]
         public static void HandleEffectRavelSignal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Placeholder: client-facing signal effect. No authoritative server state mutation identified yet.
+            IUnitEntity subject = target ?? spell.Caster;
+            if (subject == null)
+                return;
+
+            uint mode = info.Entry.DataBits00;
+            List<uint> linkedSpellIds = ResolveRavelSignalLinkedSpellIds(info.Entry);
+            if (linkedSpellIds.Count == 0)
+                return;
+
+            bool isRemoveMode = mode is 4u or 5u;
+            uint delayMs = info.Entry.DataBits02;
+            if (delayMs == uint.MaxValue)
+                delayMs = 0u;
+
+            Action apply = () =>
+            {
+                foreach (uint linkedSpellId in linkedSpellIds)
+                {
+                    if (isRemoveMode)
+                    {
+                        if (subject is UnitEntity unitEntity)
+                            unitEntity.RemoveTimedAurasBySpellId(linkedSpellId);
+
+                        subject.RemoveSpellProperties(linkedSpellId);
+                        ISpell activeSpell = subject.GetActiveSpell(s => s.Parameters.SpellInfo.Entry.Id == linkedSpellId);
+                        if (activeSpell?.IsCasting == true)
+                            subject.CancelSpellCast(activeSpell.CastingId, Network.World.Message.Static.CastResult.SpellCancelled);
+                        continue;
+                    }
+
+                    subject.CastSpell(linkedSpellId, new SpellParameters
+                    {
+                        ParentSpellInfo        = spell.Parameters.SpellInfo,
+                        RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                        UserInitiatedSpellCast = false,
+                        PrimaryTargetId        = target?.Guid ?? spell.Caster.Guid
+                    });
+                }
+            };
+
+            if (delayMs > 0u)
+            {
+                spell.EnqueueEvent(delayMs / 1000d, apply);
+                return;
+            }
+
+            apply();
         }
 
         [SpellEffectHandler(SpellEffectType.FacilityModification)]
         public static void HandleEffectFacilityModification(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Placeholder: housing/facility internals require additional live-data reconstruction.
+            IUnitEntity subject = target ?? spell.Caster;
+            if (subject == null)
+                return;
+
+            uint linkedSpellId = info.Entry.DataBits00;
+            if (linkedSpellId == 0u || GameTableManager.Instance.Spell4.GetEntry(linkedSpellId) == null)
+                return;
+
+            uint mode = info.Entry.DataBits02;
+            bool isRemoveMode = mode is 2u or 3u;
+            uint delayMs = info.Entry.TickTime;
+            if (delayMs == uint.MaxValue)
+                delayMs = 0u;
+
+            Action apply = () =>
+            {
+                if (isRemoveMode)
+                {
+                    if (subject is UnitEntity unitEntity)
+                        unitEntity.RemoveTimedAurasBySpellId(linkedSpellId);
+
+                    subject.RemoveSpellProperties(linkedSpellId);
+                    ISpell activeSpell = subject.GetActiveSpell(s => s.Parameters.SpellInfo.Entry.Id == linkedSpellId);
+                    if (activeSpell?.IsCasting == true)
+                        subject.CancelSpellCast(activeSpell.CastingId, Network.World.Message.Static.CastResult.SpellCancelled);
+                    return;
+                }
+
+                subject.CastSpell(linkedSpellId, new SpellParameters
+                {
+                    ParentSpellInfo        = spell.Parameters.SpellInfo,
+                    RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                    UserInitiatedSpellCast = false,
+                    PrimaryTargetId        = target?.Guid ?? spell.Caster.Guid
+                });
+
+                if (info.Entry.DurationTime > 0u)
+                {
+                    spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () =>
+                    {
+                        if (subject is UnitEntity unitEntity)
+                            unitEntity.RemoveTimedAurasBySpellId(linkedSpellId);
+                        subject.RemoveSpellProperties(linkedSpellId);
+                    });
+                }
+            };
+
+            if (delayMs > 0u)
+            {
+                spell.EnqueueEvent(delayMs / 1000d, apply);
+                return;
+            }
+
+            apply();
         }
 
         [SpellEffectHandler(SpellEffectType.Script)]
         public static void HandleEffectScript(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Placeholder: spell scripts are already initialised per spell cast via script collection.
+            // Most Script rows are payload-empty and rely on script collection side effects.
+            // For rows with a concrete spell id payload, execute that linked spell.
+            IUnitEntity subject = target ?? spell.Caster;
+            if (subject == null)
+                return;
+
+            uint linkedSpellId = info.Entry.DataBits00;
+            if (linkedSpellId == 0u || GameTableManager.Instance.Spell4.GetEntry(linkedSpellId) == null)
+                return;
+
+            subject.CastSpell(linkedSpellId, new SpellParameters
+            {
+                ParentSpellInfo        = spell.Parameters.SpellInfo,
+                RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                UserInitiatedSpellCast = false,
+                PrimaryTargetId        = target?.Guid ?? spell.Caster.Guid
+            });
         }
 
         [SpellEffectHandler(SpellEffectType.ModifyCreatureFlags)]
@@ -2990,6 +3105,41 @@ namespace NexusForever.Game.Spell
                     continue;
 
                 add((uint)Math.Round(value));
+            }
+
+            return candidates.Distinct().ToList();
+        }
+
+        private static List<uint> ResolveRavelSignalLinkedSpellIds(Spell4EffectsEntry entry)
+        {
+            var candidates = new List<uint>(6);
+
+            void addIfSpell4(uint spellId)
+            {
+                if (spellId == 0u || spellId == uint.MaxValue)
+                    return;
+
+                if (GameTableManager.Instance.Spell4.GetEntry(spellId) != null)
+                    candidates.Add(spellId);
+            }
+
+            // Ravel payloads are predominantly mode-driven where DataBits00 is an opcode-like value (1/4/5),
+            // and DataBits01+ carry linked spell references when present.
+            addIfSpell4(entry.DataBits01);
+            addIfSpell4(entry.DataBits02);
+            addIfSpell4(entry.DataBits03);
+            addIfSpell4(entry.DataBits04);
+
+            if (entry.DataBits00 > 8u)
+                addIfSpell4(entry.DataBits00);
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                float value = entry.ParameterValue[i];
+                if (value <= 0f)
+                    continue;
+
+                addIfSpell4((uint)Math.Round(value));
             }
 
             return candidates.Distinct().ToList();

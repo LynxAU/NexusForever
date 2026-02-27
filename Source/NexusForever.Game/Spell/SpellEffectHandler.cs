@@ -376,7 +376,9 @@ namespace NexusForever.Game.Spell
             if (!target.IsAlive)
                 return;
 
-            uint lethalAmount = Math.Max(1u, target.Health);
+            uint lethalAmount = (uint)Math.Min(
+                (ulong)uint.MaxValue,
+                (ulong)Math.Max(1u, target.Health) + target.DamageAbsorptionPool);
             var damage = new SpellTargetInfo.SpellTargetEffectInfo.DamageDescription
             {
                 DamageType        = DamageType.Physical,

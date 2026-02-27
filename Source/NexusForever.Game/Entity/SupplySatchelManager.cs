@@ -19,7 +19,10 @@ namespace NexusForever.Game.Entity
         public SupplySatchelManager(IPlayer owner, CharacterModel model)
         {
             player = owner;
-            maximumStackAmount = (uint)(owner.Account.RewardPropertyManager.GetRewardProperty(RewardPropertyType.TradeskillMatStackLimit)?.GetValue(0u) ?? 0f);
+            float configuredStackLimit = owner.Account.RewardPropertyManager
+                .GetRewardProperty(RewardPropertyType.TradeskillMatStackLimit)
+                ?.GetValue(0u) ?? 100f;
+            maximumStackAmount = Math.Max(1u, (uint)configuredStackLimit);
 
             foreach (CharacterTradeskillMaterialModel tradeskillMaterial in model.TradeskillMaterials)
                 tradeskillMaterials.Add(tradeskillMaterial.MaterialId, new TradeskillMaterial(tradeskillMaterial));

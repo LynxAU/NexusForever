@@ -70,6 +70,47 @@ namespace NexusForever.Game.Loot
                 t => t.Value.ToImmutableList());
 
             log.Info($"Loaded {creatureLootEntries.Sum(t => t.Value.Count)} creature loot row(s) across {creatureLootEntries.Count} creature(s).");
+
+            LogLootCoverage();
+        }
+
+        private void LogLootCoverage()
+        {
+            // Get all creatures from the database
+            WorldDatabase worldDatabase = databaseManager.GetDatabase<WorldDatabase>();
+            var allCreatures = worldDatabase.GetAllCreatureIds().ToList();
+            
+            if (allCreatures.Count == 0)
+            {
+                log.Debug("No creatures found in database for loot coverage analysis.");
+                return;
+            }
+
+            int creaturesWithLoot = creatureLootEntries.Count;
+            int creaturesWithoutLoot = allCreatures.Count - creaturesWithLoot;
+            double coveragePercent = (double)creaturesWithLoot / allCreatures.Count * 100.0;
+
+            log.Info($"=== Loot Coverage Report ===");
+            log.Info($"Total creatures in DB: {allCreatures.Count}");
+            log.Info($"Creatures with loot defined: {creaturesWithLoot}");
+            log.Info($"Creatures without loot: {creaturesWithoutLoot}");
+            log.Info($"Coverage: {coveragePercent:F1}%");
+
+            if (coveragePercent < 50.0)
+            {
+                log.Warn($"Loot coverage is low ({coveragePercent:F1}%). Consider adding more loot mappings.");
+            }
+
+            // Show sample of creatures without loot (first 10)
+            var creaturesMissingLoot = allCreatures
+                .Where(c => !creatureLootEntries.ContainsKey(c))
+                .Take(10)
+                .ToList();
+
+            if (creaturesMissingLoot.Count > 0)
+            {
+                log.Debug($"Sample creatures without loot (first 10): {string.Join(", ", creaturesMissingLoot)}");
+            }
         }
 
         private void EnsureBootstrappedCreatureLoot(WorldDatabase worldDatabase)

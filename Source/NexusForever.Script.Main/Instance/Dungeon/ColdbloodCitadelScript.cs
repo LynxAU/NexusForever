@@ -7,19 +7,16 @@ namespace NexusForever.Script.Main.Instance.Dungeon
     /// <summary>
     /// Map script for Coldblood Citadel dungeon (WorldId 3522).
     ///
-    /// Completion condition: boss creature 14447 must die.
-    ///   PublicEvent 907 references CreatureId 14447 via KillEventObjectiveUnit (type 8).
-    ///   This creature ID is NOT found in the extracted Creature2.tbl.
-    ///   TODO: Verify creature ID against retail sniff data or in-game testing.
+    /// Completion condition: Harizog Coldblood (final boss) must die.
+    ///   Harizog Coldblood — Creature2Id 75459 ("[CBC] Harizog Coldblood - Final Boss")
     ///
     /// Spawn data: see WorldDatabaseRepo/Instance/Dungeon/Coldblood Citadel.sql
-    /// Source: PublicEvent 907 objectives (WorldId 3522).
+    /// Source: Creature2.tbl name search (prefix [CBC]).
     /// </summary>
     [ScriptFilterOwnerId(3522)]
     public class ColdbloodCitadelScript : IContentMapScript, IOwnedScript<IContentMapInstance>
     {
-        // TODO: Verify this creature ID — not found in Creature2.tbl extraction.
-        private const uint BossCreatureId = 14447u;
+        private const uint BossCreatureId = 75459u;  // Harizog Coldblood — final boss
 
         private IContentMapInstance owner;
         private bool bossDefeated;

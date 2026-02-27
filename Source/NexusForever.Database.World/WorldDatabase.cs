@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NexusForever.Database.Configuration.Model;
 using NexusForever.Database.World.Model;
+using NexusForever.Game.Static.Entity;
 using NLog;
 
 namespace NexusForever.Database.World
@@ -141,6 +142,19 @@ namespace NexusForever.Database.World
             return context.CreatureLootEntry
                 .AsNoTracking()
                 .ToImmutableList();
+        }
+
+        /// <summary>
+        /// Returns all unique creature IDs from the entity table.
+        /// </summary>
+        public List<uint> GetAllCreatureIds()
+        {
+            using var context = new WorldContext(config);
+            return context.Entity
+                .Where(e => e.Type == EntityType.NonPlayer)
+                .Select(e => e.Creature)
+                .Distinct()
+                .ToList();
         }
 
         public void UpsertCreatureLootEntries(IEnumerable<CreatureLootEntryModel> models)

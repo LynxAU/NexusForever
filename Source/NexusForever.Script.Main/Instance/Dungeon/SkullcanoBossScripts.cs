@@ -4,7 +4,7 @@ using NexusForever.Script.Template.Filter;
 namespace NexusForever.Script.Main.Instance.Dungeon
 {
     // Skullcano (WorldId 1263) — Boss Encounter Scripts
-    // Source: TargetGroup entries for PublicEvent 148.
+    // Source: TargetGroup entries for PublicEvent 148 + Creature2.tbl name search.
 
     /// <summary>Stew-Shaman Tugga, Normal. TG 2599.</summary>
     [ScriptFilterCreatureId(24493u)]
@@ -37,4 +37,12 @@ namespace NexusForever.Script.Main.Instance.Dungeon
     /// <summary>Quartermaster Gruh (miniboss), Veteran. TG 2869.</summary>
     [ScriptFilterCreatureId(24896u)]
     public class SkullcanoGruhVScript : EncounterBossScript { }
+
+    /// <summary>Mordechai Redmoon — final boss, Normal.</summary>
+    [ScriptFilterCreatureId(24489u)]
+    public class SkullcanoRedmoonNScript : EncounterBossScript { }
+
+    /// <summary>Mordechai Redmoon — final boss, Veteran.</summary>
+    [ScriptFilterCreatureId(24895u)]
+    public class SkullcanoRedmoonVScript : EncounterBossScript { }
 }

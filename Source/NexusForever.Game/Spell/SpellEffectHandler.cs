@@ -844,14 +844,39 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.ModifySpell)]
         public static void HandleEffectModifySpell(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Baseline: most practical server-side impact in current stack is cooldown adjustment.
+            if (target != null
+                && info.Entry.DataBits00 == 0u
+                && info.Entry.DataBits01 <= byte.MaxValue
+                && Enum.IsDefined(typeof(Property), (byte)info.Entry.DataBits01))
+            {
+                // Data-driven shape used by many ModifySpell rows:
+                // DataBits01=Property, DataBits02=Value, DataBits03=ModType.
+                Spell4EffectsEntry remapped = CloneEffectEntry(info.Entry);
+                remapped.DataBits00 = info.Entry.DataBits01;
+                remapped.DataBits01 = info.Entry.DataBits03 <= 3u ? info.Entry.DataBits03 : 0u;
+                remapped.DataBits02 = info.Entry.DataBits02;
+                remapped.DataBits03 = info.Entry.DataBits03 > 3u ? info.Entry.DataBits03 : info.Entry.DataBits04;
+                remapped.DataBits04 = 0u;
+
+                var remappedInfo = new SpellTargetInfo.SpellTargetEffectInfo(info.EffectId, remapped);
+                HandleEffectPropertyModifier(spell, target, remappedInfo);
+                return;
+            }
+
             HandleEffectModifySpellCooldown(spell, target, info);
         }
 
         [SpellEffectHandler(SpellEffectType.ModifySpellEffect)]
         public static void HandleEffectModifySpellEffect(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Baseline: apply as spell cooldown delta until full effect-param mutation semantics are reconstructed.
+            if (info.Entry.DataBits00 != 0u
+                && GameTableManager.Instance.Spell4.GetEntry(info.Entry.DataBits00) == null
+                && GameTableManager.Instance.Spell4Base.GetEntry(info.Entry.DataBits00) == null)
+            {
+                // Avoid applying arbitrary cooldown deltas when payload does not identify a spell.
+                return;
+            }
+
             HandleEffectModifySpellCooldown(spell, target, info);
         }
 
@@ -2659,9 +2684,9 @@ namespace NexusForever.Game.Spell
             SpellPropertyModifier modifier = 
                 new SpellPropertyModifier((Property)info.Entry.DataBits00, 
                     info.Entry.DataBits01, 
-                    BitConverter.UInt32BitsToSingle(info.Entry.DataBits02), 
-                    BitConverter.UInt32BitsToSingle(info.Entry.DataBits03), 
-                    BitConverter.UInt32BitsToSingle(info.Entry.DataBits04));
+                    DecodeFlexibleEffectNumber(info.Entry.DataBits02), 
+                    DecodeFlexibleEffectNumber(info.Entry.DataBits03), 
+                    DecodeFlexibleEffectNumber(info.Entry.DataBits04));
             uint modifierInstanceId = spell.CastingId;
             target.AddSpellModifierProperty(modifier, modifierInstanceId);
 
@@ -3327,6 +3352,69 @@ namespace NexusForever.Game.Spell
 
             distance = 0f;
             return false;
+        }
+
+        private static float DecodeFlexibleEffectNumber(uint raw)
+        {
+            if (raw == 0u)
+                return 0f;
+
+            float asFloat = BitConverter.UInt32BitsToSingle(raw);
+            if (float.IsFinite(asFloat) && Math.Abs(asFloat) >= 0.0001f && Math.Abs(asFloat) <= 1_000_000f)
+                return asFloat;
+
+            int asSigned = unchecked((int)raw);
+            if (asSigned is > -1_000_000 and < 1_000_000)
+                return asSigned;
+
+            if (raw <= 1_000_000u)
+                return raw;
+
+            return asFloat;
+        }
+
+        private static Spell4EffectsEntry CloneEffectEntry(Spell4EffectsEntry source)
+        {
+            var clone = new Spell4EffectsEntry
+            {
+                Id = source.Id,
+                SpellId = source.SpellId,
+                TargetFlags = source.TargetFlags,
+                EffectType = source.EffectType,
+                DamageType = source.DamageType,
+                DelayTime = source.DelayTime,
+                TickTime = source.TickTime,
+                DurationTime = source.DurationTime,
+                Flags = source.Flags,
+                DataBits00 = source.DataBits00,
+                DataBits01 = source.DataBits01,
+                DataBits02 = source.DataBits02,
+                DataBits03 = source.DataBits03,
+                DataBits04 = source.DataBits04,
+                DataBits05 = source.DataBits05,
+                DataBits06 = source.DataBits06,
+                DataBits07 = source.DataBits07,
+                DataBits08 = source.DataBits08,
+                DataBits09 = source.DataBits09,
+                InnateCostPerTickType0 = source.InnateCostPerTickType0,
+                InnateCostPerTickType1 = source.InnateCostPerTickType1,
+                InnateCostPerTick0 = source.InnateCostPerTick0,
+                InnateCostPerTick1 = source.InnateCostPerTick1,
+                EmmComparison = source.EmmComparison,
+                EmmValue = source.EmmValue,
+                ThreatMultiplier = source.ThreatMultiplier,
+                Spell4EffectGroupListId = source.Spell4EffectGroupListId,
+                PrerequisiteIdCasterApply = source.PrerequisiteIdCasterApply,
+                PrerequisiteIdTargetApply = source.PrerequisiteIdTargetApply,
+                PrerequisiteIdCasterPersistence = source.PrerequisiteIdCasterPersistence,
+                PrerequisiteIdTargetPersistence = source.PrerequisiteIdTargetPersistence,
+                PrerequisiteIdTargetSuspend = source.PrerequisiteIdTargetSuspend,
+                PhaseFlags = source.PhaseFlags,
+                OrderIndex = source.OrderIndex,
+                ParameterType = (SpellEffectParameterType[])source.ParameterType.Clone(),
+                ParameterValue = (float[])source.ParameterValue.Clone()
+            };
+            return clone;
         }
 
         private static uint ResolveForcedMoveTravelMs(Spell4EffectsEntry entry)

@@ -2270,9 +2270,11 @@ namespace NexusForever.Game.Spell
                 return;
 
             bool isRemoveMode = mode is 4u or 5u;
-            uint delayMs = info.Entry.DataBits02;
-            if (delayMs == uint.MaxValue)
-                delayMs = 0u;
+            double delaySeconds = ResolveDurationSecondsFromRaw(
+                info.Entry.DataBits02,
+                info.Entry.ParameterValue,
+                defaultSeconds: 0d,
+                maxSeconds: 60d);
 
             Action apply = () =>
             {
@@ -2300,9 +2302,9 @@ namespace NexusForever.Game.Spell
                 }
             };
 
-            if (delayMs > 0u)
+            if (delaySeconds > 0d)
             {
-                spell.EnqueueEvent(delayMs / 1000d, apply);
+                spell.EnqueueEvent(delaySeconds, apply);
                 return;
             }
 
@@ -2316,24 +2318,18 @@ namespace NexusForever.Game.Spell
             if (subject == null)
                 return;
 
-            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
-            uint linkedSpellId = candidates.FirstOrDefault(id => id != spell.Parameters.SpellInfo.Entry.Id);
-            if (linkedSpellId == 0u)
-            {
-                uint rawLinkedSpellId = info.Entry.DataBits00 != 0u
-                    ? info.Entry.DataBits00
-                    : info.Entry.DataBits01;
-                linkedSpellId = ResolveSpell4IdCandidate(rawLinkedSpellId, subject as IPlayer);
-            }
-
+            uint linkedSpellId = ResolveLinkedSpell4Id(info.Entry, spell.Parameters.SpellInfo.Entry.Id, subject as IPlayer ?? spell.Caster as IPlayer);
             if (linkedSpellId == 0u)
                 return;
 
             uint mode = info.Entry.DataBits02;
             bool isRemoveMode = mode is 2u or 3u;
-            uint delayMs = info.Entry.TickTime;
-            if (delayMs == uint.MaxValue)
-                delayMs = 0u;
+            double delaySeconds = ResolveDurationSecondsFromRaw(
+                info.Entry.TickTime,
+                info.Entry.ParameterValue,
+                defaultSeconds: 0d,
+                maxSeconds: 60d);
+            double activeDurationSeconds = ResolvePayloadDurationSeconds(info.Entry, defaultSeconds: 0d, maxSeconds: 3600d);
 
             Action apply = () =>
             {
@@ -2357,9 +2353,9 @@ namespace NexusForever.Game.Spell
                     PrimaryTargetId        = target?.Guid ?? spell.Caster.Guid
                 });
 
-                if (info.Entry.DurationTime > 0u)
+                if (activeDurationSeconds > 0d)
                 {
-                    spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () =>
+                    spell.EnqueueEvent(activeDurationSeconds, () =>
                     {
                         if (subject is UnitEntity unitEntity)
                             unitEntity.RemoveTimedAurasBySpellId(linkedSpellId);
@@ -2368,9 +2364,9 @@ namespace NexusForever.Game.Spell
                 }
             };
 
-            if (delayMs > 0u)
+            if (delaySeconds > 0d)
             {
-                spell.EnqueueEvent(delayMs / 1000d, apply);
+                spell.EnqueueEvent(delaySeconds, apply);
                 return;
             }
 
@@ -3487,6 +3483,37 @@ namespace NexusForever.Game.Spell
                     continue;
 
                 double seconds = normalize(entry.ParameterValue[i]);
+                if (seconds > 0d)
+                    return seconds;
+            }
+
+            return Math.Clamp(defaultSeconds, 0d, maxSeconds);
+        }
+
+        private static double ResolveDurationSecondsFromRaw(uint rawDurationValue, float[] parameterValues, double defaultSeconds, double maxSeconds)
+        {
+            static double normalize(float raw, double max)
+            {
+                if (!float.IsFinite(raw) || raw <= 0f)
+                    return 0d;
+
+                double seconds = raw <= 120f ? raw : raw / 1000d;
+                return Math.Clamp(seconds, 0d, max);
+            }
+
+            if (rawDurationValue != 0u && rawDurationValue != uint.MaxValue)
+            {
+                double seconds = normalize(DecodeFlexibleEffectNumber(rawDurationValue), maxSeconds);
+                if (seconds > 0d)
+                    return seconds;
+            }
+
+            for (int i = 0; i < parameterValues.Length; i++)
+            {
+                if (parameterValues[i] == 0f)
+                    continue;
+
+                double seconds = normalize(parameterValues[i], maxSeconds);
                 if (seconds > 0d)
                     return seconds;
             }

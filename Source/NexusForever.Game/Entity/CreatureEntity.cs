@@ -245,7 +245,18 @@ namespace NexusForever.Game.Entity
             float distance    = Vector3.Distance(Position, target.Position);
 
             if (distance > attackRange)
+            {
+                // If a ranged spell is available and in range, cast instead of forcing a melee chase.
+                if (spellActionTimer.HasElapsed)
+                {
+                    bool casted = TryCastSpellAction(target);
+                    spellActionTimer.Reset();
+                    if (casted)
+                        return;
+                }
+
                 ChaseTarget(target);
+            }
             else
                 EngageTarget(target, lastTick);
         }
@@ -349,14 +360,14 @@ namespace NexusForever.Game.Entity
         /// Attempts to cast the highest-priority available spell from this creature's action set.
         /// Only one spell is attempted per AI tick. Entries are ordered by <see cref="Creature2ActionEntry.OrderIndex"/>.
         /// </summary>
-        private void TryCastSpellAction(IUnitEntity target)
+        private bool TryCastSpellAction(IUnitEntity target)
         {
             if (spellActions == null || spellActions.Count == 0)
-                return;
+                return false;
 
             // Avoid queuing new casts while a current cast is in-flight.
             if (GetActiveSpell(s => s.IsCasting) != null)
-                return;
+                return false;
 
             foreach (Creature2ActionEntry action in spellActions)
             {
@@ -379,9 +390,11 @@ namespace NexusForever.Game.Entity
                     double cooldown = action.DelayMS > 0u ? action.DelayMS / 1000.0 : DefaultSpellCooldown;
                     spellCooldowns[action.Id] = cooldown;
                     log.Trace($"Creature {Guid} cast spell {spellEntry.Id} on {target.Guid}; cooldown {cooldown:0.00}s.");
-                    break;
+                    return true;
                 }
             }
+
+            return false;
         }
 
         private bool IsSpellInRange(IUnitEntity target, Spell4Entry spellEntry)

@@ -265,15 +265,18 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Activate)]
         public static void HandleEffectActivate(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
-            if (candidates.Count == 0)
-                return;
-
             IUnitEntity activationSource = target ?? spell.Caster;
             if (activationSource == null || !activationSource.IsAlive)
                 return;
 
-            activationSource.CastSpell(candidates[0], new SpellParameters
+            uint linkedSpellId = ResolveLinkedSpell4Id(
+                info.Entry,
+                spell.Parameters.SpellInfo.Entry.Id,
+                activationSource as IPlayer ?? spell.Caster as IPlayer);
+            if (linkedSpellId == 0u)
+                return;
+
+            activationSource.CastSpell(linkedSpellId, new SpellParameters
             {
                 ParentSpellInfo        = spell.Parameters.SpellInfo,
                 RootSpellInfo          = spell.Parameters.RootSpellInfo,
@@ -291,8 +294,7 @@ namespace NexusForever.Game.Spell
             if (delayMs == 0u || delayMs == uint.MaxValue)
                 delayMs = 250u;
 
-            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
-            uint linkedSpellId = candidates.FirstOrDefault(id => id != spell.Parameters.SpellInfo.Entry.Id);
+            uint linkedSpellId = ResolveLinkedSpell4Id(info.Entry, spell.Parameters.SpellInfo.Entry.Id, target as IPlayer ?? spell.Caster as IPlayer);
 
             if (linkedSpellId == 0u)
             {
@@ -803,8 +805,7 @@ namespace NexusForever.Game.Spell
             if (target == null)
                 return;
 
-            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
-            uint spellFilterId = candidates.FirstOrDefault(id => id != spell.Parameters.SpellInfo.Entry.Id);
+            uint spellFilterId = ResolveLinkedSpell4Id(info.Entry, spell.Parameters.SpellInfo.Entry.Id, target as IPlayer ?? spell.Caster as IPlayer);
             ISpell activeSpell = target.GetActiveSpell(s =>
                 s.IsCasting && (spellFilterId == 0u || s.Parameters.SpellInfo.Entry.Id == spellFilterId));
             if (activeSpell == null)
@@ -819,8 +820,7 @@ namespace NexusForever.Game.Spell
             if (target == null)
                 return;
 
-            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
-            uint spellIdToRemove = candidates.FirstOrDefault(id => id != spell.Parameters.SpellInfo.Entry.Id);
+            uint spellIdToRemove = ResolveLinkedSpell4Id(info.Entry, spell.Parameters.SpellInfo.Entry.Id, target as IPlayer ?? spell.Caster as IPlayer);
             if (spellIdToRemove == 0u)
                 return;
 
@@ -2026,8 +2026,7 @@ namespace NexusForever.Game.Spell
             if (target == null)
                 return;
 
-            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
-            uint spellFilterId = candidates.FirstOrDefault(id => id != spell.Parameters.SpellInfo.Entry.Id);
+            uint spellFilterId = ResolveLinkedSpell4Id(info.Entry, spell.Parameters.SpellInfo.Entry.Id, target as IPlayer ?? spell.Caster as IPlayer);
             ISpell activeSpell = target.GetActiveSpell(s =>
                 s.IsCasting && (spellFilterId == 0u || s.Parameters.SpellInfo.Entry.Id == spellFilterId));
             if (activeSpell == null)
@@ -2171,8 +2170,7 @@ namespace NexusForever.Game.Spell
             if (target is not UnitEntity unitEntity)
                 return;
 
-            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
-            uint immuneSpellId = candidates.FirstOrDefault(id => id != spell.Parameters.SpellInfo.Entry.Id);
+            uint immuneSpellId = ResolveLinkedSpell4Id(info.Entry, spell.Parameters.SpellInfo.Entry.Id, target as IPlayer ?? spell.Caster as IPlayer);
             if (immuneSpellId == 0u)
                 return;
 
@@ -3383,6 +3381,53 @@ namespace NexusForever.Game.Spell
             }
 
             return candidates.Distinct().ToList();
+        }
+
+        private static uint ResolveLinkedSpell4Id(Spell4EffectsEntry entry, uint sourceSpell4Id, IPlayer player)
+        {
+            List<uint> candidates = ResolveProxyCandidateSpellIds(entry);
+            uint linkedSpellId = candidates.FirstOrDefault(id => id != sourceSpell4Id);
+            if (linkedSpellId != 0u)
+                return linkedSpellId;
+
+            uint tryResolveRaw(uint rawSpellId)
+            {
+                uint resolved = ResolveSpell4IdCandidate(rawSpellId, player);
+                return resolved != sourceSpell4Id ? resolved : 0u;
+            }
+
+            linkedSpellId = tryResolveRaw(entry.DataBits00);
+            if (linkedSpellId != 0u)
+                return linkedSpellId;
+
+            linkedSpellId = tryResolveRaw(entry.DataBits01);
+            if (linkedSpellId != 0u)
+                return linkedSpellId;
+
+            linkedSpellId = tryResolveRaw(entry.DataBits02);
+            if (linkedSpellId != 0u)
+                return linkedSpellId;
+
+            linkedSpellId = tryResolveRaw(entry.DataBits03);
+            if (linkedSpellId != 0u)
+                return linkedSpellId;
+
+            linkedSpellId = tryResolveRaw(entry.DataBits04);
+            if (linkedSpellId != 0u)
+                return linkedSpellId;
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                float value = entry.ParameterValue[i];
+                if (value <= 0f)
+                    continue;
+
+                linkedSpellId = tryResolveRaw((uint)Math.Round(value));
+                if (linkedSpellId != 0u)
+                    return linkedSpellId;
+            }
+
+            return 0u;
         }
 
         private static bool IsKnownSpellId(uint spellId)

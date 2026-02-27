@@ -1191,7 +1191,12 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Proxy)]
         public static void HandleEffectProxy(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            target.CastSpell(info.Entry.DataBits00, new SpellParameters
+            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            if (candidates.Count == 0)
+                return;
+
+            IUnitEntity castSource = target ?? spell.Caster;
+            castSource.CastSpell(candidates[0], new SpellParameters
             {
                 ParentSpellInfo        = spell.Parameters.SpellInfo,
                 RootSpellInfo          = spell.Parameters.RootSpellInfo,
@@ -1202,12 +1207,12 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.ProxyLinearAE)]
         public static void HandleEffectProxyLinearAE(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            uint proxySpellId = info.Entry.DataBits00;
-            if (proxySpellId == 0u)
+            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            if (candidates.Count == 0)
                 return;
 
             IUnitEntity castSource = target ?? spell.Caster;
-            castSource.CastSpell(proxySpellId, new SpellParameters
+            castSource.CastSpell(candidates[0], new SpellParameters
             {
                 ParentSpellInfo        = spell.Parameters.SpellInfo,
                 RootSpellInfo          = spell.Parameters.RootSpellInfo,
@@ -1224,12 +1229,12 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.ProxyChannelVariableTime)]
         public static void HandleEffectProxyChannelVariableTime(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            uint proxySpellId = info.Entry.DataBits00;
-            if (proxySpellId == 0u)
+            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            if (candidates.Count == 0)
                 return;
 
             IUnitEntity castSource = target ?? spell.Caster;
-            castSource.CastSpell(proxySpellId, new SpellParameters
+            castSource.CastSpell(candidates[0], new SpellParameters
             {
                 ParentSpellInfo        = spell.Parameters.SpellInfo,
                 RootSpellInfo          = spell.Parameters.RootSpellInfo,
@@ -2646,6 +2651,24 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Fluff)]
         public static void HandleEffectFluff(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
+            List<uint> linkedSpellIds = ResolveProxyCandidateSpellIds(info.Entry);
+            if (linkedSpellIds.Count > 0)
+            {
+                uint linkedSpellId = linkedSpellIds[0];
+                if (linkedSpellId != spell.Parameters.SpellInfo.Entry.Id)
+                {
+                    IUnitEntity castSource = target ?? spell.Caster;
+                    castSource.CastSpell(linkedSpellId, new SpellParameters
+                    {
+                        ParentSpellInfo        = spell.Parameters.SpellInfo,
+                        RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                        UserInitiatedSpellCast = false
+                    });
+                }
+            }
+
+            if (info.Entry.DurationTime > 0u)
+                spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () => { });
         }
 
         [SpellEffectHandler(SpellEffectType.Scale)]
@@ -3248,7 +3271,10 @@ namespace NexusForever.Game.Spell
 
             void add(uint spellId)
             {
-                if (spellId != 0u)
+                if (spellId == 0u || spellId == uint.MaxValue)
+                    return;
+
+                if (IsKnownSpellId(spellId))
                     candidates.Add(spellId);
             }
 
@@ -3268,6 +3294,15 @@ namespace NexusForever.Game.Spell
             }
 
             return candidates.Distinct().ToList();
+        }
+
+        private static bool IsKnownSpellId(uint spellId)
+        {
+            if (spellId == 0u || spellId == uint.MaxValue)
+                return false;
+
+            return GameTableManager.Instance.Spell4.GetEntry(spellId) != null
+                || GameTableManager.Instance.Spell4Base.GetEntry(spellId) != null;
         }
 
         private static List<uint> ResolveRavelSignalLinkedSpellIds(Spell4EffectsEntry entry)

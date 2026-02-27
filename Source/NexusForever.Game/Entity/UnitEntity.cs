@@ -388,7 +388,7 @@ namespace NexusForever.Game.Entity
         public bool IsValidAttackTarget()
         {
             // TODO: Expand on this. There's bound to be flags or states that should prevent an entity from being attacked.
-            return (this is IPlayer or INonPlayerEntity);
+            return IsAlive && (this is IPlayer or INonPlayerEntity);
         }
 
         /// <summary>

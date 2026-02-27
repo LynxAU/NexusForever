@@ -66,8 +66,12 @@ namespace NexusForever.Game.Spell
         /// </summary>
         public ISpellInfo GetSpellInfo(byte tier)
         {
+            if (spellInfoStore == null)
+                return null;
             if (tier < 1)
                 tier = 1;
+            if (tier - 1 >= spellInfoStore.Length)
+                return null;
             return spellInfoStore[tier - 1];
         }
     }

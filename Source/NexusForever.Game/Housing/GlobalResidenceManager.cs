@@ -74,7 +74,7 @@ namespace NexusForever.Game.Housing
                 {
                     ICommunity community = GlobalGuildManager.Instance.GetGuild<ICommunity>(model.GuildOwnerId.Value);
                     if (community == null)
-                        throw new DatabaseDataException($"Community owner {model.OwnerId.Value} of residence {model.Id} is invalid!");
+                        throw new DatabaseDataException($"Community owner {model.GuildOwnerId.Value} of residence {model.Id} is invalid!");
 
                     var residence = new Residence(model);
                     community.Residence = residence;

@@ -61,7 +61,7 @@ namespace NexusForever.Game.Spell
 
         public void Update(double lastTick)
         {
-            scriptCollection.Invoke<IUpdate>(s => s.Update(lastTick));
+            scriptCollection?.Invoke<IUpdate>(s => s.Update(lastTick));
 
             events.Update(lastTick);
 

@@ -51,9 +51,9 @@ namespace NexusForever.Game.Spell
         {
             Owner     = player;
             BaseInfo  = baseInfo;
+            tier      = model.Tier;
             SpellInfo = baseInfo.GetSpellInfo(tier);
             Item      = item;
-            tier      = model.Tier;
 
             InitialiseAbilityCharges();
         }

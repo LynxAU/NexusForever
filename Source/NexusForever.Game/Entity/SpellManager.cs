@@ -272,9 +272,10 @@ namespace NexusForever.Game.Entity
         public List<ICharacterSpell> GetPets()
         {
             return spells.Values
-                .Where(s => s.BaseInfo.SpellType.Id == 27 ||
+                .Where(s => s.BaseInfo.SpellType != null &&
+                           (s.BaseInfo.SpellType.Id == 27 ||
                             s.BaseInfo.SpellType.Id == 30 ||
-                            s.BaseInfo.SpellType.Id == 104)
+                            s.BaseInfo.SpellType.Id == 104))
                 .ToList();
         }
 

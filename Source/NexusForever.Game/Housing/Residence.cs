@@ -380,7 +380,11 @@ namespace NexusForever.Game.Housing
         {
             foreach (HousingPlotInfoEntry entry in GameTableManager.Instance.HousingPlotInfo.Entries
                 .Where(e => (PropertyInfoId)e.HousingPropertyInfoId == PropertyInfoId))
-                GetPlot((byte)entry.HousingPropertyPlotIndex).PlotInfoEntry = entry;
+            {
+                IPlot plot = GetPlot((byte)entry.HousingPropertyPlotIndex);
+                if (plot != null)
+                    plot.PlotInfoEntry = entry;
+            }
         }
 
         public void Save(CharacterContext context)
@@ -727,7 +731,7 @@ namespace NexusForever.Game.Housing
         /// </summary>
         public IPlot GetPlot(uint plotInfoId)
         {
-            return plots.FirstOrDefault(i => i.PlotInfoEntry.Id == plotInfoId);
+            return plots.FirstOrDefault(i => i.PlotInfoEntry?.Id == plotInfoId);
         }
     }
 }

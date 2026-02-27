@@ -63,6 +63,7 @@ namespace NexusForever.Game.Spell
                 .GroupBy(e => e.Spell4Id)
                 .ToImmutableDictionary(g => g.Key, g => g
                     .Select(e => GameTableManager.Instance.TelegraphDamage.GetEntry(e.TelegraphDamageId))
+                    .Where(e => e != null)
                     .ToImmutableList());
         }
 

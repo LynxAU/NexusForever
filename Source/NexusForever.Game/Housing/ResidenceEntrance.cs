@@ -13,7 +13,9 @@ namespace NexusForever.Game.Housing
 
         public ResidenceEntrance(WorldLocation2Entry entry)
         {
-            Entry    = GameTableManager.Instance.World.GetEntry(entry.WorldId);
+            Entry = GameTableManager.Instance.World.GetEntry(entry.WorldId);
+            if (Entry == null)
+                throw new HousingException($"WorldLocation2 entry {entry.Id} references invalid WorldId {entry.WorldId}.");
             Position = new Vector3(entry.Position0, entry.Position1, entry.Position2);
             Rotation = new Quaternion(entry.Facing0, entry.Facing1, entry.Facing2, entry.Facing3);
         }

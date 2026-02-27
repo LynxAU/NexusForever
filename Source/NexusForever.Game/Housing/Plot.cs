@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore.ChangeTracking;
+using NexusForever.Database;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
@@ -88,6 +89,9 @@ namespace NexusForever.Game.Housing
             Id            = model.Id;
             Index         = model.Index;
             plotInfoEntry = GameTableManager.Instance.HousingPlotInfo.GetEntry(model.PlotInfoId);
+            if (plotInfoEntry == null)
+                throw new DatabaseDataException($"Plot {model.Id} references invalid HousingPlotInfo id {model.PlotInfoId}!");
+
             plugItemEntry = GameTableManager.Instance.HousingPlugItem.GetEntry(model.PlugItemId);
             plugFacing    = (HousingPlugFacing)model.PlugFacing;
             buildState    = model.BuildState;
@@ -150,7 +154,7 @@ namespace NexusForever.Game.Housing
 
                 if ((saveMask & PlotSaveMask.PlugItemId) != 0)
                 {
-                    model.PlugItemId = (ushort)PlugItemEntry.Id;
+                    model.PlugItemId = (ushort)(PlugItemEntry?.Id ?? 0u);
                     entity.Property(p => p.PlugItemId).IsModified = true;
                 }
 

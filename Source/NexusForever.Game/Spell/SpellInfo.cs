@@ -44,7 +44,11 @@ namespace NexusForever.Game.Spell
             Effects                        = GlobalSpellManager.Instance.GetSpell4EffectEntries(spell4Entry.Id).ToList();
 
             foreach (uint runnerId in spell4Entry.PrerequisiteIdRunners.Where(r => r != 0))
-                PrerequisiteRunners.Add(GameTableManager.Instance.Prerequisite.GetEntry(runnerId));
+            {
+                PrerequisiteEntry prereq = GameTableManager.Instance.Prerequisite.GetEntry(runnerId);
+                if (prereq != null)
+                    PrerequisiteRunners.Add(prereq);
+            }
         }
     }
 }

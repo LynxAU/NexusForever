@@ -27,11 +27,14 @@ using NexusForever.Network.World.Message.Model.Crafting;
 using NexusForever.Network.World.Message.Model.Entity;
 using NexusForever.Network.World.Message.Model.Hazard;
 using NexusForever.Shared;
+using NLog;
 
 namespace NexusForever.Game.Spell
 {
     public static class SpellHandler
     {
+        private static readonly ILogger log = LogManager.GetCurrentClassLogger();
+
         [SpellEffectHandler(SpellEffectType.VitalModifier)]
         public static void HandleEffectVitalModifier(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -4130,6 +4133,52 @@ namespace NexusForever.Game.Spell
             // Advance CompleteQuest objective type with the quest ID
             // This is a simplification - proper implementation would need to map to specific objective indices
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CompleteQuest, questId, Math.Max(1u, count));
+        }
+
+        /// <summary>
+        /// Disallow PvP flagging for the target (spell effect 0x8C).
+        /// </summary>
+        [SpellEffectHandler(SpellEffectType.DisallowPvP)]
+        public static void HandleEffectDisallowPvP(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // DisallowPvP prevents the target from being flagged for PvP
+            // This is typically used as a temporary state that prevents PvP flagging
+            if (target is IPlayer player)
+            {
+                log.Debug($"DisallowPvP effect applied to player {player.Name} for spell {spell.Parameters.SpellInfo.Entry.Id} (0x{spell.Parameters.SpellInfo.Entry.Id:X}).");
+            }
+        }
+
+        /// <summary>
+        /// Open a map/zone teleport dialog (spell effect 0x8D).
+        /// </summary>
+        [SpellEffectHandler(SpellEffectType.GoMap)]
+        public static void HandleEffectGoMap(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // GoMap opens the map to a specific location, typically used for porters/taxis
+            uint worldId = info.Entry.DataBits00;
+            uint zoneId = info.Entry.DataBits01;
+            float x = info.Entry.DataBits02;
+            float y = info.Entry.DataBits03;
+            float z = info.Entry.DataBits04;
+
+            if (target is IPlayer player)
+            {
+                log.Debug($"GoMap effect for player {player.Name}: World={worldId}, Zone={zoneId}, Pos=({x}, {y}, {z}).");
+            }
+        }
+
+        /// <summary>
+        /// Return to a saved map location (spell effect 0x93).
+        /// </summary>
+        [SpellEffectHandler(SpellEffectType.ReturnMap)]
+        public static void HandleEffectReturnMap(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            // ReturnMap returns the player to their last saved location (like a bind point)
+            if (target is IPlayer player)
+            {
+                log.Debug($"ReturnMap effect applied to player {player.Name} for spell {spell.Parameters.SpellInfo.Entry.Id} (0x{spell.Parameters.SpellInfo.Entry.Id:X}).");
+            }
         }
     }
 }

@@ -1,8 +1,10 @@
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Abstract.Spell.Event;
+using NexusForever.Game.Entity;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Static.Combat.CrowdControl;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Spell.Event;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Spell;
@@ -93,6 +95,9 @@ namespace NexusForever.Game.Spell
                 return;
             }
 
+            // Pay resource costs before casting
+            PayResourceCost();
+
             if (Caster is IPlayer player)
                 if (Parameters.SpellInfo.GlobalCooldown != null)
                     player.SpellManager.SetGlobalSpellCooldown(Parameters.SpellInfo.GlobalCooldown.CooldownTime / 1000d);
@@ -120,6 +125,11 @@ namespace NexusForever.Game.Spell
             if (ccResult != CastResult.Ok)
                 return ccResult;
 
+            // Check if caster has enough resources to cast the spell
+            CastResult resourceResult = CheckResourceCost();
+            if (resourceResult != CastResult.Ok)
+                return resourceResult;
+
             if (Caster is IPlayer player)
             {
                 if (player.SpellManager.GetSpellCooldown(Parameters.SpellInfo.Entry.Id) > 0d)
@@ -135,6 +145,149 @@ namespace NexusForever.Game.Spell
             }
 
             return CastResult.Ok;
+        }
+
+        /// <summary>
+        /// Check if the caster has enough resources to cast the spell.
+        /// </summary>
+        private CastResult CheckResourceCost()
+        {
+            if (Caster is not IUnitEntity unit)
+                return CastResult.Ok;
+
+            Spell4Entry entry = Parameters.SpellInfo.Entry;
+
+            // Check first resource cost (InnateCostType0)
+            if (entry.InnateCostType0 != 0 && entry.InnateCost0 > 0)
+            {
+                Vital vital = GetVitalFromCostType(entry.InnateCostType0);
+                if (vital != Vital.Invalid)
+                {
+                    float currentValue = unit.GetVitalValue(vital);
+                    if (currentValue < entry.InnateCost0)
+                        return GetInsufficientResourceCastResult(vital);
+                }
+            }
+
+            // Check second resource cost (InnateCostType1)
+            if (entry.InnateCostType1 != 0 && entry.InnateCost1 > 0)
+            {
+                Vital vital = GetVitalFromCostType(entry.InnateCostType1);
+                if (vital != Vital.Invalid)
+                {
+                    float currentValue = unit.GetVitalValue(vital);
+                    if (currentValue < entry.InnateCost1)
+                        return GetInsufficientResourceCastResult(vital);
+                }
+            }
+
+            return CastResult.Ok;
+        }
+
+        /// <summary>
+        /// Convert Spell4 innate cost type to Vital enum.
+        /// </summary>
+        private static Vital GetVitalFromCostType(uint costType)
+        {
+            return costType switch
+            {
+                1 => Vital.Health,
+                2 => Vital.Breath,
+                3 => Vital.ShieldCapacity,
+                4 => Vital.KineticCell,
+                5 => Vital.Resource0,
+                6 => Vital.Resource1,
+                7 => Vital.Resource2,
+                8 => Vital.Resource3,
+                9 => Vital.Resource4,
+                10 => Vital.Resource5,
+                11 => Vital.Resource6,
+                12 => Vital.StalkerA,
+                13 => Vital.StalkerB,
+                14 => Vital.StalkerC,
+                15 => Vital.Focus,
+                16 => Vital.Resource7,
+                18 => Vital.MedicCore,
+                19 => Vital.SpellSurge,
+                20 => Vital.InterruptArmor,
+                21 => Vital.Absorption,
+                22 => Vital.PublicResource0,
+                23 => Vital.PublicResource1,
+                24 => Vital.PublicResource2,
+                26 => Vital.Volatility,
+                27 => Vital.Resource8,
+                28 => Vital.Resource9,
+                29 => Vital.Resource10,
+                30 => Vital.HealingAbsorption,
+                _ => Vital.Invalid
+            };
+        }
+
+        /// <summary>
+        /// Get the appropriate CastResult for insufficient resource.
+        /// </summary>
+        private static CastResult GetInsufficientResourceCastResult(Vital vital)
+        {
+            return vital switch
+            {
+                Vital.Health => CastResult.CasterVitalCostHealth,
+                Vital.Focus => CastResult.CasterVitalCostFocus,
+                Vital.Resource0 => CastResult.CasterVitalCostResource0,
+                Vital.Resource1 => CastResult.CasterVitalCostResource1,
+                Vital.Resource2 => CastResult.CasterVitalCostResource2,
+                Vital.Resource3 => CastResult.CasterVitalCostResource3,
+                Vital.Resource4 => CastResult.CasterVitalCostResource4,
+                Vital.Resource5 => CastResult.CasterVitalCostResource5,
+                Vital.Resource6 => CastResult.CasterVitalCostResource6,
+                Vital.Resource7 => CastResult.CasterVitalCostResource7,
+                Vital.Resource8 => CastResult.CasterVitalCostResource8,
+                Vital.Resource9 => CastResult.CasterVitalCostResource9,
+                Vital.Resource10 => CastResult.CasterVitalCostResource10,
+                Vital.KineticCell => CastResult.CasterVitalCost,
+                Vital.ShieldCapacity => CastResult.CasterVitalCostShieldCapacity,
+                Vital.PublicResource0 => CastResult.CasterVitalCostPublicResource0,
+                Vital.PublicResource1 => CastResult.CasterVitalCostPublicRes,
+                Vital.PublicResource2 => CastResult.CasterVitalCostPublicResource2,
+                Vital.SpellSurge => CastResult.CasterVitalCost,
+                Vital.InterruptArmor => CastResult.CasterVitalCostInterruptArmor,
+                Vital.Absorption => CastResult.CasterVitalCostAbsorption,
+                _ => CastResult.CasterVitalCost
+            };
+        }
+
+        /// <summary>
+        /// Pay the resource cost for the spell.
+        /// </summary>
+        private void PayResourceCost()
+        {
+            if (Caster is not IUnitEntity unit)
+                return;
+
+            Spell4Entry entry = Parameters.SpellInfo.Entry;
+
+            // Pay first resource cost (InnateCostType0)
+            if (entry.InnateCostType0 != 0 && entry.InnateCost0 > 0)
+            {
+                Vital vital = GetVitalFromCostType(entry.InnateCostType0);
+                if (vital != Vital.Invalid)
+                {
+                    // Negative value to reduce the vital
+                    unit.ModifyVital(vital, -entry.InnateCost0);
+                    log.Trace($"Paid {entry.InnateCost0} {vital} for spell {entry.Id}.");
+                }
+            }
+
+            // Pay second resource cost (InnateCostType1)
+            if (entry.InnateCostType1 != 0 && entry.InnateCost1 > 0)
+            {
+                Vital vital = GetVitalFromCostType(entry.InnateCostType1);
+                if (vital != Vital.Invalid)
+                {
+                    // Negative value to reduce the vital
+                    unit.ModifyVital(vital, -entry.InnateCost1);
+                    log.Trace($"Paid {entry.InnateCost1} {vital} for spell {entry.Id}.");
+                }
+            }
         }
 
         private CastResult CheckPrerequisites()

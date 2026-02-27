@@ -2547,19 +2547,19 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.MimicDisplayName)]
         public static void HandleEffectMimicDisplayName(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Placeholder: display-name mutation is currently client/localized-data driven.
+            HandleEffectDisplayMutation(spell, target, info);
         }
 
         [SpellEffectHandler(SpellEffectType.ChangeDisplayName)]
         public static void HandleEffectChangeDisplayName(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Placeholder: display-name mutation is currently client/localized-data driven.
+            HandleEffectDisplayMutation(spell, target, info);
         }
 
         [SpellEffectHandler(SpellEffectType.ChangeIcon)]
         public static void HandleEffectChangeIcon(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Placeholder: icon mutation is a UI concern in current stack.
+            HandleEffectDisplayMutation(spell, target, info);
         }
 
         [SpellEffectHandler(SpellEffectType.AddSpellEffect)]
@@ -3428,6 +3428,33 @@ namespace NexusForever.Game.Spell
             }
 
             return 0u;
+        }
+
+        private static void HandleEffectDisplayMutation(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            IUnitEntity subject = target ?? spell.Caster;
+            if (subject == null || !subject.IsAlive)
+                return;
+
+            uint linkedSpellId = ResolveLinkedSpell4Id(
+                info.Entry,
+                spell.Parameters.SpellInfo.Entry.Id,
+                subject as IPlayer ?? spell.Caster as IPlayer);
+
+            if (linkedSpellId != 0u)
+            {
+                subject.CastSpell(linkedSpellId, new SpellParameters
+                {
+                    ParentSpellInfo        = spell.Parameters.SpellInfo,
+                    RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                    UserInitiatedSpellCast = false,
+                    PrimaryTargetId        = target?.Guid ?? spell.Caster.Guid
+                });
+                return;
+            }
+
+            if (info.Entry.DurationTime > 0u)
+                spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () => { });
         }
 
         private static bool IsKnownSpellId(uint spellId)

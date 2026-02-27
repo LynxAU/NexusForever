@@ -360,6 +360,7 @@ namespace NexusForever.Game.Combat
         {
             uint maxShieldAmount = (uint)(damage * victim.GetPropertyValue(Property.ShieldMitigationMax));
             uint shieldedAmount = Math.Min(victim.Shield, maxShieldAmount);
+            shieldedAmount = Math.Min(shieldedAmount, damage);
 
             return shieldedAmount;
         }
@@ -410,7 +411,10 @@ namespace NexusForever.Game.Combat
 
             bool glance = IsSuccessfulChance(glanceChance);
             if (glance)
-                damage = (uint)Math.Round((float)(damage * (1 - GetRatingPercentMod(Property.RatingGlanceAmount, victim))));
+            {
+                float glanceAmount = Math.Clamp(GetRatingPercentMod(Property.RatingGlanceAmount, victim), 0f, 1f);
+                damage = (uint)Math.Round(damage * (1f - glanceAmount));
+            }
 
             return glance;
         }

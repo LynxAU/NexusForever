@@ -423,7 +423,23 @@ namespace NexusForever.Game.Entity
             var factory = LegacyServiceProvider.Provider.GetService<IFactory<IDamageCalculator>>();
             IDamageDescription desc = factory?.Resolve()?.CalculateMeleeDamage(this, target);
             if (desc == null)
+            {
+                EnqueueToVisible(new ServerCombatLog
+                {
+                    CombatLog = new CombatLogDeflect
+                    {
+                        BMultiHit = false,
+                        CastData  = new CombatLogCastData
+                        {
+                            CasterId     = Guid,
+                            TargetId     = target.Guid,
+                            SpellId      = 0u,
+                            CombatResult = CombatResult.Avoid
+                        }
+                    }
+                }, true);
                 return;
+            }
 
             uint healthBefore = target.Health;
             target.TakeDamage(this, desc);

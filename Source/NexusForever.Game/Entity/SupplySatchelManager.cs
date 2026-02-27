@@ -101,6 +101,13 @@ namespace NexusForever.Game.Entity
             if (!tradeskillMaterials.TryGetValue(materialId, out ITradeskillMaterial material))
                 throw new InvalidOperationException("Material not found in cache.");
 
+            // Guard against underflow: if current amount exceeds cap (e.g. cap changed), treat as full.
+            if (material.Amount >= maximumStackAmount)
+            {
+                material.Amount = (ushort)maximumStackAmount;
+                return amount;
+            }
+
             uint amountAllowed = maximumStackAmount - material.Amount;
             if (amountAllowed >= amount)
             {

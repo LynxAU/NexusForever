@@ -29,7 +29,7 @@ namespace NexusForever.Game.Map
 
             int z = (int)Math.Floor(MapDefines.GridCellCount * (MapDefines.WorldGridOrigin + vector.Z / MapDefines.GridSize));
             if (z < 0 || z > MapDefines.WorldGridCount * MapDefines.GridCellCount)
-                throw new ArgumentOutOfRangeException($"Position Z: {vector.X} is invalid!");
+                throw new ArgumentOutOfRangeException($"Position Z: {vector.Z} is invalid!");
 
             return ((uint)x & MapDefines.GridCellCount - 1, (uint)z & MapDefines.GridCellCount - 1);
         }

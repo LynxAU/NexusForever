@@ -2571,14 +2571,12 @@ namespace NexusForever.Game.Spell
 
             // Data-driven baseline: treat payload as one or more spell activations.
             // This mirrors retail "graft effect via extra spell rows" behavior well enough for gameplay.
-            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            List<uint> candidates = ResolveLinkedSpell4Ids(
+                info.Entry,
+                spell.Parameters.SpellInfo.Entry.Id,
+                activationSource as IPlayer ?? spell.Caster as IPlayer);
             foreach (uint candidateSpellId in candidates)
             {
-                if (candidateSpellId == 0u || candidateSpellId == spell.Parameters.SpellInfo.Entry.Id)
-                    continue;
-                if (GameTableManager.Instance.Spell4.GetEntry(candidateSpellId) == null)
-                    continue;
-
                 activationSource.CastSpell(candidateSpellId, new SpellParameters
                 {
                     ParentSpellInfo        = spell.Parameters.SpellInfo,
@@ -2653,6 +2651,13 @@ namespace NexusForever.Game.Spell
             applySpellSuppression(rawPrimary);
             applyEffectSuppression(rawSecondary);
             applySpellSuppression(rawSecondary);
+            foreach (uint linkedSpellId in ResolveLinkedSpell4Ids(
+                info.Entry,
+                spell.Parameters.SpellInfo.Entry.Id,
+                target as IPlayer ?? spell.Caster as IPlayer))
+            {
+                applySpellSuppression(linkedSpellId);
+            }
 
             if (!applied && rawPrimary == 0u && rawSecondary == 0u)
                 unitEntity.AddSpellEffectImmunity(
@@ -2703,20 +2708,20 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Fluff)]
         public static void HandleEffectFluff(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            List<uint> linkedSpellIds = ResolveProxyCandidateSpellIds(info.Entry);
+            List<uint> linkedSpellIds = ResolveLinkedSpell4Ids(
+                info.Entry,
+                spell.Parameters.SpellInfo.Entry.Id,
+                target as IPlayer ?? spell.Caster as IPlayer);
             if (linkedSpellIds.Count > 0)
             {
                 uint linkedSpellId = linkedSpellIds[0];
-                if (linkedSpellId != spell.Parameters.SpellInfo.Entry.Id)
+                IUnitEntity castSource = target ?? spell.Caster;
+                castSource.CastSpell(linkedSpellId, new SpellParameters
                 {
-                    IUnitEntity castSource = target ?? spell.Caster;
-                    castSource.CastSpell(linkedSpellId, new SpellParameters
-                    {
-                        ParentSpellInfo        = spell.Parameters.SpellInfo,
-                        RootSpellInfo          = spell.Parameters.RootSpellInfo,
-                        UserInitiatedSpellCast = false
-                    });
-                }
+                    ParentSpellInfo        = spell.Parameters.SpellInfo,
+                    RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                    UserInitiatedSpellCast = false
+                });
             }
 
             if (info.Entry.DurationTime > 0u)
@@ -3385,36 +3390,30 @@ namespace NexusForever.Game.Spell
 
         private static uint ResolveLinkedSpell4Id(Spell4EffectsEntry entry, uint sourceSpell4Id, IPlayer player)
         {
-            List<uint> candidates = ResolveProxyCandidateSpellIds(entry);
-            uint linkedSpellId = candidates.FirstOrDefault(id => id != sourceSpell4Id);
-            if (linkedSpellId != 0u)
-                return linkedSpellId;
+            return ResolveLinkedSpell4Ids(entry, sourceSpell4Id, player).FirstOrDefault();
+        }
 
-            uint tryResolveRaw(uint rawSpellId)
+        private static List<uint> ResolveLinkedSpell4Ids(Spell4EffectsEntry entry, uint sourceSpell4Id, IPlayer player)
+        {
+            var resolved = new HashSet<uint>();
+
+            void addResolved(uint rawSpellId)
             {
-                uint resolved = ResolveSpell4IdCandidate(rawSpellId, player);
-                return resolved != sourceSpell4Id ? resolved : 0u;
+                uint spell4Id = ResolveSpell4IdCandidate(rawSpellId, player);
+                if (spell4Id == 0u || spell4Id == sourceSpell4Id)
+                    return;
+
+                resolved.Add(spell4Id);
             }
 
-            linkedSpellId = tryResolveRaw(entry.DataBits00);
-            if (linkedSpellId != 0u)
-                return linkedSpellId;
+            foreach (uint candidate in ResolveProxyCandidateSpellIds(entry))
+                addResolved(candidate);
 
-            linkedSpellId = tryResolveRaw(entry.DataBits01);
-            if (linkedSpellId != 0u)
-                return linkedSpellId;
-
-            linkedSpellId = tryResolveRaw(entry.DataBits02);
-            if (linkedSpellId != 0u)
-                return linkedSpellId;
-
-            linkedSpellId = tryResolveRaw(entry.DataBits03);
-            if (linkedSpellId != 0u)
-                return linkedSpellId;
-
-            linkedSpellId = tryResolveRaw(entry.DataBits04);
-            if (linkedSpellId != 0u)
-                return linkedSpellId;
+            addResolved(entry.DataBits00);
+            addResolved(entry.DataBits01);
+            addResolved(entry.DataBits02);
+            addResolved(entry.DataBits03);
+            addResolved(entry.DataBits04);
 
             for (int i = 0; i < entry.ParameterValue.Length; i++)
             {
@@ -3422,12 +3421,10 @@ namespace NexusForever.Game.Spell
                 if (value <= 0f)
                     continue;
 
-                linkedSpellId = tryResolveRaw((uint)Math.Round(value));
-                if (linkedSpellId != 0u)
-                    return linkedSpellId;
+                addResolved((uint)Math.Round(value));
             }
 
-            return 0u;
+            return resolved.ToList();
         }
 
         private static void HandleEffectDisplayMutation(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)

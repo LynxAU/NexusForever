@@ -590,7 +590,7 @@ namespace NexusForever.Game.Spell
             if (activeSpell == null)
                 return;
 
-            target.CancelSpellCast(activeSpell.CastingId, CastResult.SpellInterrupted);
+            target.CancelSpellCast(activeSpell.CastingId, Network.World.Message.Static.CastResult.SpellInterrupted);
         }
 
         [SpellEffectHandler(SpellEffectType.SpellForceRemove)]
@@ -610,7 +610,7 @@ namespace NexusForever.Game.Spell
 
             ISpell activeSpell = target.GetActiveSpell(s => s.Parameters.SpellInfo.Entry.Id == spellIdToRemove);
             if (activeSpell?.IsCasting == true)
-                target.CancelSpellCast(activeSpell.CastingId, CastResult.SpellCancelled);
+                target.CancelSpellCast(activeSpell.CastingId, Network.World.Message.Static.CastResult.SpellCancelled);
         }
 
         [SpellEffectHandler(SpellEffectType.ModifySpellCooldown)]
@@ -653,6 +653,61 @@ namespace NexusForever.Game.Spell
             }
 
             player.SpellManager.ResetAllSpellCooldowns();
+        }
+
+        [SpellEffectHandler(SpellEffectType.ActivateSpellCooldown)]
+        public static void HandleEffectActivateSpellCooldown(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint targetSpellId = info.Entry.DataBits00;
+            if (targetSpellId == 0u)
+                targetSpellId = spell.Parameters.SpellInfo.Entry.Id;
+
+            double cooldownSeconds = 0d;
+            if (info.Entry.DataBits01 > 0u)
+            {
+                cooldownSeconds = info.Entry.DataBits01 > 1000u
+                    ? info.Entry.DataBits01 / 1000d
+                    : info.Entry.DataBits01;
+            }
+            else
+            {
+                Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(targetSpellId);
+                cooldownSeconds = spell4Entry?.SpellCoolDown > 0u
+                    ? spell4Entry.SpellCoolDown / 1000d
+                    : 0d;
+            }
+
+            if (cooldownSeconds <= 0d)
+                return;
+
+            player.SpellManager.SetSpellCooldown(targetSpellId, cooldownSeconds);
+        }
+
+        [SpellEffectHandler(SpellEffectType.AddSpell)]
+        public static void HandleEffectAddSpell(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint rawSpellId = info.Entry.DataBits00;
+            if (rawSpellId == 0u)
+                return;
+
+            Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(rawSpellId);
+            if (spell4Entry != null)
+            {
+                uint baseId = spell4Entry.Spell4BaseIdBaseSpell;
+                if (player.SpellManager.GetSpell(baseId) == null)
+                    player.SpellManager.AddSpell(baseId);
+                return;
+            }
+
+            Spell4BaseEntry spellBaseEntry = GameTableManager.Instance.Spell4Base.GetEntry(rawSpellId);
+            if (spellBaseEntry != null && player.SpellManager.GetSpell(spellBaseEntry.Id) == null)
+                player.SpellManager.AddSpell(spellBaseEntry.Id);
         }
 
         [SpellEffectHandler(SpellEffectType.Resurrect)]

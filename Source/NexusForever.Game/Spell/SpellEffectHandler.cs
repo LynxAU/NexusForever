@@ -288,22 +288,19 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.NpcExecutionDelay)]
         public static void HandleEffectNpcExecutionDelay(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            uint delayMs = info.Entry.DataBits00;
-            if (delayMs == 0u || delayMs == uint.MaxValue)
-                delayMs = info.Entry.DurationTime;
-            if (delayMs == 0u || delayMs == uint.MaxValue)
-                delayMs = 250u;
+            double delaySeconds = ResolvePayloadDurationSeconds(info.Entry, defaultSeconds: 0.25d, maxSeconds: 60d);
+            delaySeconds = Math.Max(0.05d, delaySeconds);
 
             uint linkedSpellId = ResolveLinkedSpell4Id(info.Entry, spell.Parameters.SpellInfo.Entry.Id, target as IPlayer ?? spell.Caster as IPlayer);
 
             if (linkedSpellId == 0u)
             {
-                spell.EnqueueEvent(delayMs / 1000d, () => { });
+                spell.EnqueueEvent(delaySeconds, () => { });
                 return;
             }
 
             IUnitEntity activationSource = target ?? spell.Caster;
-            spell.EnqueueEvent(delayMs / 1000d, () =>
+            spell.EnqueueEvent(delaySeconds, () =>
             {
                 if (activationSource == null || !activationSource.IsAlive)
                     return;
@@ -2595,13 +2592,7 @@ namespace NexusForever.Game.Spell
 
             uint rawPrimary = info.Entry.DataBits00;
             uint rawSecondary = info.Entry.DataBits01;
-            uint rawDuration = info.Entry.DurationTime != 0u
-                ? info.Entry.DurationTime
-                : info.Entry.DataBits02;
-
-            double durationSeconds = rawDuration > 0u
-                ? Math.Min(3600d, rawDuration / 1000d)
-                : 15d;
+            double durationSeconds = ResolvePayloadDurationSeconds(info.Entry, defaultSeconds: 15d, maxSeconds: 3600d);
 
             uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
             uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
@@ -3425,6 +3416,45 @@ namespace NexusForever.Game.Spell
             }
 
             return resolved.ToList();
+        }
+
+        private static double ResolvePayloadDurationSeconds(Spell4EffectsEntry entry, double defaultSeconds, double maxSeconds)
+        {
+            double normalize(float raw)
+            {
+                if (!float.IsFinite(raw) || raw <= 0f)
+                    return 0d;
+
+                // Table payloads mix seconds-scale and milliseconds-scale values.
+                double seconds = raw <= 120f ? raw : raw / 1000d;
+                return Math.Clamp(seconds, 0d, maxSeconds);
+            }
+
+            if (entry.DurationTime > 0u && entry.DurationTime != uint.MaxValue)
+            {
+                double seconds = Math.Clamp(entry.DurationTime / 1000d, 0d, maxSeconds);
+                if (seconds > 0d)
+                    return seconds;
+            }
+
+            if (entry.DataBits02 != 0u && entry.DataBits02 != uint.MaxValue)
+            {
+                double seconds = normalize(DecodeFlexibleEffectNumber(entry.DataBits02));
+                if (seconds > 0d)
+                    return seconds;
+            }
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                if (entry.ParameterValue[i] == 0f)
+                    continue;
+
+                double seconds = normalize(entry.ParameterValue[i]);
+                if (seconds > 0d)
+                    return seconds;
+            }
+
+            return Math.Clamp(defaultSeconds, 0d, maxSeconds);
         }
 
         private static void HandleEffectDisplayMutation(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)

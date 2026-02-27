@@ -54,7 +54,7 @@ namespace NexusForever.Game.Entity
 
             TradeskillMaterialEntry entry = GameTableManager.Instance.TradeskillMaterial.Entries.SingleOrDefault(i => i.Item2IdStatRevolution == item.Info.Entry.Id);
             if (entry == null)
-                throw new InvalidOperationException("TradeskillMaterialEntry does not exist.");
+                return amount;
 
             ushort materialId = (ushort)entry.Id;
             uint amountAdded = 0;
@@ -82,7 +82,7 @@ namespace NexusForever.Game.Entity
 
             TradeskillMaterialEntry entry = GameTableManager.Instance.TradeskillMaterial.GetEntry(materialId);
             if (entry == null || entry.Item2IdStatRevolution == 0)
-                throw new InvalidOperationException("TradeskillMaterialEntry does not exist.");
+                return amount;
 
             uint amountAdded;
             if (tradeskillMaterials.ContainsKey(materialId))
@@ -128,7 +128,7 @@ namespace NexusForever.Game.Entity
         {
             TradeskillMaterialEntry entry = GameTableManager.Instance.TradeskillMaterial.Entries.SingleOrDefault(i => i.Item2IdStatRevolution == item.Info.Entry.Id);
             if (entry == null)
-                throw new InvalidOperationException("TradeskillMaterialEntry does not exist.");
+                return;
 
             ushort materialId = (ushort)entry.Id;
             if (tradeskillMaterials.ContainsKey(materialId))
@@ -176,7 +176,7 @@ namespace NexusForever.Game.Entity
         {
             TradeskillMaterialEntry entry = GameTableManager.Instance.TradeskillMaterial.Entries.SingleOrDefault(i => i.Item2IdStatRevolution == item.Info.Entry.Id);
             if (entry == null)
-                throw new InvalidOperationException("TradeskillMaterialEntry does not exist.");
+                return false;
 
             return IsFull((ushort)entry.Id);
         }

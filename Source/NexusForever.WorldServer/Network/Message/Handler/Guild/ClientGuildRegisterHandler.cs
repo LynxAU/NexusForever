@@ -34,6 +34,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Guild
                     case GuildType.Guild:
                     {
                         GameFormulaEntry entry = gameTableManager.GameFormula.GetEntry(764);
+                        if (entry == null)
+                            return new GuildResultInfo(GuildResult.UnableToProcess);
                         if (!session.Player.CurrencyManager.CanAfford(CurrencyType.Credits, entry.Dataint0))
                             return new GuildResultInfo(GuildResult.NotEnoughCredits);
                         break;
@@ -41,6 +43,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Guild
                     case GuildType.Community:
                     {
                         GameFormulaEntry entry = gameTableManager.GameFormula.GetEntry(1159);
+                        if (entry == null)
+                            return new GuildResultInfo(GuildResult.UnableToProcess);
                         if (guildRegister.AlternateCost && !session.Account.CurrencyManager.CanAfford(AccountCurrencyType.ServiceToken, entry.Dataint01))
                             return new GuildResultInfo(GuildResult.NotEnoughCredits); // this right guild result for account credits?
                         if (!guildRegister.AlternateCost && !session.Player.CurrencyManager.CanAfford(CurrencyType.Credits, entry.Dataint0))

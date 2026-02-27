@@ -15,9 +15,13 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Pet
                 throw new InvalidPacketValueException();
 
             byte tier = session.Player.SpellManager.GetSpellTier(spell.BaseInfo.Entry.Id);
+            ISpellInfo spellInfo = spell.BaseInfo.GetSpellInfo(tier);
+            if (spellInfo == null)
+                throw new InvalidPacketValueException();
+
             session.Player.CastSpell(new SpellParameters
             {
-                SpellInfo = spell.BaseInfo.GetSpellInfo(tier)
+                SpellInfo = spellInfo
             });
         }
     }

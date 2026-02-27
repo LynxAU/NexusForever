@@ -134,7 +134,7 @@ namespace NexusForever.Game.Entity
         private ulong GenerateFlairMask()
         {
             // pack each of the flair ids into 16 bits
-            return (flairs[3]?.Id ?? 0ul) << 48 | (flairs[2]?.Id ?? 0ul) << 32 | (flairs[1]?.Id ?? 0ul) << 16 | flairs[0]?.Id ?? 0ul;
+            return (flairs[3]?.Id ?? 0ul) << 48 | (flairs[2]?.Id ?? 0ul) << 32 | (flairs[1]?.Id ?? 0ul) << 16 | (flairs[0]?.Id ?? 0ul);
         }
 
         /// <summary>

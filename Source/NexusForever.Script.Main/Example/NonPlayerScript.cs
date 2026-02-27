@@ -105,7 +105,7 @@ namespace NexusForever.Script.Main.Example
             // create a new say event which will be scheduled between 5 and 10 seconds
             // event has an id of 1, this will allow us to track when it has executed
             var sayEvent = eventFactory.CreateEvent<IEntitySayEvent>();
-            sayEvent.Initialise(owner, Sayings[Random.Shared.Next(Sayings.Length - 1)]);
+            sayEvent.Initialise(owner, Sayings[Random.Shared.Next(Sayings.Length)]);
             eventManager.EnqueueEvent(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10), sayEvent, 1);
         }
     }

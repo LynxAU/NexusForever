@@ -19,7 +19,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Chat
                     Path    = session.Player.Path,
                     Faction = session.Player.Faction1,
                     Sex     = session.Player.Sex,
-                    Zone    = session.Player.Zone.Id
+                    Zone    = session.Player.Zone?.Id ?? 0
                 }
             };
 

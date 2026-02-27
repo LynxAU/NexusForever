@@ -54,9 +54,10 @@ namespace NexusForever.WorldServer.Command.Handler
                 return;
             }
 
+            IPlayer invokerPlayer = context.Invoker as IPlayer;
             IPlayer targetPlayer = context.GetTargetOrInvoker<IPlayer>();
-            if (targetPlayer != context.Invoker && !(context.Invoker as IPlayer).Account.RbacManager.HasPermission(Permission.EntitlementGrantOther))
-                targetPlayer = context.Invoker as IPlayer;
+            if (targetPlayer != context.Invoker && (invokerPlayer == null || !invokerPlayer.Account.RbacManager.HasPermission(Permission.EntitlementGrantOther)))
+                targetPlayer = invokerPlayer;
 
             if (((EntitlementFlags)entry.Flags & EntitlementFlags.Character) != 0)
                 targetPlayer.EntitlementManager.UpdateEntitlement(entitlementType, value);

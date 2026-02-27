@@ -12,6 +12,8 @@ namespace NexusForever.Game.Chat.Format.Formatter
         public IChatChannelTextFormatModel ToInternal(IPlayer player, ChatFormatItemGuid format)
         {
             IItem item = player.Inventory.GetItem(format.ItemGuid);
+            if (item == null)
+                return null;
 
             // TODO: Replace with ItemFull format
             return new ChatChannelTextItemIdFormat
@@ -23,6 +25,8 @@ namespace NexusForever.Game.Chat.Format.Formatter
         public IChatFormatModel ToLocal(IPlayer player, ChatFormatItemGuid format)
         {
             IItem item = player.Inventory.GetItem(format.ItemGuid);
+            if (item == null)
+                return null;
 
             // TODO: Replace with ItemFull format
             return new ChatFormatItemId

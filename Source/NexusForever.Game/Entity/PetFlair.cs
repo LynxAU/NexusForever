@@ -1,4 +1,5 @@
-﻿using NexusForever.Database.Character;
+﻿using NexusForever.Database;
+using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.GameTable;
@@ -20,6 +21,8 @@ namespace NexusForever.Game.Entity
         {
             Owner = model.Id;
             Entry = GameTableManager.Instance.PetFlair.GetEntry(model.PetFlairId);
+            if (Entry == null)
+                throw new DatabaseDataException($"Character {model.Id} has invalid pet flair {model.PetFlairId} stored!");
         }
 
         /// <summary>

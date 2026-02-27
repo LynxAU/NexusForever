@@ -50,8 +50,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Path
                 return;
             }
 
-            session.Player.PathManager.UnlockPath(clientPathUnlockRequest.Path);
             session.Account.CurrencyManager.CurrencySubtractAmount(AccountCurrencyType.ServiceToken, unlockCost);
+            session.Player.PathManager.UnlockPath(clientPathUnlockRequest.Path);
         }
     }
 }

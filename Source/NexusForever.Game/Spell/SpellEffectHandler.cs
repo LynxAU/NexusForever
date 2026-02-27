@@ -561,7 +561,10 @@ namespace NexusForever.Game.Spell
             if (target is not UnitEntity unitEntity)
                 return;
 
-            uint triggerSpellId = info.Entry.DataBits01;
+            uint rawTriggerSpellId = info.Entry.DataBits01 != 0u
+                ? info.Entry.DataBits01
+                : info.Entry.DataBits00;
+            uint triggerSpellId = ResolveSpell4IdCandidate(rawTriggerSpellId, target as IPlayer ?? spell.Caster as IPlayer);
             if (triggerSpellId == 0u)
                 return;
 

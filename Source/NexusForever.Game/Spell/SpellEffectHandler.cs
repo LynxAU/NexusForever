@@ -2149,9 +2149,8 @@ namespace NexusForever.Game.Spell
             if (target is not UnitEntity unitEntity)
                 return;
 
-            uint immuneSpellId = info.Entry.DataBits00 != 0u
-                ? info.Entry.DataBits00
-                : info.Entry.DataBits01;
+            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            uint immuneSpellId = candidates.FirstOrDefault(id => id != spell.Parameters.SpellInfo.Entry.Id);
             if (immuneSpellId == 0u)
                 return;
 

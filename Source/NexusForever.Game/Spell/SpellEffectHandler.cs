@@ -1105,7 +1105,7 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.SummonCreature)]
         public static void HandleEffectSummonCreature(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            uint creatureId = info.Entry.DataBits00;
+            uint creatureId = ResolveCreature2Id(info.Entry);
             if (creatureId == 0u || spell.Caster?.Map == null)
                 return;
 
@@ -1732,7 +1732,11 @@ namespace NexusForever.Game.Spell
             var factory = LegacyServiceProvider.Provider.GetService<IEntityFactory>();
 
             var pet = factory.CreateEntity<IPetEntity>();
-            pet.Initialise(player, info.Entry.DataBits00);
+            uint creatureId = ResolveCreature2Id(info.Entry);
+            if (creatureId == 0u)
+                return;
+
+            pet.Initialise(player, creatureId);
 
             var position = new MapPosition
             {
@@ -1749,7 +1753,7 @@ namespace NexusForever.Game.Spell
             if (target is not IPlayer player)
                 return;
 
-            uint creatureId = info.Entry.DataBits00;
+            uint creatureId = ResolveCreature2Id(info.Entry);
             if (creatureId == 0u)
                 return;
 
@@ -3167,6 +3171,39 @@ namespace NexusForever.Game.Spell
         {
             recipient = target as IPlayer ?? spell.Caster as IPlayer;
             return recipient != null;
+        }
+
+        private static uint ResolveCreature2Id(Spell4EffectsEntry entry)
+        {
+            static bool isValidCreature2(uint id) => id != 0u && id != uint.MaxValue && GameTableManager.Instance.Creature2.GetEntry(id) != null;
+
+            if (isValidCreature2(entry.DataBits00))
+                return entry.DataBits00;
+
+            if (isValidCreature2(entry.DataBits01))
+                return entry.DataBits01;
+
+            if (isValidCreature2(entry.DataBits02))
+                return entry.DataBits02;
+
+            if (isValidCreature2(entry.DataBits03))
+                return entry.DataBits03;
+
+            if (isValidCreature2(entry.DataBits04))
+                return entry.DataBits04;
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                float value = entry.ParameterValue[i];
+                if (value <= 0f)
+                    continue;
+
+                uint candidate = (uint)Math.Round(value);
+                if (isValidCreature2(candidate))
+                    return candidate;
+            }
+
+            return 0u;
         }
 
         private static bool TryResolveCharacterSpell(IPlayer player, uint rawSpellId, out ICharacterSpell characterSpell)

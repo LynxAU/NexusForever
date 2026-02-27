@@ -1518,13 +1518,41 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.SetMatchingEligibility)]
         public static void HandleEffectSetMatchingEligibility(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Placeholder: matching eligibility state is managed by matchmaking subsystem.
+            if (target is not IPlayer player)
+                return;
+
+            uint flags = info.Entry.DataBits00;
+            if (flags == 0u || flags == uint.MaxValue)
+                flags = info.Entry.DataBits01;
+            if (flags == uint.MaxValue)
+                flags = 0u;
+
+            player.Session.EnqueueMessageEncrypted(new ServerMatchingEligibilityChanged
+            {
+                MatchingEligibilityFlags = flags
+            });
         }
 
         [SpellEffectHandler(SpellEffectType.ChangePlane)]
         public static void HandleEffectChangePlane(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Placeholder: plane-layer transitions require authoritative map-layer subsystem support.
+            if (target is not IPlayer player)
+                return;
+
+            uint planesCanSee = info.Entry.DataBits00;
+            uint planesCanBeSeen = info.Entry.DataBits01;
+
+            if (planesCanSee == 0u || planesCanSee == uint.MaxValue)
+                planesCanSee = planesCanBeSeen != 0u && planesCanBeSeen != uint.MaxValue ? planesCanBeSeen : 1u;
+
+            if (planesCanBeSeen == 0u || planesCanBeSeen == uint.MaxValue)
+                planesCanBeSeen = planesCanSee;
+
+            player.Session.EnqueueMessageEncrypted(new ServerPlaneVisibilitySpellSlingerVoid
+            {
+                PlanesCanSee    = planesCanSee,
+                PlanesCanBeSeen = planesCanBeSeen
+            });
         }
 
         [SpellEffectHandler(SpellEffectType.SharedHealthPool)]

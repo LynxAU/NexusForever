@@ -3330,7 +3330,7 @@ namespace NexusForever.Game.Spell
                 if (spellId == 0u || spellId == uint.MaxValue)
                     return;
 
-                if (IsKnownSpellId(spellId))
+                if (IsKnownSpell4Id(spellId))
                     candidates.Add(spellId);
             }
 
@@ -3359,6 +3359,14 @@ namespace NexusForever.Game.Spell
 
             return GameTableManager.Instance.Spell4.GetEntry(spellId) != null
                 || GameTableManager.Instance.Spell4Base.GetEntry(spellId) != null;
+        }
+
+        private static bool IsKnownSpell4Id(uint spellId)
+        {
+            if (spellId == 0u || spellId == uint.MaxValue)
+                return false;
+
+            return GameTableManager.Instance.Spell4.GetEntry(spellId) != null;
         }
 
         private static uint ResolveEffectTargetSpellId(Spell4EffectsEntry entry, uint fallbackSpellId)

@@ -7,6 +7,7 @@ using NexusForever.Game.Combat;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Map;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
@@ -368,6 +369,39 @@ namespace NexusForever.Game.Spell
                 return;
 
             player.ResurrectionManager.ResurrectRequest(spell.Caster.Guid);
+        }
+
+        [SpellEffectHandler(SpellEffectType.TradeSkillProfession)]
+        public static void HandleEffectTradeSkillProfession(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            // DataBits00 is expected to carry the tradeskill id when present.
+            uint tradeskillId = info.Entry.DataBits00;
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.LearnTradeskill, tradeskillId, 1u);
+        }
+
+        [SpellEffectHandler(SpellEffectType.GiveSchematic)]
+        public static void HandleEffectGiveSchematic(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            // DataBits00 is expected to carry the tradeskill schematic id when present.
+            uint schematicId = info.Entry.DataBits00;
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ObtainSchematic, schematicId, 1u);
+        }
+
+        [SpellEffectHandler(SpellEffectType.CraftItem)]
+        public static void HandleEffectCraftItem(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            // DataBits00 is expected to carry the tradeskill schematic id when present.
+            uint schematicId = info.Entry.DataBits00;
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CraftSchematic, schematicId, 1u);
         }
 
         [SpellEffectHandler(SpellEffectType.Kill)]

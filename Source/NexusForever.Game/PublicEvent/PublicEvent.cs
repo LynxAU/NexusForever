@@ -5,6 +5,7 @@ using NexusForever.Game.Abstract.Map;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Static.PublicEvent;
 using NexusForever.Game.Static.Matching;
+using NexusForever.Game.Static.Achievement;
 using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.Message;
@@ -431,13 +432,17 @@ namespace NexusForever.Game.PublicEvent
 
                     publicEventTeamMember.Send(message);
 
-                    // Update CompleteEvent quest objectives for this player
+                    // Update CompleteEvent quest objectives and PublicEventComplete achievements for this player
                     var player = PlayerManager.Instance.GetPlayer(publicEventTeamMember.CharacterId);
                     if (player != null)
                     {
                         log.LogDebug("Triggering CompleteEvent quest objective for player {PlayerId}, publicEvent {PublicEventId}",
                             player.CharacterId, Id);
                         player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CompleteEvent, 0, 1u);
+
+                        // Only grant the achievement to the winning team (or all in cooperative events)
+                        if (!winnerTeam.HasValue || publicEventTeam.Team == winnerTeam.Value)
+                            player.AchievementManager.CheckAchievements(player, AchievementType.PublicEventComplete, Id);
                     }
 
                     toRemove.Add(publicEventTeamMember.CharacterId);

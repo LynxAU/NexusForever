@@ -1,10 +1,11 @@
-﻿using NexusForever.Game.Abstract.Combat;
+﻿using System;
+using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Spell;
-using System;
 using NexusForever.Game.Static.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Spell;
 using NexusForever.Network.World.Message.Static;
+using CastResult = NexusForever.Network.World.Message.Static.CastResult;
 
 namespace NexusForever.Game.Abstract.Entity
 {

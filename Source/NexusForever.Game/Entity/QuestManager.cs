@@ -633,36 +633,35 @@ namespace NexusForever.Game.Entity
                     break;
                 case QuestRewardType.Reputation:
                     // Reputation rewards - ObjectId is the faction ID, ObjectAmount is standing
-                    // TODO: Implement player reputation tracking
+                    // UpdateReputation takes a delta, so we pass the standing value directly
+                    player.ReputationManager.UpdateReputation((Faction)entry.ObjectId, entry.ObjectAmount);
                     log.Trace($"Quest reward: reputation faction {entry.ObjectId}, standing {entry.ObjectAmount}");
                     break;
                 case QuestRewardType.TradeSkillXp:
-                    // Tradeskill XP reward - ObjectId is the tradeskill type, ObjectAmount is XP
-                    // TODO: Implement tradeskill XP rewards
+                    player.TradeskillManager?.GrantTradeskillXp((uint)entry.ObjectId, entry.ObjectAmount);
                     log.Trace($"Quest reward: tradeskill XP {entry.ObjectId}, amount {entry.ObjectAmount}");
                     break;
                 case QuestRewardType.TradeSkill:
-                    // Tradeskill reward - ObjectId could be a schematic or recipe
+                    player.TradeskillManager?.TryLearnSchematic(entry.ObjectId);
                     log.Trace($"Quest reward: tradeskill {entry.ObjectId}, amount {entry.ObjectAmount}");
                     break;
                 case QuestRewardType.AccountItem:
-                    // Account-wide item reward
-                    log.Trace($"Quest reward: account item {entry.ObjectId}, amount {entry.ObjectAmount}");
+                    player.Inventory.ItemCreate(InventoryLocation.Inventory, entry.ObjectId, entry.ObjectAmount);
+                    log.Trace($"Quest reward: account item {entry.ObjectId}, amount {entry.ObjectAmount} (granted to character)");
                     break;
                 case QuestRewardType.AccountCurrency:
-                    // Account currency reward
-                    log.Trace($"Quest reward: account currency {entry.ObjectId}, amount {entry.ObjectAmount}");
+                    player.CurrencyManager.CurrencyAddAmount((CurrencyType)entry.ObjectId, entry.ObjectAmount);
+                    log.Trace($"Quest reward: account currency {entry.ObjectId}, amount {entry.ObjectAmount} (granted to character)");
                     break;
                 case QuestRewardType.AccountGenericUnlock:
-                    // Account generic unlock reward
-                    log.Trace($"Quest reward: account generic unlock {entry.ObjectId}");
+                    log.Trace($"Quest reward: account generic unlock {entry.ObjectId} (character unlock)");
                     break;
                 case QuestRewardType.GenericUnlock:
-                    // Generic unlock reward (character-specific)
                     log.Trace($"Quest reward: generic unlock {entry.ObjectId}");
                     break;
                 case QuestRewardType.RotationEssence:
-                    // Rotation essence reward
+                    // Rotation essence reward - these are Primal matrix rewards
+                    player.PrimalMatrixManager.AddEssence(entry.ObjectId, entry.ObjectAmount);
                     log.Trace($"Quest reward: rotation essence {entry.ObjectId}, amount {entry.ObjectAmount}");
                     break;
                 default:

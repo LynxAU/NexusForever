@@ -96,6 +96,7 @@ namespace NexusForever.Game.Abstract.Entity
         IInstanceManager InstanceManager { get; }
         IVirtualItemManager VirtualItemManager { get; }
         ITradeskillManager TradeskillManager { get; }
+        IPrimalMatrixManager PrimalMatrixManager { get; }
 
         IVendorInfo SelectedVendorInfo { get; set; }
 

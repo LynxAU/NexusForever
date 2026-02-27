@@ -1394,10 +1394,10 @@ namespace NexusForever.Game.Spell
                 return;
 
             IPetEntity pet = player.GetVisible<IPetEntity>(player.VanityPetGuid.Value);
-            if (pet == null)
+            if (pet is not IUnitEntity petUnit)
                 return;
 
-            pet.CastSpell(spellId, new SpellParameters
+            petUnit.CastSpell(spellId, new SpellParameters
             {
                 ParentSpellInfo        = spell.Parameters.SpellInfo,
                 RootSpellInfo          = spell.Parameters.RootSpellInfo,

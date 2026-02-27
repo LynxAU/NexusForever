@@ -1048,19 +1048,43 @@ namespace NexusForever.Game.Entity
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillCreature, CreatureId, 1u);
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillCreature2, CreatureId, 1u);
 
-            // Update public event kill objectives for this creature
+            // Update public event kill objectives for this creature.
+            // KillEventUnit / KillEventObjectiveUnit cover generic "kill N enemies" objectives (ObjectId = 0 in table).
+            // KillClusterEventObjectiveUnit covers cluster-variant "kill N enemies" objectives.
+            // Exterminate covers sweep-style "eliminate all" objectives.
             Map?.PublicEventManager.UpdateObjective(player, PublicEventObjectiveType.KillEventUnit, CreatureId, 1);
+            Map?.PublicEventManager.UpdateObjective(player, PublicEventObjectiveType.KillEventObjectiveUnit, CreatureId, 1);
+            Map?.PublicEventManager.UpdateObjective(player, PublicEventObjectiveType.KillClusterEventObjectiveUnit, CreatureId, 1);
+            Map?.PublicEventManager.UpdateObjective(player, PublicEventObjectiveType.Exterminate, CreatureId, 1);
 
             foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureId))
             {
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroup, targetGroupId, 1u);
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroups, targetGroupId, 1u);
+                // KillTargetGroup / KillClusterTargetGroup cover boss-specific kill objectives keyed by TargetGroupId.
                 Map?.PublicEventManager.UpdateObjective(player, PublicEventObjectiveType.KillTargetGroup, targetGroupId, 1);
+                Map?.PublicEventManager.UpdateObjective(player, PublicEventObjectiveType.KillClusterTargetGroup, targetGroupId, 1);
             }
 
             // Trigger PvPKills quest objectives when a player kills another player
             // This is separate from regular creature kills
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.PvPKills, 0, 1u);
+
+            // Trigger Unknown10 objectives - appears to be related to difficulty-based kills
+            // ObjectiveTexts mention completing challenges or dungeons on certain difficulty
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown10, CreatureId, 1u);
+
+            // Trigger Unknown15 objectives - appears to be for named/specific creature kills
+            // Similar to KillCreature but for specific named creatures
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown15, CreatureId, 1u);
+
+            // Trigger CombatMomentum objectives - completing combat momentum actions
+            // These are combat-based objectives that track specific combat actions
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CombatMomentum, 0, 1u);
+
+            // Trigger BeginMatrix objectives - using the Primal Matrix
+            // Data is 0, triggers when player engages with matrix/combat system
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.BeginMatrix, 0, 1u);
 
             // Grant kill XP. Use 10% of the level's BaseQuestXpPerLevel as a baseline
             // approximation — pending research into the exact WildStar formula.

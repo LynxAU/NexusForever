@@ -1,6 +1,8 @@
 ﻿using NexusForever.Game.Abstract.PublicEvent;
+using NexusForever.Game.Static.Achievement;
 using NexusForever.Game.Static.PublicEvent;
 using NexusForever.GameTable.Model;
+using PlayerManager = NexusForever.Game.Entity.PlayerManager;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model.PublicEvent;
 using NexusForever.Script.Template;
@@ -62,6 +64,18 @@ namespace NexusForever.Game.PublicEvent
             BroadcastObjectiveStatusUpdate();
 
             Team.PublicEvent.InvokeScriptCollection<IPublicEventScript>(s => s.OnPublicEventObjectiveStatus(this));
+
+            // When an objective succeeds, notify achievement managers for all team members.
+            // Achievement type 143 (PublicEventObjectiveComplete) tracks boss kills and specific milestone completions.
+            if (status == PublicEventStatus.Succeeded)
+            {
+                foreach (IPublicEventTeamMember member in Team.GetMembers())
+                {
+                    var player = PlayerManager.Instance.GetPlayer(member.CharacterId);
+                    if (player != null)
+                        player.AchievementManager.CheckAchievements(player, AchievementType.PublicEventObjectiveComplete, Entry.Id);
+                }
+            }
         }
 
         private void BroadcastObjectiveUpdate()

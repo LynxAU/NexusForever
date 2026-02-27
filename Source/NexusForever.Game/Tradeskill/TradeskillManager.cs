@@ -6,6 +6,7 @@ using NexusForever.Game.Static.Entity;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Static;
+using NLog;
 
 namespace NexusForever.Game.Tradeskill
 {
@@ -14,6 +15,8 @@ namespace NexusForever.Game.Tradeskill
     /// </summary>
     public class TradeskillManager : ITradeskillManager
     {
+        private static readonly ILogger log = LogManager.GetCurrentClassLogger();
+
         private readonly IPlayer player;
 
         /// <summary>
@@ -154,6 +157,37 @@ namespace NexusForever.Game.Tradeskill
                 _ => 0
             };
         }
-    }
 
+        /// <summary>
+        /// Grant XP to a tradeskill.
+        /// </summary>
+        public void GrantTradeskillXp(uint tradeskillId, uint amount)
+        {
+            // TODO: Implement tradeskill XP tracking
+            // For now, this is a placeholder that logs the XP grant
+            // Full implementation would need:
+            // - Tradeskill level tracking
+            // - XP persistence to database
+            // - Level up logic
+            log.Trace($"Granting {amount} XP to tradeskill {tradeskillId} for player {player.CharacterId}");
+        }
+
+        /// <summary>
+        /// Try to learn a schematic.
+        /// </summary>
+        public void TryLearnSchematic(uint schematicId)
+        {
+            // Validate schematic exists
+            TradeskillSchematic2Entry schematic = GameTableManager.Instance.TradeskillSchematic2.GetEntry(schematicId);
+            if (schematic == null)
+            {
+                log.Warn($"Player {player.CharacterId} tried to learn invalid schematic {schematicId}");
+                return;
+            }
+
+            // Grant the schematic to the player using existing method
+            player.TryLearnSchematic(schematicId);
+            log.Trace($"Player {player.CharacterId} learned schematic {schematicId}");
+        }
+    }
 }

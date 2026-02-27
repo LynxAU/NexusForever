@@ -27,6 +27,7 @@ using NexusForever.Game.Map;
 using NexusForever.Game.Reputation;
 using NexusForever.Game.Static.Crafting;
 using NexusForever.Game.Tradeskill;
+using NexusForever.Game.PrimalMatrix;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Guild;
@@ -249,6 +250,9 @@ namespace NexusForever.Game.Entity
 
         private TradeskillManager _tradeskillManager;
         public ITradeskillManager TradeskillManager => _tradeskillManager ??= new TradeskillManager(this);
+
+        private PrimalMatrixManager _primalMatrixManager;
+        public IPrimalMatrixManager PrimalMatrixManager => _primalMatrixManager ??= new PrimalMatrixManager(this);
 
         public IVendorInfo SelectedVendorInfo { get; set; } // TODO unset this when too far away from vendor
 

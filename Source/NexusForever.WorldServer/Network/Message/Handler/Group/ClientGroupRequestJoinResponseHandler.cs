@@ -1,4 +1,5 @@
 ﻿using NexusForever.Game;
+using NexusForever.Game.Static.Quest;
 using NexusForever.Network.Internal;
 using NexusForever.Network.Internal.Message.Group;
 using NexusForever.Network.Message;
@@ -30,6 +31,11 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Group
                 InviteeName = groupRequestJoinResponse.InviteeName,
                 Response    = groupRequestJoinResponse.AcceptedRequest,
             }).FireAndForgetAsync();
+
+            // Trigger Unknown40 objectives - participating in group content
+            // Data is unknown but triggers when player joins/participates in group content
+            if (groupRequestJoinResponse.AcceptedRequest)
+                session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown40, 0, 1);
         }
     }
 }

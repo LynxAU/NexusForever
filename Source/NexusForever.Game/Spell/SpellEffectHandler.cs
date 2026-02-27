@@ -291,7 +291,29 @@ namespace NexusForever.Game.Spell
             if (delayMs == 0u || delayMs == uint.MaxValue)
                 delayMs = 250u;
 
-            spell.EnqueueEvent(delayMs / 1000d, () => { });
+            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            uint linkedSpellId = candidates.FirstOrDefault(id => id != spell.Parameters.SpellInfo.Entry.Id);
+
+            if (linkedSpellId == 0u)
+            {
+                spell.EnqueueEvent(delayMs / 1000d, () => { });
+                return;
+            }
+
+            IUnitEntity activationSource = target ?? spell.Caster;
+            spell.EnqueueEvent(delayMs / 1000d, () =>
+            {
+                if (activationSource == null || !activationSource.IsAlive)
+                    return;
+
+                activationSource.CastSpell(linkedSpellId, new SpellParameters
+                {
+                    ParentSpellInfo        = spell.Parameters.SpellInfo,
+                    RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                    UserInitiatedSpellCast = false,
+                    PrimaryTargetId        = spell.Caster?.Guid ?? activationSource.Guid
+                });
+            });
         }
 
         [SpellEffectHandler(SpellEffectType.FactionSet)]

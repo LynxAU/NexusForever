@@ -290,6 +290,9 @@ namespace NexusForever.Game.Entity
             }
 
             GameFormulaEntry parameters = GetMailParameters();
+            if (parameters == null)
+                return 0u;
+
             uint cost = parameters.Dataint0;
 
             foreach (IItem item in items)

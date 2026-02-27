@@ -68,6 +68,9 @@ namespace NexusForever.Game.Entity
             foreach (IVehiclePassenger passenger in passengers)
             {
                 IPlayer entity = GetVisible<IPlayer>(passenger.Guid);
+                if (entity == null)
+                    continue;
+
                 PassengerRemove(entity, passenger);
             }
 
@@ -79,6 +82,9 @@ namespace NexusForever.Game.Entity
             foreach (IVehiclePassenger passenger in passengers)
             {
                 IPlayer entity = GetVisible<IPlayer>(passenger.Guid);
+                if (entity == null)
+                    continue;
+
                 Map.EnqueueRelocate(entity, vector);
             }
 

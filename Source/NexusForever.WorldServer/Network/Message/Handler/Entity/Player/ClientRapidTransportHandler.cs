@@ -39,6 +39,9 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity.Player
                 throw new InvalidPacketValueException();
 
             GameFormulaEntry entry = gameTableManager.GameFormula.GetEntry(1307);
+            if (entry == null)
+                throw new InvalidPacketValueException();
+
             session.Player.CastSpell(entry.Dataint0, new SpellParameters
             {
                 TaxiNode = rapidTransport.TaxiNode

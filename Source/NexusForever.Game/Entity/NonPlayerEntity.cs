@@ -59,15 +59,15 @@ namespace NexusForever.Game.Entity
                 return value;
 
             Creature2ArcheTypeEntry archeTypeEntry = GameTableManager.Instance.Creature2ArcheType.GetEntry(creatureEntry.Creature2ArcheTypeId);
-            if (archeTypeEntry != null)
+            if (archeTypeEntry != null && (uint)property < archeTypeEntry.UnitPropertyMultiplier.Length)
                 value *= archeTypeEntry.UnitPropertyMultiplier[(uint)property];
 
             Creature2DifficultyEntry difficultyEntry = GameTableManager.Instance.Creature2Difficulty.GetEntry(creatureEntry.Creature2DifficultyId);
-            if (difficultyEntry != null)
+            if (difficultyEntry != null && (uint)property < difficultyEntry.UnitPropertyMultiplier.Length)
                 value *= difficultyEntry.UnitPropertyMultiplier[(uint)property];
 
             Creature2TierEntry tierEntry = GameTableManager.Instance.Creature2Tier.GetEntry(creatureEntry.Creature2TierId);
-            if (tierEntry != null)
+            if (tierEntry != null && (uint)property < tierEntry.UnitPropertyMultiplier.Length)
                 value *= tierEntry.UnitPropertyMultiplier[(uint)property];
 
             return value;

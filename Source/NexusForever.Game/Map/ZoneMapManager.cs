@@ -106,7 +106,7 @@ namespace NexusForever.Game.Map
                 zoneMap?.AddHexGroup((ushort)mapZoneHexGroup.Id);
             }
 
-            if (zoneMap.IsComplete)
+            if (zoneMap?.IsComplete == true)
                 player.AchievementManager.CheckAchievements(player, AchievementType.MapComplete, currentZoneMap);
         }
 

@@ -229,7 +229,7 @@ namespace NexusForever.Game.Matching
         /// </remarks>
         public bool CanReEnterMatch(Static.Matching.MatchType matchType)
         {
-            return (matchTypeFlags[matchType] & 0x01) != 0;
+            return matchTypeFlags.TryGetValue(matchType, out uint flags) && (flags & 0x01) != 0;
         }
     }
 }

@@ -38,13 +38,13 @@ namespace NexusForever.Game.Entity
             FamilyEntry   = GameTableManager.Instance.Item2Family.GetEntry(Entry.Item2FamilyId);
             CategoryEntry = GameTableManager.Instance.Item2Category.GetEntry(Entry.Item2CategoryId);
             TypeEntry     = GameTableManager.Instance.Item2Type.GetEntry(Entry.Item2TypeId);
-            SlotEntry     = GameTableManager.Instance.ItemSlot.GetEntry(TypeEntry.ItemSlotId);
+            SlotEntry     = GameTableManager.Instance.ItemSlot.GetEntry(TypeEntry?.ItemSlotId ?? 0);
             BudgetEntry   = GameTableManager.Instance.ItemBudget.GetEntry(Entry.ItemBudgetId);
             StatEntry     = GameTableManager.Instance.ItemStat.GetEntry(Entry.ItemStatId);
             QualityEntry  = GameTableManager.Instance.ItemQuality.GetEntry(Entry.ItemQualityId);
 
             // the client combines the flags from the family, category and type entries into a single value
-            SecondaryItemFlags = FamilyEntry.Flags | CategoryEntry.Flags | TypeEntry.Flags;
+            SecondaryItemFlags = (FamilyEntry?.Flags ?? 0) | (CategoryEntry?.Flags ?? 0) | (TypeEntry?.Flags ?? 0);
 
             CalculateProperties();
 
@@ -121,7 +121,8 @@ namespace NexusForever.Game.Entity
 
         private void CalculatePropertyBudgets(ItemInfoPropertyBuilder builder)
         {
-            for (int i = 0; i < StatEntry.ItemStatTypeEnum.Length; i++)
+            int count = Math.Min(StatEntry.ItemStatTypeEnum.Length, BudgetEntry.Budgets.Length);
+            for (int i = 0; i < count; i++)
             {
                 float budget = BudgetEntry.Budgets[i];
 

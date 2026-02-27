@@ -40,12 +40,18 @@ namespace NexusForever.Game.Entity
 
         public override void OnActivate(IPlayer activator)
         {
+            if (CreatureEntry == null)
+                return;
+
             if (CreatureEntry.DatacubeId != 0u)
                 activator.DatacubeManager.AddDatacube((ushort)CreatureEntry.DatacubeId, int.MaxValue);
         }
 
         public override void OnActivateCast(IPlayer activator)
         {
+            if (CreatureEntry == null)
+                return;
+
             if (QuestChecklistIdx >= 32)
                 return;
 

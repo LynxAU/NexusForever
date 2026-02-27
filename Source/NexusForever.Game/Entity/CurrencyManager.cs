@@ -107,7 +107,7 @@ namespace NexusForever.Game.Entity
             // Update EarnCurrency quest objectives with the amount actually earned (not the new total)
             if (player != null && isLoot)
             {
-                ulong earned = amount - oldAmount;
+                ulong earned = amount > oldAmount ? amount - oldAmount : 0ul;
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.EarnCurrency, (uint)currencyEntry.Id, (uint)earned);
             }
         }

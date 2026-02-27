@@ -60,7 +60,7 @@ namespace NexusForever.Game.Trade
             // Send invite to target
             target.Session.EnqueueMessageEncrypted(new ServerP2PTradeInvite
             {
-                TradeInviterUnitId = player.Guid
+                TradeInviterUnitId = (uint)player.CharacterId
             });
 
             log.Trace($"Trade invite sent from {player.Name} to {target.Name}");

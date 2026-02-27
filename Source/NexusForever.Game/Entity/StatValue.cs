@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore.ChangeTracking;
+using NexusForever.Database;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Database.World.Model;
@@ -42,7 +43,10 @@ namespace NexusForever.Game.Entity
         public StatValue(CharacterStatModel model)
         {
             Stat  = (Stat)model.Stat;
-            Type  = EntityManager.Instance.GetStatAttribute(Stat).Type;
+            var statAttr = EntityManager.Instance.GetStatAttribute(Stat);
+            if (statAttr == null)
+                throw new DatabaseDataException($"Stat {model.Stat} is not a registered stat attribute.");
+            Type  = statAttr.Type;
             Value = model.Value;
         }
 
@@ -52,7 +56,10 @@ namespace NexusForever.Game.Entity
         public StatValue(EntityStatModel model)
         {
             Stat  = (Stat)model.Stat;
-            Type  = EntityManager.Instance.GetStatAttribute(Stat).Type;
+            var statAttr = EntityManager.Instance.GetStatAttribute(Stat);
+            if (statAttr == null)
+                throw new DatabaseDataException($"Stat {model.Stat} is not a registered stat attribute.");
+            Type  = statAttr.Type;
             Value = model.Value;
         }
 

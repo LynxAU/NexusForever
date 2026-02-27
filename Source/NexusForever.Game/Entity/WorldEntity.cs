@@ -535,6 +535,9 @@ namespace NexusForever.Game.Entity
             if (levelEntry == null)
                 return entry.DefaultValue;
 
+            if ((uint)levelProperty >= (uint)levelEntry.UnitPropertyValue.Length)
+                return entry.DefaultValue;
+
             return levelEntry.UnitPropertyValue[(uint)levelProperty];
         }
 
@@ -1010,7 +1013,7 @@ namespace NexusForever.Game.Entity
                 Text     = text,
                 Guid     = Guid,
                 // TODO: should this be based on the players session language?
-                FromName = GameTableManager.Instance.TextEnglish.GetEntry(CreatureEntry.LocalizedTextIdName)
+                FromName = GameTableManager.Instance.TextEnglish.GetEntry(CreatureEntry.LocalizedTextIdName) ?? string.Empty
             };
         }
 

@@ -253,7 +253,12 @@ namespace NexusForever.Game.Entity
                 ModifyHealth((uint)(MaxHealth / 200f), DamageType.Heal, null);
 
             if (Shield < MaxShieldCapacity)
-                Shield += (uint)(MaxShieldCapacity * GetPropertyValue(Property.ShieldRegenPct) * statUpdateTimer.Duration);
+            {
+                uint regen = (uint)Math.Min(
+                    MaxShieldCapacity * GetPropertyValue(Property.ShieldRegenPct) * statUpdateTimer.Duration,
+                    (double)(MaxShieldCapacity - Shield));
+                Shield += regen;
+            }
         }
 
         /// <summary>

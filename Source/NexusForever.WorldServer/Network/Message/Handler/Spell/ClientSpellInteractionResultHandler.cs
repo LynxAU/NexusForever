@@ -23,8 +23,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Spell
             if (targetGuid == 0)
                 return;
 
-            var targetEntity = session.Player.GetVisible<IWorldEntity>(targetGuid);
-            if (targetEntity == null)
+            var gridEntity = session.Player.GetVisible<IGridEntity>(targetGuid);
+            if (gridEntity is not IWorldEntity targetEntity)
                 return;
 
             session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SucceedCSI, targetEntity.CreatureId, 1u);

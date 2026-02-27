@@ -23,8 +23,15 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Path
 
         public void HandleMessage(IWorldSession session, ClientPathChangeRequest clientPathChangeRequest)
         {
-            uint activateCooldown = gameTableManager.GameFormula.GetEntry(2366).Dataint0;
-            uint bypassCost       = gameTableManager.GameFormula.GetEntry(2366).Dataint01;
+            var formulaEntry = gameTableManager.GameFormula.GetEntry(2366);
+            if (formulaEntry == null)
+            {
+                session.Player.PathManager.SendServerPathActivateResult(GenericError.Params);
+                return;
+            }
+
+            uint activateCooldown = formulaEntry.Dataint0;
+            uint bypassCost       = formulaEntry.Dataint01;
             bool needToUseTokens  = DateTime.UtcNow.Subtract(session.Player.PathActivatedTime).TotalSeconds < activateCooldown;
 
             GenericError CanActivatePath()

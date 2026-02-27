@@ -16,12 +16,15 @@ namespace NexusForever.Game.Entity.Movement.Spline.Template
         {
             Type = type;
 
+            if (points.Count == 0)
+                return;
+
             // to keep things consistent and to match the client, add fake "amplitude" points for linear paths
             if (type == SplineType.Linear)
             {
                 Points.Add(new SplineTemplatePoint
                 {
-                    Position = points.First()
+                    Position = points[0]
                 });
             }
 
@@ -37,7 +40,7 @@ namespace NexusForever.Game.Entity.Movement.Spline.Template
             {
                 Points.Add(new SplineTemplatePoint
                 {
-                    Position = points.Last()
+                    Position = points[points.Count - 1]
                 });
             }
         }

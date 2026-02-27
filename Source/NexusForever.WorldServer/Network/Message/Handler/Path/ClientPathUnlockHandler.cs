@@ -22,7 +22,14 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Path
 
         public void HandleMessage(IWorldSession session, ClientPathUnlockRequest clientPathUnlockRequest)
         {
-            uint unlockCost = gameTableManager.GameFormula.GetEntry(2365).Dataint0;
+            var formulaEntry = gameTableManager.GameFormula.GetEntry(2365);
+            if (formulaEntry == null)
+            {
+                session.Player.PathManager.SendServerPathUnlockResult(GenericError.Params);
+                return;
+            }
+
+            uint unlockCost = formulaEntry.Dataint0;
 
             GenericError CanUnlockPath()
             {

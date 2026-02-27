@@ -17,6 +17,7 @@ using NexusForever.Script;
 using NexusForever.Script.Template;
 using NexusForever.Shared;
 using NexusForever.Shared.Game;
+using NLog;
 
 namespace NexusForever.Game.Entity
 {
@@ -25,6 +26,8 @@ namespace NexusForever.Game.Entity
     /// </summary>
     public abstract class CreatureEntity : UnitEntity, ICreatureEntity
     {
+        private static readonly ILogger log = LogManager.GetCurrentClassLogger();
+
         /// <summary>
         /// Radius within which the NPC will auto-aggro hostile units.
         /// </summary>
@@ -53,6 +56,9 @@ namespace NexusForever.Game.Entity
 
         // Melee auto-attack swing timer. Default: 2 seconds, matching most MMO baseline swing speed.
         private readonly UpdateTimer meleeSwingTimer = new(2.0);
+
+        // Minimum cadence between AI spell-cast attempts while in combat.
+        private readonly UpdateTimer spellActionTimer = new(1.0);
 
         // Out-of-combat wander timer for entities that have no DB spline assigned.
         // 20-second interval between random movement picks.
@@ -154,6 +160,7 @@ namespace NexusForever.Game.Entity
             }
 
             meleeSwingTimer.Update(lastTick);
+            spellActionTimer.Update(lastTick);
             wanderTimer.Update(lastTick);
 
             // Tick down per-spell cooldowns.
@@ -329,7 +336,11 @@ namespace NexusForever.Game.Entity
                 meleeSwingTimer.Reset();
             }
 
-            TryCastSpellAction(target);
+            if (spellActionTimer.HasElapsed)
+            {
+                TryCastSpellAction(target);
+                spellActionTimer.Reset();
+            }
 
             scriptCollection?.Invoke<INonPlayerScript>(s => s.OnCombatUpdate(lastTick));
         }
@@ -343,17 +354,43 @@ namespace NexusForever.Game.Entity
             if (spellActions == null || spellActions.Count == 0)
                 return;
 
+            // Avoid queuing new casts while a current cast is in-flight.
+            if (GetActiveSpell(s => s.IsCasting) != null)
+                return;
+
             foreach (Creature2ActionEntry action in spellActions)
             {
                 if (spellCooldowns.ContainsKey(action.Id))
                     continue;
 
-                CastSpell(action.ActionData00, new SpellParameters { PrimaryTargetId = target.Guid });
+                Spell4Entry spellEntry = GameTableManager.Instance.Spell4.GetEntry(action.ActionData00);
+                if (spellEntry == null)
+                    continue;
 
-                double cooldown = action.DelayMS > 0u ? action.DelayMS / 1000.0 : DefaultSpellCooldown;
-                spellCooldowns[action.Id] = cooldown;
-                break;
+                if (!IsSpellInRange(target, spellEntry))
+                    continue;
+
+                bool hadActiveBefore = GetActiveSpell(s => !s.IsFinished && s.Parameters.SpellInfo.Entry.Id == spellEntry.Id) != null;
+                CastSpell(action.ActionData00, new SpellParameters { PrimaryTargetId = target.Guid });
+                bool hasActiveAfter = GetActiveSpell(s => !s.IsFinished && s.Parameters.SpellInfo.Entry.Id == spellEntry.Id) != null;
+
+                if (!hadActiveBefore && hasActiveAfter)
+                {
+                    double cooldown = action.DelayMS > 0u ? action.DelayMS / 1000.0 : DefaultSpellCooldown;
+                    spellCooldowns[action.Id] = cooldown;
+                    log.Trace($"Creature {Guid} cast spell {spellEntry.Id} on {target.Guid}; cooldown {cooldown:0.00}s.");
+                    break;
+                }
             }
+        }
+
+        private bool IsSpellInRange(IUnitEntity target, Spell4Entry spellEntry)
+        {
+            float distance = Vector3.Distance(Position, target.Position);
+            float minRange = Math.Max(0f, spellEntry.TargetMinRange);
+            float maxRange = spellEntry.TargetMaxRange <= 0f ? float.MaxValue : spellEntry.TargetMaxRange;
+
+            return distance >= minRange && distance <= maxRange;
         }
 
         /// <summary>

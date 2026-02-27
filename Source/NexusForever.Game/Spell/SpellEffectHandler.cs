@@ -1567,7 +1567,7 @@ namespace NexusForever.Game.Spell
             if (target is not IPlayer player)
                 return;
 
-            int delta = DecodeSignedEffectAmount(info.Entry);
+            int delta = ResolveRestedXpDelta(info.Entry);
             if (delta == 0)
                 delta = 1;
 
@@ -1951,7 +1951,7 @@ namespace NexusForever.Game.Spell
             if (target is not IPlayer player)
                 return;
 
-            int delta = DecodeSignedEffectAmount(info.Entry);
+            int delta = ResolveRestedXpDelta(info.Entry);
             if (delta == 0)
                 return;
 
@@ -3583,6 +3583,42 @@ namespace NexusForever.Game.Spell
             }
 
             return 0f;
+        }
+
+        private static int ResolveRestedXpDelta(Spell4EffectsEntry entry)
+        {
+            float candidate = 0f;
+
+            if (entry.DataBits00 != 0u)
+                candidate = DecodeFlexibleEffectNumber(entry.DataBits00);
+
+            if (candidate == 0f && entry.DataBits01 != 0u)
+                candidate = DecodeFlexibleEffectNumber(entry.DataBits01);
+
+            if (candidate == 0f && entry.DataBits02 != 0u)
+                candidate = DecodeFlexibleEffectNumber(entry.DataBits02);
+
+            if (candidate == 0f)
+            {
+                for (int i = 0; i < entry.ParameterValue.Length; i++)
+                {
+                    if (entry.ParameterValue[i] != 0f)
+                    {
+                        candidate = entry.ParameterValue[i];
+                        break;
+                    }
+                }
+            }
+
+            if (candidate == 0f)
+                return 0;
+
+            // Rested XP payloads are commonly encoded as compact factors (e.g. 0.2, 0.4, 1.2, -1.5).
+            // Scale factor-like values to integer deltas for rested pool mutation.
+            if (Math.Abs(candidate) <= 2f)
+                return (int)Math.Round(candidate * 100f);
+
+            return (int)Math.Round(candidate);
         }
 
         private static List<uint> ResolveRavelSignalLinkedSpellIds(Spell4EffectsEntry entry)

@@ -445,6 +445,7 @@ namespace NexusForever.Network.Message
         ClientHousingCommunityRemoval   = 0x04EA,
         ClientHousingCrateAllDecor      = 0x04EC,
         ClientHousingCommunityDonate    = 0x04F5,
+        ClientHousingNeighborListRequest = 0x0506,
         ServerHousingNeighbors          = 0x0507,
         ServerHousingVendorList         = 0x0508,
         ClientHousingRemodel            = 0x050A,

@@ -18,12 +18,14 @@ namespace NexusForever.Game.Housing
         [Flags]
         public enum PlotSaveMask
         {
-            None       = 0x0000,
-            Create     = 0x0001,
-            PlugItemId = 0x0002,
-            PlugFacing = 0x0004,
-            BuildState = 0x0008,
-            PlotInfoId = 0x0010
+            None           = 0x0000,
+            Create         = 0x0001,
+            PlugItemId     = 0x0002,
+            PlugFacing     = 0x0004,
+            BuildState     = 0x0008,
+            PlotInfoId     = 0x0010,
+            WarplotUpgrade = 0x0020,
+            Upkeep         = 0x0040
         }
 
         public ulong Id { get; }
@@ -77,6 +79,67 @@ namespace NexusForever.Game.Housing
 
         private byte buildState;
 
+        /// <summary>
+        /// Number of upkeep charges remaining for this plot.
+        /// </summary>
+        public uint UpkeepCharges
+        {
+            get => upkeepCharges;
+            set
+            {
+                upkeepCharges = value;
+                saveMask |= PlotSaveMask.Upkeep;
+            }
+        }
+        private uint upkeepCharges;
+
+        /// <summary>
+        /// Time until next upkeep charge is consumed.
+        /// </summary>
+        public float UpkeepTime
+        {
+            get => upkeepTime;
+            set
+            {
+                upkeepTime = value;
+                saveMask |= PlotSaveMask.Upkeep;
+            }
+        }
+        private float upkeepTime;
+
+        /// <summary>
+        /// Contribution totals for this plot.
+        /// </summary>
+        public uint[] ContributionTotals { get; set; } = new uint[5];
+
+        /// <summary>
+        /// Warplot plug info for this plot (if it's a warplot plot).
+        /// </summary>
+        public HousingWarplotPlugInfoEntry WarplotPlugInfo
+        {
+            get => warplotPlugInfo;
+            set
+            {
+                warplotPlugInfo = value;
+                saveMask |= PlotSaveMask.WarplotUpgrade;
+            }
+        }
+        private HousingWarplotPlugInfoEntry warplotPlugInfo;
+
+        /// <summary>
+        /// Upgrade level for warplot plot.
+        /// </summary>
+        public uint UpgradeLevel
+        {
+            get => upgradeLevel;
+            set
+            {
+                upgradeLevel = value;
+                saveMask |= PlotSaveMask.WarplotUpgrade;
+            }
+        }
+        private uint upgradeLevel;
+
         private PlotSaveMask saveMask;
 
         public IPlugEntity PlugEntity { get; set; }
@@ -95,6 +158,20 @@ namespace NexusForever.Game.Housing
             plugItemEntry = GameTableManager.Instance.HousingPlugItem.GetEntry(model.PlugItemId);
             plugFacing    = (HousingPlugFacing)model.PlugFacing;
             buildState    = model.BuildState;
+
+            // Load warplot data
+            UpgradeLevel = model.UpgradeLevel;
+            if (model.WarplotPlugItemId != 0)
+                WarplotPlugInfo = GameTableManager.Instance.HousingWarplotPlugInfo.GetEntry(model.WarplotPlugItemId);
+
+            // Load upkeep data
+            UpkeepCharges = model.UpkeepCharges;
+            UpkeepTime = model.UpkeepTime;
+            ContributionTotals[0] = model.ContributionTotal0;
+            ContributionTotals[1] = model.ContributionTotal1;
+            ContributionTotals[2] = model.ContributionTotal2;
+            ContributionTotals[3] = model.ContributionTotal3;
+            ContributionTotals[4] = model.ContributionTotal4;
 
             saveMask = PlotSaveMask.None;
         }
@@ -133,7 +210,16 @@ namespace NexusForever.Game.Housing
                     PlotInfoId = (ushort)PlotInfoEntry.Id,
                     PlugItemId = (ushort)(PlugItemEntry?.Id ?? 0u),
                     PlugFacing = (byte)PlugFacing,
-                    BuildState = BuildState
+                    BuildState = BuildState,
+                    UpgradeLevel = UpgradeLevel,
+                    WarplotPlugItemId = (ushort)(WarplotPlugInfo?.Id ?? 0u),
+                    UpkeepCharges = UpkeepCharges,
+                    UpkeepTime = UpkeepTime,
+                    ContributionTotal0 = ContributionTotals[0],
+                    ContributionTotal1 = ContributionTotals[1],
+                    ContributionTotal2 = ContributionTotals[2],
+                    ContributionTotal3 = ContributionTotals[3],
+                    ContributionTotal4 = ContributionTotals[4]
                 });
             }
             else
@@ -169,6 +255,32 @@ namespace NexusForever.Game.Housing
                     model.BuildState = BuildState;
                     entity.Property(p => p.BuildState).IsModified = true;
                 }
+
+                if ((saveMask & PlotSaveMask.WarplotUpgrade) != 0)
+                {
+                    model.UpgradeLevel = UpgradeLevel;
+                    model.WarplotPlugItemId = (ushort)(WarplotPlugInfo?.Id ?? 0u);
+                    entity.Property(p => p.UpgradeLevel).IsModified = true;
+                    entity.Property(p => p.WarplotPlugItemId).IsModified = true;
+                }
+
+                if ((saveMask & PlotSaveMask.Upkeep) != 0)
+                {
+                    model.UpkeepCharges = UpkeepCharges;
+                    model.UpkeepTime = UpkeepTime;
+                    model.ContributionTotal0 = ContributionTotals[0];
+                    model.ContributionTotal1 = ContributionTotals[1];
+                    model.ContributionTotal2 = ContributionTotals[2];
+                    model.ContributionTotal3 = ContributionTotals[3];
+                    model.ContributionTotal4 = ContributionTotals[4];
+                    entity.Property(p => p.UpkeepCharges).IsModified = true;
+                    entity.Property(p => p.UpkeepTime).IsModified = true;
+                    entity.Property(p => p.ContributionTotal0).IsModified = true;
+                    entity.Property(p => p.ContributionTotal1).IsModified = true;
+                    entity.Property(p => p.ContributionTotal2).IsModified = true;
+                    entity.Property(p => p.ContributionTotal3).IsModified = true;
+                    entity.Property(p => p.ContributionTotal4).IsModified = true;
+                }
             }
 
             saveMask = PlotSaveMask.None;
@@ -179,6 +291,34 @@ namespace NexusForever.Game.Housing
             // TODO
             PlugItemEntry  = GameTableManager.Instance.HousingPlugItem.GetEntry(plugItemId);
             BuildState = 4;
+        }
+
+        /// <summary>
+        /// Update the upkeep timer and consume charges if needed.
+        /// </summary>
+        /// <returns>True if upkeep was consumed.</returns>
+        public bool UpdateUpkeep(double deltaTime)
+        {
+            if (PlugItemEntry == null || PlugItemEntry.UpkeepTime <= 0)
+                return false;
+
+            UpkeepTime -= (float)deltaTime;
+            if (UpkeepTime <= 0)
+            {
+                // Consume a charge
+                if (UpkeepCharges > 0)
+                {
+                    UpkeepCharges--;
+                    UpkeepTime = PlugItemEntry.UpkeepTime;
+                    return true;
+                }
+                else
+                {
+                    // No charges remaining - apply decay
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }

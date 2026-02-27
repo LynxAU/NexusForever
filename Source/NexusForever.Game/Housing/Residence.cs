@@ -322,6 +322,17 @@ namespace NexusForever.Game.Housing
                 .OrderBy(e => e.Index))
                 plots.Add(new Plot(plotModel));
 
+            // Load neighbors
+            foreach (ResidenceNeighbor neighborModel in model.Neighbor)
+            {
+                var neighbor = new Neighbor
+                {
+                    ResidenceId = neighborModel.NeighborResidenceId,
+                    IsPending = neighborModel.Pending
+                };
+                neighbors[neighbor.ResidenceId] = neighbor;
+            }
+
             saveMask = ResidenceSaveMask.None;
         }
 
@@ -513,6 +524,42 @@ namespace NexusForever.Game.Housing
 
             foreach (IPlot plot in plots)
                 plot.Save(context);
+
+            // Save neighbors
+            var existingNeighbors = context.ResidenceNeighbor
+                .Where(n => n.ResidenceId == Id)
+                .ToDictionary(n => n.NeighborResidenceId);
+
+            // Remove neighbors that are no longer in the collection
+            foreach (var existing in existingNeighbors)
+            {
+                if (!neighbors.ContainsKey(existing.Key))
+                    context.Remove(existing.Value);
+            }
+
+            // Add or update neighbors
+            foreach (var neighbor in neighbors.Values)
+            {
+                if (existingNeighbors.TryGetValue(neighbor.ResidenceId, out var existingModel))
+                {
+                    // Update existing neighbor
+                    if (existingModel.Pending != neighbor.IsPending)
+                    {
+                        existingModel.Pending = neighbor.IsPending;
+                        context.Update(existingModel);
+                    }
+                }
+                else
+                {
+                    // Add new neighbor
+                    context.Add(new ResidenceNeighbor
+                    {
+                        ResidenceId = Id,
+                        NeighborResidenceId = neighbor.ResidenceId,
+                        Pending = neighbor.IsPending
+                    });
+                }
+            }
         }
 
         public ServerHousingProperties.Residence Build()
@@ -675,6 +722,42 @@ namespace NexusForever.Game.Housing
         }
 
         /// <summary>
+        /// Return all crate <see cref="IDecor"/> for the <see cref="IResidence"/>.
+        /// </summary>
+        public IEnumerable<IDecor> GetCrateDecor()
+        {
+            foreach (IDecor decor in decors.Values)
+                if (decor.Type == DecorType.Crate)
+                    yield return decor;
+        }
+
+        /// <summary>
+        /// Return the count of crate <see cref="IDecor"/> for the <see cref="IResidence"/>.
+        /// </summary>
+        public uint GetCrateCount()
+        {
+            return (uint)decors.Values.Count(d => d.Type == DecorType.Crate);
+        }
+
+        /// <summary>
+        /// Return the maximum crate capacity for the <see cref="IResidence"/>.
+        /// </summary>
+        public uint GetCrateCapacity()
+        {
+            // Base capacity + any upgrades
+            // TODO: Add residence upgrades for crate capacity
+            return 100u;
+        }
+
+        /// <summary>
+        /// Return true if the crate can accept more items.
+        /// </summary>
+        public bool CanAddToCrate()
+        {
+            return GetCrateCount() < GetCrateCapacity();
+        }
+
+        /// <summary>
         /// Return <see cref="IDecor"/> with the supplied id.
         /// </summary>
         public IDecor GetDecor(ulong decorId)
@@ -732,6 +815,69 @@ namespace NexusForever.Game.Housing
         public IPlot GetPlot(uint plotInfoId)
         {
             return plots.FirstOrDefault(i => i.PlotInfoEntry?.Id == plotInfoId);
+        }
+
+        private readonly Dictionary<ulong, Neighbor> neighbors = new();
+
+        /// <summary>
+        /// Return all neighbors for the <see cref="IResidence"/>. 
+        /// </summary>
+        public IEnumerable<INeighbor> GetNeighbors()
+        {
+            return neighbors.Values;
+        }
+
+        /// <summary>
+        /// Add a neighbor to the <see cref="IResidence"/>.
+        /// </summary>
+        public void AddNeighbor(ulong neighborResidenceId)
+        {
+            if (neighbors.ContainsKey(neighborResidenceId))
+                return;
+
+            var neighbor = new Neighbor
+            {
+                ResidenceId = neighborResidenceId,
+                IsPending = true
+            };
+
+            neighbors[neighborResidenceId] = neighbor;
+        }
+
+        /// <summary>
+        /// Remove a neighbor from the <see cref="IResidence"/>.
+        /// </summary>
+        public void RemoveNeighbor(ulong neighborResidenceId)
+        {
+            neighbors.Remove(neighborResidenceId);
+        }
+
+        /// <summary>
+        /// Accept a pending neighbor invite for the <see cref="IResidence"/>.
+        /// </summary>
+        public void AcceptNeighbor(ulong neighborResidenceId)
+        {
+            if (neighbors.TryGetValue(neighborResidenceId, out var neighbor))
+            {
+                neighbor.IsPending = false;
+            }
+        }
+
+        /// <summary>
+        /// Update upkeep timers for all plots in the <see cref="IResidence"/>.
+        /// </summary>
+        public void UpdateUpkeep(double deltaTime)
+        {
+            foreach (IPlot plot in plots)
+            {
+                plot.UpdateUpkeep(deltaTime);
+            }
+        }
+
+        private class Neighbor : INeighbor
+        {
+            public ulong ResidenceId { get; init; }
+            public bool IsPending { get; set; }
         }
     }
 }

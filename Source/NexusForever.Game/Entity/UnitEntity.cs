@@ -9,6 +9,8 @@ using NexusForever.Game.Loot;
 using NexusForever.Game.Spell;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Achievement;
+using NexusForever.Game.Static.Loot;
+using NexusForever.Game.Static.Map;
 using NexusForever.Game.Static.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.PublicEvent;
@@ -1261,7 +1263,16 @@ namespace NexusForever.Game.Entity
 
         private void RewardKillLoot(IPlayer player)
         {
-            IEnumerable<LootDrop> drops = DatabaseLootSourceProvider.Instance.RollCreatureLoot(CreatureId);
+            LootContext context = (Map?.Entry.Type) switch
+            {
+                MapType.Dungeon     => LootContext.Dungeon,
+                MapType.Raid        => LootContext.Raid,
+                MapType.Adventure   => LootContext.Adventure,
+                MapType.MiniDungeon => LootContext.Expedition,
+                _                   => LootContext.OpenWorld
+            };
+
+            IEnumerable<LootDrop> drops = DatabaseLootSourceProvider.Instance.RollCreatureLoot(CreatureId, context);
             foreach (LootDrop drop in drops)
                 player.Inventory.ItemCreate(InventoryLocation.Inventory, drop.ItemId, drop.Count, ItemUpdateReason.Loot);
         }

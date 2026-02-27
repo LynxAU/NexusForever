@@ -119,6 +119,12 @@ namespace NexusForever.Game.Housing
 
         public void Update(double lastTick)
         {
+            // Update upkeep timers for all residences
+            foreach (IResidence residence in residences.Values)
+            {
+                residence.UpdateUpkeep(lastTick);
+            }
+
             timeToSave -= lastTick;
             if (timeToSave <= 0d)
             {

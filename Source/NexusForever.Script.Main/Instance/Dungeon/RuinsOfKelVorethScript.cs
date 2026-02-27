@@ -27,8 +27,8 @@ namespace NexusForever.Script.Main.Instance.Dungeon
             33049u, 33050u,  // Darkwitch Gurka — optional miniboss (Normal, Veteran)
         };
 
-        // Grond + Trogun + Drokk + Gurka — all 4 encounters required for completion.
-        private const int RequiredBossCount = 4;
+        // Grond + Trogun + Drokk — 3 required. Gurka is an optional side-area miniboss.
+        private const int RequiredBossCount = 3;
 
         private IContentMapInstance owner;
         private HashSet<uint> defeatedBosses = new();

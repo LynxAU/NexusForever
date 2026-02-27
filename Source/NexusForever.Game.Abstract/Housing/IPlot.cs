@@ -17,5 +17,11 @@ namespace NexusForever.Game.Abstract.Housing
         IPlugEntity PlugEntity { get; set; }
         
         void SetPlug(ushort plugItemId);
+
+        /// <summary>
+        /// Update the upkeep timer and consume charges if needed.
+        /// </summary>
+        /// <returns>True if upkeep was consumed.</returns>
+        bool UpdateUpkeep(double deltaTime);
     }
 }

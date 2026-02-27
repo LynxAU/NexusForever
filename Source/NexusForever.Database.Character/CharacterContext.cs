@@ -48,6 +48,7 @@ namespace NexusForever.Database.Character
         public DbSet<ResidenceModel> Residence { get; set; }
         public DbSet<ResidenceDecor> ResidenceDecor { get; set; }
         public DbSet<ResidencePlotModel> ResidencePlot { get; set; }
+        public DbSet<ResidenceNeighbor> ResidenceNeighbor { get; set; }
         public DbSet<CharacterAuctionModel> CharacterAuction { get; set; }
 
         private readonly IConnectionString config;
@@ -2559,6 +2560,43 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.Plot)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__residence_plot_id__residence_id");
+            });
+
+            modelBuilder.Entity<ResidenceNeighbor>(entity =>
+            {
+                entity.ToTable("residence_neighbor");
+
+                entity.HasKey(e => e.Id)
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .ValueGeneratedOnAdd();
+
+                entity.Property(e => e.ResidenceId)
+                    .HasColumnName("residenceId")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0ul);
+
+                entity.Property(e => e.NeighborResidenceId)
+                    .HasColumnName("neighborResidenceId")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0ul);
+
+                entity.Property(e => e.Pending)
+                    .HasColumnName("pending")
+                    .HasColumnType("tinyint(1)")
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.CreatedAt)
+                    .HasColumnName("createdAt")
+                    .HasColumnType("datetime(6)");
+
+                entity.HasOne(d => d.Residence)
+                    .WithMany(p => p.Neighbor)
+                    .HasForeignKey(d => d.ResidenceId)
+                    .HasConstraintName("FK__residence_neighbor_residenceId__residence_id");
             });
 
             modelBuilder.Entity<CharacterAuctionModel>(entity =>

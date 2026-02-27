@@ -7,6 +7,7 @@
         Pvp         = 3, // arena and battleground
         Residence   = 5,
         Adventure   = 6,
+        Raid        = 9,
         Dungeon     = 11
     }
 }

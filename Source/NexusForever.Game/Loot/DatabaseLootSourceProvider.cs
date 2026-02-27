@@ -115,7 +115,9 @@ namespace NexusForever.Game.Loot
 
         private void EnsureBootstrappedCreatureLoot(WorldDatabase worldDatabase)
         {
-            if (worldDatabase.GetCreatureLootEntries().Count > 0)
+            // Check specifically for ClientReverse rows — CommunityDatabase rows seeded via migration should
+            // not prevent LootPinataInfo.tbl bootstrapping from running on a fresh database.
+            if (worldDatabase.GetCreatureLootEntries().Any(e => e.SourceConfidence == (byte)LootSourceConfidence.ClientReverse))
                 return;
 
             var lootPinataRows = gameTableManager.LootPinataInfo.Entries

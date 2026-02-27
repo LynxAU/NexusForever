@@ -146,5 +146,30 @@ namespace NexusForever.Game.Abstract.Housing
         /// Return <see cref="IPlot"/> that matches the supploed Plot Info ID.
         /// </summary>
         IPlot GetPlot(uint plotInfoId);
+
+        /// <summary>
+        /// Return all neighbors for the <see cref="IResidence"/>. 
+        /// </summary>
+        IEnumerable<INeighbor> GetNeighbors();
+
+        /// <summary>
+        /// Add a neighbor to the <see cref="IResidence"/>.
+        /// </summary>
+        void AddNeighbor(ulong neighborResidenceId);
+
+        /// <summary>
+        /// Remove a neighbor from the <see cref="IResidence"/>.
+        /// </summary>
+        void RemoveNeighbor(ulong neighborResidenceId);
+
+        /// <summary>
+        /// Accept a pending neighbor invite for the <see cref="IResidence"/>.
+        /// </summary>
+        void AcceptNeighbor(ulong neighborResidenceId);
+
+        /// <summary>
+        /// Update upkeep timers for all plots in the <see cref="IResidence"/>.
+        /// </summary>
+        void UpdateUpkeep(double deltaTime);
     }
 }

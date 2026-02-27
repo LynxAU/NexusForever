@@ -26,6 +26,7 @@ using NexusForever.Game.Housing;
 using NexusForever.Game.Map;
 using NexusForever.Game.Reputation;
 using NexusForever.Game.Static.Crafting;
+using NexusForever.Game.Tradeskill;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Guild;
@@ -245,6 +246,9 @@ namespace NexusForever.Game.Entity
         public IResurrectionManager ResurrectionManager { get; private set; }
         public IInstanceManager InstanceManager { get; private set; }
         public IVirtualItemManager VirtualItemManager { get; private set; }
+
+        private TradeskillManager _tradeskillManager;
+        public ITradeskillManager TradeskillManager => _tradeskillManager ??= new TradeskillManager(this);
 
         public IVendorInfo SelectedVendorInfo { get; set; } // TODO unset this when too far away from vendor
 

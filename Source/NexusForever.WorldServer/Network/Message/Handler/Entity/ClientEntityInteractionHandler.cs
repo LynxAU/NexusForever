@@ -48,7 +48,13 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                 {
                     session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkTo, entity.CreatureId, 1u);
                     foreach (uint targetGroupId in assetManager.GetTargetGroupsForCreatureId(entity.CreatureId) ?? Enumerable.Empty<uint>())
+                    {
                         session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.TalkToTargetGroup, targetGroupId, 1u);
+                        // Unknown28 is "rescuing creatures" - similar to TalkTo but for rescue interactions
+                        session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown28, targetGroupId, 1u);
+                    }
+                    // Also trigger Unknown28 for individual creature rescue quests
+                    session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown28, entity.CreatureId, 1u);
                 }
                 // Tradeskill trainer interaction (event 43) triggers LearnTradeskill objectives
                 else if (isTradeskillTrainer)

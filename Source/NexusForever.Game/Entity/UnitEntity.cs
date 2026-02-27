@@ -6,13 +6,15 @@ using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Combat;
 using NexusForever.Game.Spell;
 using NexusForever.Game.Static;
+using NexusForever.Game.Static.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Spell;
+using NexusForever.Network.World.Combat;
+using NexusForever.Network.World.Message.Model;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
-using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Static;
 using NexusForever.Script.Template;
 using NexusForever.Shared.Game;
@@ -78,6 +80,8 @@ namespace NexusForever.Game.Entity
 
         private bool inCombat;
 
+        public uint CrowdControlStateMask => crowdControlStateMask;
+
         public IThreatManager ThreatManager { get; private set; }
 
         /// <summary>
@@ -86,10 +90,73 @@ namespace NexusForever.Game.Entity
         private UpdateTimer statUpdateTimer = new UpdateTimer(0.25); // TODO: Long-term this should be absorbed into individual timers for each Stat regeneration method
 
         private readonly List<ISpell> pendingSpells = new();
+        private readonly List<ActiveCrowdControlState> activeCrowdControlStates = new();
+        private readonly List<ActiveTimedAura> activeTimedAuras = new();
+        private readonly List<ActiveProcTrigger> activeProcTriggers = new();
+        private readonly Dictionary<uint, ActiveDiminishingReturnsState> diminishingReturnsStates = new();
         private uint damageAbsorptionPool;
         private uint healingAbsorptionPool;
+        private uint crowdControlStateMask;
+        private ulong nextTimedAuraId = 1;
+        private bool isProcessingProcTriggers;
 
         private Dictionary<Property, Dictionary</*spell4Id*/uint, ISpellPropertyModifier>> spellProperties = new();
+        private const double DiminishingReturnsWindowSeconds = 15d;
+
+        private sealed class ActiveCrowdControlState
+        {
+            public CCState State { get; init; }
+            public double RemainingDuration { get; set; }
+            public uint SourceCasterId { get; init; }
+            public uint DiminishingReturnsId { get; init; }
+        }
+
+        private sealed class ActiveDiminishingReturnsState
+        {
+            public byte Applications { get; set; }
+            public double RemainingWindow { get; set; }
+        }
+
+        [Flags]
+        public enum ProcEventMask : uint
+        {
+            None         = 0u,
+            DamageDone   = 1u << 0,
+            DamageTaken  = 1u << 1,
+            HealDone     = 1u << 2,
+            HealTaken    = 1u << 3
+        }
+
+        private sealed class ActiveProcTrigger
+        {
+            public ulong AuraId { get; init; }
+            public uint TriggerSpell4Id { get; init; }
+            public uint SourceCasterId { get; init; }
+            public ProcEventMask EventMask { get; init; }
+            public double Chance01 { get; init; }
+            public double InternalCooldown { get; init; }
+            public double RemainingCooldown { get; set; }
+        }
+
+        public sealed class ActiveTimedAura
+        {
+            public ulong AuraId { get; init; }
+            public uint SpellId { get; init; }
+            public SpellEffectType EffectType { get; init; }
+            public uint SourceCasterId { get; init; }
+            public uint StackGroupId { get; init; }
+            public uint StackCap { get; init; }
+            public uint StackTypeEnum { get; set; }
+            public bool IsDispellable { get; set; }
+            public bool IsDebuff { get; set; }
+            public bool IsBuff { get; set; }
+            public double Duration { get; set; }
+            public double Elapsed { get; set; }
+            public double TickInterval { get; set; }
+            public double NextTickAt { get; set; }
+            public Action OnTick { get; set; }
+            public Action OnRemove { get; set; }
+        }
 
         public uint DamageAbsorptionPool => damageAbsorptionPool;
         public uint HealingAbsorptionPool => healingAbsorptionPool;
@@ -112,6 +179,9 @@ namespace NexusForever.Game.Entity
 
             foreach (ISpell spell in pendingSpells)
                 spell.Dispose();
+
+            activeTimedAuras.Clear();
+            activeProcTriggers.Clear();
         }
 
         private void InitialiseHitRadius()
@@ -137,6 +207,11 @@ namespace NexusForever.Game.Entity
                     pendingSpells.Remove(spell);
                 }
             }
+
+            UpdateCrowdControlStates(lastTick);
+            UpdateTimedAuras(lastTick);
+            UpdateProcTriggers(lastTick);
+            UpdateDiminishingReturns(lastTick);
 
             statUpdateTimer.Update(lastTick);
             if (statUpdateTimer.HasElapsed)
@@ -202,6 +277,281 @@ namespace NexusForever.Game.Entity
 
             foreach (Property property in propertiesWithSpell)
                 RemoveSpellProperty(property, spell4Id);
+        }
+
+        public ulong AddTimedAura(uint spellId, SpellEffectType effectType, uint sourceCasterId, double duration, double tickInterval, Action onApply = null, Action onTick = null, Action onRemove = null, uint stackGroupId = 0u, uint stackCap = 0u, uint stackTypeEnum = 0u, bool isDispellable = false, bool isDebuff = false, bool isBuff = false)
+        {
+            if (duration <= 0d)
+            {
+                onApply?.Invoke();
+                onRemove?.Invoke();
+                return 0u;
+            }
+
+            if (stackGroupId != 0u)
+            {
+                List<ActiveTimedAura> stackGroupAuras = activeTimedAuras
+                    .Where(a => a.StackGroupId == stackGroupId
+                             && a.EffectType == effectType
+                             && a.SourceCasterId == sourceCasterId)
+                    .OrderBy(a => a.AuraId)
+                    .ToList();
+                ActiveTimedAura existingAura = stackGroupAuras.LastOrDefault();
+
+                // Basic stack behavior baseline:
+                // If cap is 0/1, refresh existing aura rather than duplicating.
+                if (existingAura != null && (stackCap == 0u || stackCap == 1u))
+                {
+                    existingAura.Duration = duration;
+                    existingAura.Elapsed = 0d;
+                    existingAura.TickInterval = tickInterval > 0d ? tickInterval : 0d;
+                    existingAura.NextTickAt = tickInterval > 0d ? tickInterval : double.MaxValue;
+                    existingAura.StackTypeEnum = stackTypeEnum;
+                    existingAura.IsDispellable = isDispellable;
+                    existingAura.IsDebuff = isDebuff;
+                    existingAura.IsBuff = isBuff;
+                    existingAura.OnTick = onTick;
+                    existingAura.OnRemove = onRemove;
+                    return existingAura.AuraId;
+                }
+
+                if (stackCap > 1u && stackGroupAuras.Count >= stackCap)
+                {
+                    ActiveTimedAura auraToRefresh = stackTypeEnum switch
+                    {
+                        0u or 1u or 4u => stackGroupAuras.First(),
+                        _ => stackGroupAuras.Last()
+                    };
+
+                    auraToRefresh.Duration = duration;
+                    auraToRefresh.Elapsed = 0d;
+                    auraToRefresh.TickInterval = tickInterval > 0d ? tickInterval : 0d;
+                    auraToRefresh.NextTickAt = tickInterval > 0d ? tickInterval : double.MaxValue;
+                    auraToRefresh.StackTypeEnum = stackTypeEnum;
+                    auraToRefresh.IsDispellable = isDispellable;
+                    auraToRefresh.IsDebuff = isDebuff;
+                    auraToRefresh.IsBuff = isBuff;
+                    auraToRefresh.OnTick = onTick;
+                    auraToRefresh.OnRemove = onRemove;
+                    return auraToRefresh.AuraId;
+                }
+            }
+
+            onApply?.Invoke();
+
+            var aura = new ActiveTimedAura
+            {
+                AuraId        = nextTimedAuraId++,
+                SpellId       = spellId,
+                EffectType    = effectType,
+                SourceCasterId = sourceCasterId,
+                StackGroupId  = stackGroupId,
+                StackCap      = stackCap,
+                StackTypeEnum = stackTypeEnum,
+                IsDispellable = isDispellable,
+                IsDebuff      = isDebuff,
+                IsBuff        = isBuff,
+                Duration      = duration,
+                TickInterval  = tickInterval > 0d ? tickInterval : 0d,
+                NextTickAt    = tickInterval > 0d ? tickInterval : double.MaxValue,
+                OnTick        = onTick,
+                OnRemove      = onRemove
+            };
+
+            activeTimedAuras.Add(aura);
+            return aura.AuraId;
+        }
+
+        public bool RemoveTimedAura(ulong auraId)
+        {
+            ActiveTimedAura aura = activeTimedAuras.LastOrDefault(a => a.AuraId == auraId);
+            if (aura == null)
+                return false;
+
+            activeTimedAuras.Remove(aura);
+            activeProcTriggers.RemoveAll(p => p.AuraId == auraId);
+            aura.OnRemove?.Invoke();
+            return true;
+        }
+
+        public uint RemoveTimedAuras(uint spellId, SpellEffectType effectType, uint sourceCasterId = 0u)
+        {
+            List<ActiveTimedAura> matching = activeTimedAuras
+                .Where(a => a.SpellId == spellId && a.EffectType == effectType && (sourceCasterId == 0u || a.SourceCasterId == sourceCasterId))
+                .ToList();
+
+            foreach (ActiveTimedAura aura in matching)
+                RemoveTimedAura(aura.AuraId);
+
+            return (uint)matching.Count;
+        }
+
+        public uint ApplyCrowdControlState(CCState state, uint durationMs, uint sourceCasterId, uint diminishingReturnsId = 0u)
+        {
+            double multiplier = ConsumeDiminishingReturnsMultiplier(diminishingReturnsId);
+            if (multiplier <= 0d)
+                return 0u;
+
+            uint scaledDurationMs = (uint)Math.Round(durationMs * multiplier);
+            double duration = Math.Max(0.05d, scaledDurationMs / 1000d);
+            activeCrowdControlStates.Add(new ActiveCrowdControlState
+            {
+                State             = state,
+                RemainingDuration = duration,
+                SourceCasterId    = sourceCasterId,
+                DiminishingReturnsId = diminishingReturnsId
+            });
+
+            crowdControlStateMask |= 1u << (int)state;
+            return scaledDurationMs;
+        }
+
+        public bool RemoveCrowdControlState(CCState state, uint sourceCasterId = 0u)
+        {
+            ActiveCrowdControlState active = activeCrowdControlStates.LastOrDefault(s => s.State == state);
+            if (active == null)
+                return false;
+
+            activeCrowdControlStates.Remove(active);
+            if (!activeCrowdControlStates.Any(s => s.State == state))
+                crowdControlStateMask &= ~(1u << (int)state);
+
+            SendCrowdControlBreakLog(sourceCasterId != 0u ? sourceCasterId : active.SourceCasterId, state);
+            return true;
+        }
+
+        public uint RemoveAllCrowdControlStates(uint sourceCasterId = 0u)
+        {
+            if (activeCrowdControlStates.Count == 0)
+                return 0u;
+
+            uint removedCount = 0u;
+            foreach (ActiveCrowdControlState active in activeCrowdControlStates.ToList())
+            {
+                if (RemoveCrowdControlState(active.State, sourceCasterId != 0u ? sourceCasterId : active.SourceCasterId))
+                    removedCount++;
+            }
+
+            return removedCount;
+        }
+
+        public uint RemoveCrowdControlStatesByMask(uint stateMask, uint sourceCasterId = 0u)
+        {
+            if (stateMask == 0u || activeCrowdControlStates.Count == 0)
+                return 0u;
+
+            uint removedCount = 0u;
+            foreach (ActiveCrowdControlState active in activeCrowdControlStates.ToList())
+            {
+                uint stateBit = 1u << (int)active.State;
+                if ((stateMask & stateBit) == 0u)
+                    continue;
+
+                if (RemoveCrowdControlState(active.State, sourceCasterId != 0u ? sourceCasterId : active.SourceCasterId))
+                    removedCount++;
+            }
+
+            return removedCount;
+        }
+
+        public uint RemoveDispelledAuras(bool removeBuffs, bool removeDebuffs, uint maxInstances = uint.MaxValue)
+        {
+            if (activeTimedAuras.Count == 0 || maxInstances == 0u)
+                return 0u;
+
+            List<ActiveTimedAura> matching = activeTimedAuras
+                .Where(a => a.IsDispellable
+                            && ((removeBuffs && a.IsBuff) || (removeDebuffs && a.IsDebuff)))
+                .OrderByDescending(a => a.AuraId)
+                .Take((int)Math.Min(maxInstances, int.MaxValue))
+                .ToList();
+
+            foreach (ActiveTimedAura aura in matching)
+                RemoveTimedAura(aura.AuraId);
+
+            return (uint)matching.Count;
+        }
+
+        public ulong AddProcTrigger(
+            uint ownerSpellId,
+            uint sourceCasterId,
+            uint triggerSpell4Id,
+            double durationSeconds,
+            double chance01,
+            ProcEventMask eventMask,
+            double internalCooldownSeconds,
+            uint stackGroupId = 0u,
+            uint stackCap = 0u,
+            uint stackTypeEnum = 0u,
+            bool isDispellable = false,
+            bool isDebuff = false,
+            bool isBuff = false)
+        {
+            ProcEventMask resolvedMask = eventMask == ProcEventMask.None ? ProcEventMask.DamageDone : eventMask;
+            double resolvedDuration = durationSeconds > 0d ? durationSeconds : 15d;
+            double resolvedChance = Math.Clamp(chance01, 0d, 1d);
+            double resolvedCooldown = Math.Max(0d, internalCooldownSeconds);
+
+            ulong auraId = AddTimedAura(
+                ownerSpellId,
+                SpellEffectType.Proc,
+                sourceCasterId,
+                resolvedDuration,
+                0d,
+                stackGroupId: stackGroupId,
+                stackCap: stackCap,
+                stackTypeEnum: stackTypeEnum,
+                isDispellable: isDispellable,
+                isDebuff: isDebuff,
+                isBuff: isBuff);
+
+            if (auraId == 0u)
+                return 0u;
+
+            activeProcTriggers.Add(new ActiveProcTrigger
+            {
+                AuraId = auraId,
+                TriggerSpell4Id = triggerSpell4Id,
+                SourceCasterId = sourceCasterId,
+                EventMask = resolvedMask,
+                Chance01 = resolvedChance,
+                InternalCooldown = resolvedCooldown,
+                RemainingCooldown = 0d
+            });
+
+            return auraId;
+        }
+
+        public void NotifyProcDamageDone(IUnitEntity target, uint amount, uint sourceSpell4Id)
+        {
+            if (amount == 0u)
+                return;
+
+            NotifyProcEvent(ProcEventMask.DamageDone, target, sourceSpell4Id);
+        }
+
+        public void NotifyProcDamageTaken(IUnitEntity attacker, uint amount, uint sourceSpell4Id)
+        {
+            if (amount == 0u)
+                return;
+
+            NotifyProcEvent(ProcEventMask.DamageTaken, attacker, sourceSpell4Id);
+        }
+
+        public void NotifyProcHealDone(IUnitEntity target, uint amount, uint sourceSpell4Id)
+        {
+            if (amount == 0u)
+                return;
+
+            NotifyProcEvent(ProcEventMask.HealDone, target, sourceSpell4Id);
+        }
+
+        public void NotifyProcHealTaken(IUnitEntity healer, uint amount, uint sourceSpell4Id)
+        {
+            if (amount == 0u)
+                return;
+
+            NotifyProcEvent(ProcEventMask.HealTaken, healer, sourceSpell4Id);
         }
 
         /// <summary>
@@ -503,10 +853,168 @@ namespace NexusForever.Game.Entity
 
             GenerateRewards();
             ThreatManager.ClearThreatList();
+            RemoveAllCrowdControlStates();
+            activeTimedAuras.Clear();
+            activeProcTriggers.Clear();
             damageAbsorptionPool = 0u;
             healingAbsorptionPool = 0u;
+            diminishingReturnsStates.Clear();
 
             deathState = EntityDeathState.Dead;
+        }
+
+        private void UpdateCrowdControlStates(double lastTick)
+        {
+            foreach (ActiveCrowdControlState state in activeCrowdControlStates.ToList())
+            {
+                state.RemainingDuration -= lastTick;
+                if (state.RemainingDuration > 0d)
+                    continue;
+
+                RemoveCrowdControlState(state.State, state.SourceCasterId);
+            }
+        }
+
+        private void UpdateTimedAuras(double lastTick)
+        {
+            foreach (ActiveTimedAura aura in activeTimedAuras.ToList())
+            {
+                aura.Elapsed += lastTick;
+
+                if (aura.TickInterval > 0d && aura.OnTick != null)
+                {
+                    while (aura.NextTickAt <= aura.Elapsed && aura.NextTickAt <= aura.Duration)
+                    {
+                        aura.OnTick.Invoke();
+                        aura.NextTickAt += aura.TickInterval;
+                    }
+                }
+
+                if (aura.Elapsed < aura.Duration)
+                    continue;
+
+                RemoveTimedAura(aura.AuraId);
+            }
+        }
+
+        private void SendCrowdControlBreakLog(uint casterId, CCState state)
+        {
+            if (casterId == 0u)
+                casterId = Guid;
+
+            EnqueueToVisible(new ServerCombatLog
+            {
+                CombatLog = new CombatLogCCStateBreak
+                {
+                    CasterId = casterId,
+                    State    = state
+                }
+            }, true);
+        }
+
+        private void UpdateProcTriggers(double lastTick)
+        {
+            foreach (ActiveProcTrigger proc in activeProcTriggers)
+            {
+                if (proc.RemainingCooldown <= 0d)
+                    continue;
+
+                proc.RemainingCooldown = Math.Max(0d, proc.RemainingCooldown - lastTick);
+            }
+        }
+
+        private void NotifyProcEvent(ProcEventMask eventMask, IUnitEntity eventTarget, uint sourceSpell4Id)
+        {
+            if (isProcessingProcTriggers || activeProcTriggers.Count == 0)
+                return;
+
+            isProcessingProcTriggers = true;
+            try
+            {
+                foreach (ActiveProcTrigger proc in activeProcTriggers.ToList())
+                {
+                    if ((proc.EventMask & eventMask) == ProcEventMask.None)
+                        continue;
+
+                    if (proc.RemainingCooldown > 0d)
+                        continue;
+
+                    if (proc.Chance01 < 1d && Random.Shared.NextDouble() > proc.Chance01)
+                        continue;
+
+                    if (!TryCastProcSpell(proc.TriggerSpell4Id, eventTarget))
+                        continue;
+
+                    proc.RemainingCooldown = proc.InternalCooldown;
+                }
+            }
+            finally
+            {
+                isProcessingProcTriggers = false;
+            }
+        }
+
+        private bool TryCastProcSpell(uint triggerSpell4Id, IUnitEntity eventTarget)
+        {
+            if (triggerSpell4Id == 0u)
+                return false;
+
+            if (GameTableManager.Instance.Spell4.GetEntry(triggerSpell4Id) != null)
+            {
+                CastSpell(triggerSpell4Id, new SpellParameters
+                {
+                    PrimaryTargetId = eventTarget?.Guid ?? Guid
+                });
+                return true;
+            }
+
+            Spell4BaseEntry triggerBase = GameTableManager.Instance.Spell4Base.GetEntry(triggerSpell4Id);
+            if (triggerBase == null)
+                return false;
+
+            CastSpell(triggerBase.Id, 1, new SpellParameters
+            {
+                PrimaryTargetId = eventTarget?.Guid ?? Guid
+            });
+            return true;
+        }
+
+        private void UpdateDiminishingReturns(double lastTick)
+        {
+            List<uint> expired = [];
+            foreach ((uint key, ActiveDiminishingReturnsState state) in diminishingReturnsStates)
+            {
+                state.RemainingWindow -= lastTick;
+                if (state.RemainingWindow <= 0d)
+                    expired.Add(key);
+            }
+
+            foreach (uint key in expired)
+                diminishingReturnsStates.Remove(key);
+        }
+
+        private double ConsumeDiminishingReturnsMultiplier(uint diminishingReturnsId)
+        {
+            if (diminishingReturnsId == 0u)
+                return 1d;
+
+            if (!diminishingReturnsStates.TryGetValue(diminishingReturnsId, out ActiveDiminishingReturnsState state))
+            {
+                state = new ActiveDiminishingReturnsState();
+                diminishingReturnsStates.Add(diminishingReturnsId, state);
+            }
+
+            double multiplier = state.Applications switch
+            {
+                0 => 1d,
+                1 => 0.5d,
+                2 => 0.25d,
+                _ => 0d
+            };
+
+            state.Applications = (byte)Math.Min(4, state.Applications + 1);
+            state.RemainingWindow = DiminishingReturnsWindowSeconds;
+            return multiplier;
         }
 
         private void GenerateRewards()
@@ -529,6 +1037,10 @@ namespace NexusForever.Game.Entity
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroup, targetGroupId, 1u);
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.KillTargetGroups, targetGroupId, 1u);
             }
+
+            // Trigger PvPKills quest objectives when a player kills another player
+            // This is separate from regular creature kills
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.PvPKills, 0, 1u);
 
             // Grant kill XP. Use 10% of the level's BaseQuestXpPerLevel as a baseline
             // approximation — pending research into the exact WildStar formula.

@@ -95,6 +95,7 @@ namespace NexusForever.Game.Abstract.Entity
         IResurrectionManager ResurrectionManager { get; }
         IInstanceManager InstanceManager { get; }
         IVirtualItemManager VirtualItemManager { get; }
+        ITradeskillManager TradeskillManager { get; }
 
         IVendorInfo SelectedVendorInfo { get; set; }
 

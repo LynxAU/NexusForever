@@ -8,6 +8,7 @@ using NexusForever.Game.Combat;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Static.Crafting;
 using NexusForever.Game.Map;
+using NexusForever.Game.Static.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Game.Static.Spell;
@@ -16,6 +17,7 @@ using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Combat;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Model.Crafting;
+using NexusForever.Network.World.Message.Model.Entity;
 using NexusForever.Shared;
 
 namespace NexusForever.Game.Spell
@@ -140,6 +142,8 @@ namespace NexusForever.Game.Spell
         public static void HandleEffectDamage(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
             HandleEffectDamageInternal(spell, target, info, splitCount: 1, shieldOnly: false, applyTransferenceSideEffects: false);
+            SchedulePeriodicTicks(spell, target, info, tickInfo =>
+                HandleEffectDamageInternal(spell, target, tickInfo, splitCount: 1, shieldOnly: false, applyTransferenceSideEffects: false));
         }
 
         private static void HandleEffectDamageInternal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info, int splitCount, bool shieldOnly, bool applyTransferenceSideEffects)
@@ -183,6 +187,11 @@ namespace NexusForever.Game.Spell
                 ? ApplyTransferenceSideEffects(spell, info)
                 : null;
 
+            if (spell.Caster is UnitEntity casterUnit)
+                casterUnit.NotifyProcDamageDone(target, info.Damage.AdjustedDamage + info.Damage.ShieldAbsorbAmount, spell.Parameters.SpellInfo.Entry.Id);
+            if (target is UnitEntity targetUnit)
+                targetUnit.NotifyProcDamageTaken(spell.Caster, info.Damage.AdjustedDamage + info.Damage.ShieldAbsorbAmount, spell.Parameters.SpellInfo.Entry.Id);
+
             AddDamageCombatLog(spell, target, info, transferenceHealedUnits);
         }
 
@@ -214,6 +223,12 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.Heal)]
         public static void HandleEffectHeal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
+            HandleEffectHealInternal(spell, target, info);
+            SchedulePeriodicTicks(spell, target, info, tickInfo => HandleEffectHealInternal(spell, target, tickInfo));
+        }
+
+        private static void HandleEffectHealInternal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
             if (!target.IsAlive)
                 return;
 
@@ -242,6 +257,11 @@ namespace NexusForever.Game.Spell
             info.Damage.OverkillAmount = 0u;
             info.Damage.KilledTarget = false;
 
+            if (spell.Caster is UnitEntity casterUnit)
+                casterUnit.NotifyProcHealDone(target, effectiveHeal, spell.Parameters.SpellInfo.Entry.Id);
+            if (target is UnitEntity targetUnit)
+                targetUnit.NotifyProcHealTaken(spell.Caster, effectiveHeal, spell.Parameters.SpellInfo.Entry.Id);
+
             info.AddCombatLog(new CombatLogHeal
             {
                 HealAmount = effectiveHeal,
@@ -260,6 +280,12 @@ namespace NexusForever.Game.Spell
 
         [SpellEffectHandler(SpellEffectType.HealShields)]
         public static void HandleEffectHealShields(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            HandleEffectHealShieldsInternal(spell, target, info);
+            SchedulePeriodicTicks(spell, target, info, tickInfo => HandleEffectHealShieldsInternal(spell, target, tickInfo));
+        }
+
+        private static void HandleEffectHealShieldsInternal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
             if (!target.IsAlive)
                 return;
@@ -283,6 +309,11 @@ namespace NexusForever.Game.Spell
             info.Damage.AbsorbedAmount = healAbsorption;
             info.Damage.OverkillAmount = 0u;
             info.Damage.KilledTarget = false;
+
+            if (spell.Caster is UnitEntity casterUnit)
+                casterUnit.NotifyProcHealDone(target, effectiveShieldHeal, spell.Parameters.SpellInfo.Entry.Id);
+            if (target is UnitEntity targetUnit)
+                targetUnit.NotifyProcHealTaken(spell.Caster, effectiveShieldHeal, spell.Parameters.SpellInfo.Entry.Id);
 
             info.AddCombatLog(new CombatLogHeal
             {
@@ -339,6 +370,40 @@ namespace NexusForever.Game.Spell
             });
         }
 
+        [SpellEffectHandler(SpellEffectType.Proc)]
+        public static void HandleEffectProc(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not UnitEntity unitEntity)
+                return;
+
+            uint triggerSpellId = info.Entry.DataBits01;
+            if (triggerSpellId == 0u)
+                return;
+
+            double durationSeconds = info.Entry.DurationTime / 1000d;
+            double chance01 = ResolveProcChance(info.Entry);
+            UnitEntity.ProcEventMask eventMask = ResolveProcEventMask(info.Entry.DataBits03);
+            double internalCooldownSeconds = ResolveProcCooldownSeconds(info.Entry.DataBits04);
+            uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+            uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+            uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+
+            unitEntity.AddProcTrigger(
+                spell.Parameters.SpellInfo.Entry.Id,
+                spell.Caster.Guid,
+                triggerSpellId,
+                durationSeconds,
+                chance01,
+                eventMask,
+                internalCooldownSeconds,
+                stackGroupId,
+                stackCap,
+                stackTypeEnum,
+                isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+        }
+
         [SpellEffectHandler(SpellEffectType.ModifyInterruptArmor)]
         public static void HandleEffectModifyInterruptArmor(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -362,6 +427,104 @@ namespace NexusForever.Game.Spell
             {
                 Amount    = appliedDelta,
                 CastData  = BuildCastData(spell, target, info)
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.CCStateSet)]
+        public static void HandleEffectCCStateSet(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (!target.IsAlive)
+                return;
+
+            if (!Enum.IsDefined(typeof(CCState), (int)info.Entry.DataBits00))
+                return;
+
+            var state = (CCState)info.Entry.DataBits00;
+            uint durationMs = info.Entry.DurationTime != 0u
+                ? info.Entry.DurationTime
+                : info.Entry.DataBits01;
+
+            CCStatesEntry ccStateEntry = GameTableManager.Instance.CCStates.GetEntry((uint)state);
+            uint diminishingReturnsId = ccStateEntry?.CcStateDiminishingReturnsId ?? 0u;
+            uint appliedDurationMs = target.ApplyCrowdControlState(state, durationMs, spell.Caster.Guid, diminishingReturnsId);
+
+            if (appliedDurationMs == 0u)
+            {
+                info.AddCombatLog(new CombatLogCCState
+                {
+                    State                       = state,
+                    BRemoved                    = false,
+                    InterruptArmorTaken         = 0u,
+                    Result                      = CCStateApplyRulesResult.DiminishingReturnsTriggerCap,
+                    CcStateDiminishingReturnsId = (ushort)diminishingReturnsId,
+                    CastData                    = BuildCastData(spell, target, info)
+                });
+                return;
+            }
+
+            spell.Caster.EnqueueToVisible(new ServerEntityCCStateSet
+            {
+                UnitId              = target.Guid,
+                CCType              = state,
+                SpellEffectUniqueId = info.EffectId
+            }, true);
+
+            info.AddCombatLog(new CombatLogCCState
+            {
+                State                    = state,
+                BRemoved                 = false,
+                InterruptArmorTaken      = 0u,
+                Result                   = CCStateApplyRulesResult.Ok,
+                CcStateDiminishingReturnsId = (ushort)diminishingReturnsId,
+                CastData                 = BuildCastData(spell, target, info)
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.CCStateBreak)]
+        public static void HandleEffectCCStateBreak(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            uint payload = info.Entry.DataBits00;
+            uint removedCount;
+            if (payload <= (uint)CCState.AbilityRestriction && Enum.IsDefined(typeof(CCState), (int)payload))
+            {
+                removedCount = target.RemoveCrowdControlState((CCState)payload, spell.Caster.Guid) ? 1u : 0u;
+            }
+            else
+            {
+                removedCount = target.RemoveCrowdControlStatesByMask(payload, spell.Caster.Guid);
+            }
+
+            if (removedCount == 0u && payload > (uint)CCState.AbilityRestriction)
+                target.RemoveAllCrowdControlStates(spell.Caster.Guid);
+        }
+
+        [SpellEffectHandler(SpellEffectType.SpellDispel)]
+        public static void HandleEffectSpellDispel(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            (bool removeBuffs, bool removeDebuffs) = ResolveDispelClassTargets(info.Entry.DataBits03);
+            uint maxInstances = ResolveDispelInstanceLimit(info.Entry);
+
+            uint removed = 0u;
+            if (target is UnitEntity unitEntity)
+                removed += unitEntity.RemoveDispelledAuras(removeBuffs, removeDebuffs, maxInstances);
+
+            if (removeDebuffs)
+                removed += target.RemoveAllCrowdControlStates(spell.Caster.Guid);
+
+            if (removed == 0u)
+                return;
+
+            info.AddCombatLog(new CombatLogDispel
+            {
+                BRemovesSingleInstance = removed == 1u,
+                InstancesRemoved       = removed,
+                SpellRemovedId         = 0u
             });
         }
 
@@ -677,7 +840,29 @@ namespace NexusForever.Game.Spell
             if (info.Entry.DurationTime > 0u)
             {
                 Property property = (Property)info.Entry.DataBits00;
-                spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () => target.RemoveSpellProperty(property, modifierInstanceId));
+                if (target is UnitEntity unitEntity)
+                {
+                    uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+                    uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+                    uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+                    unitEntity.AddTimedAura(
+                        spell.Parameters.SpellInfo.Entry.Id,
+                        SpellEffectType.UnitPropertyModifier,
+                        spell.Caster.Guid,
+                        info.Entry.DurationTime / 1000d,
+                        0d,
+                        onRemove: () => target.RemoveSpellProperty(property, modifierInstanceId),
+                        stackGroupId: stackGroupId,
+                        stackCap: stackCap,
+                        stackTypeEnum: stackTypeEnum,
+                        isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                        isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                        isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+                }
+                else
+                {
+                    spell.EnqueueEvent(info.Entry.DurationTime / 1000d, () => target.RemoveSpellProperty(property, modifierInstanceId));
+                }
             }
         }
 
@@ -933,6 +1118,129 @@ namespace NexusForever.Game.Spell
             uint quotient = value / divisor;
             uint remainder = value % divisor;
             return rank < remainder ? quotient + 1u : quotient;
+        }
+
+        private static void SchedulePeriodicTicks(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info, Action<ISpellTargetEffectInfo> tickHandler)
+        {
+            if (target == null || tickHandler == null)
+                return;
+
+            uint tickMs = info.Entry.TickTime;
+            uint durationMs = info.Entry.DurationTime;
+            if (tickMs == 0u || durationMs == 0u || durationMs < tickMs)
+                return;
+
+            if (target is UnitEntity unitEntity)
+            {
+                uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+                uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+                uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+                unitEntity.AddTimedAura(
+                    spell.Parameters.SpellInfo.Entry.Id,
+                    info.Entry.EffectType,
+                    spell.Caster.Guid,
+                    durationMs / 1000d,
+                    tickMs / 1000d,
+                    onTick: () =>
+                    {
+                        if (!target.IsAlive)
+                            return;
+
+                        var tickInfo = new SpellTargetInfo.SpellTargetEffectInfo(GlobalSpellManager.Instance.NextEffectId, info.Entry);
+                        tickHandler.Invoke(tickInfo);
+                        EmitCombatLogs(spell, tickInfo.CombatLogs);
+                    },
+                    stackGroupId: stackGroupId,
+                    stackCap: stackCap,
+                    stackTypeEnum: stackTypeEnum,
+                    isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                    isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                    isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+                return;
+            }
+
+            uint tickCount = durationMs / tickMs;
+            for (uint i = 1u; i <= tickCount; i++)
+            {
+                double delay = (tickMs * i) / 1000d;
+                spell.EnqueueEvent(delay, () =>
+                {
+                    if (!target.IsAlive)
+                        return;
+
+                    var tickInfo = new SpellTargetInfo.SpellTargetEffectInfo(GlobalSpellManager.Instance.NextEffectId, info.Entry);
+                    tickHandler.Invoke(tickInfo);
+                    EmitCombatLogs(spell, tickInfo.CombatLogs);
+                });
+            }
+        }
+
+        private static void EmitCombatLogs(ISpell spell, IEnumerable<ICombatLog> logs)
+        {
+            if (logs == null)
+                return;
+
+            foreach (ICombatLog combatLog in logs)
+            {
+                spell.Caster.EnqueueToVisible(new ServerCombatLog
+                {
+                    CombatLog = combatLog
+                }, true);
+            }
+        }
+
+        private static (bool removeBuffs, bool removeDebuffs) ResolveDispelClassTargets(uint spellClassRaw)
+        {
+            SpellClass spellClass = (SpellClass)spellClassRaw;
+            return spellClass switch
+            {
+                SpellClass.BuffDispellable => (true, false),
+                SpellClass.DebuffDispellable => (false, true),
+                _ => (true, true)
+            };
+        }
+
+        private static uint ResolveDispelInstanceLimit(Spell4EffectsEntry entry)
+        {
+            uint limit = entry.DataBits00;
+            if (limit == 0u || limit == uint.MaxValue)
+                return uint.MaxValue;
+
+            return Math.Min(limit, 50u);
+        }
+
+        private static double ResolveProcChance(Spell4EffectsEntry entry)
+        {
+            float chanceAsFloat = BitConverter.UInt32BitsToSingle(entry.DataBits02);
+            if (!float.IsNaN(chanceAsFloat) && !float.IsInfinity(chanceAsFloat) && chanceAsFloat > 0f && chanceAsFloat <= 1f)
+                return chanceAsFloat;
+
+            if (entry.DataBits02 > 0u && entry.DataBits02 <= 100u)
+                return entry.DataBits02 / 100d;
+
+            if (entry.ParameterValue.Length > 0 && entry.ParameterValue[0] > 0f && entry.ParameterValue[0] <= 1f)
+                return entry.ParameterValue[0];
+
+            return 1d;
+        }
+
+        private static UnitEntity.ProcEventMask ResolveProcEventMask(uint rawMask)
+        {
+            UnitEntity.ProcEventMask mask = (UnitEntity.ProcEventMask)(rawMask & 0xFu);
+            return mask == UnitEntity.ProcEventMask.None
+                ? UnitEntity.ProcEventMask.DamageDone
+                : mask;
+        }
+
+        private static double ResolveProcCooldownSeconds(uint rawValue)
+        {
+            if (rawValue == 0u || rawValue == uint.MaxValue)
+                return 0d;
+
+            if (rawValue <= 100u)
+                return rawValue;
+
+            return rawValue / 1000d;
         }
     }
 }

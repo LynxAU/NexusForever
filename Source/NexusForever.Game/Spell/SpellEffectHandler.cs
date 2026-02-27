@@ -3410,13 +3410,24 @@ namespace NexusForever.Game.Spell
             if (spellId == 0u || spellId == uint.MaxValue)
                 return 0u;
 
-            ICharacterSpell learnedSpell = player?.SpellManager?.GetSpell(spellId);
-            if (learnedSpell?.SpellInfo?.Entry != null)
-                return learnedSpell.SpellInfo.Entry.Id;
-
             Spell4BaseEntry spell4BaseEntry = GameTableManager.Instance.Spell4Base.GetEntry(spellId);
             if (spell4BaseEntry == null)
                 return 0u;
+
+            if (player?.SpellManager != null)
+            {
+                ICharacterSpell learnedSpell = player.SpellManager.GetSpell(spell4BaseEntry.Id);
+                if (learnedSpell != null)
+                {
+                    byte resolvedTier = player.SpellManager.GetSpellTier(spell4BaseEntry.Id);
+                    ISpellInfo tierSpellInfo = learnedSpell.BaseInfo.GetSpellInfo(resolvedTier);
+                    if (tierSpellInfo?.Entry != null)
+                        return tierSpellInfo.Entry.Id;
+
+                    if (learnedSpell.SpellInfo?.Entry != null)
+                        return learnedSpell.SpellInfo.Entry.Id;
+                }
+            }
 
             return GlobalSpellManager.Instance.GetSpell4Entries(spell4BaseEntry.Id)
                 .OrderBy(e => e.TierIndex)

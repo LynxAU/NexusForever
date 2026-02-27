@@ -79,6 +79,8 @@ var procByBits = procRows
 var forcedMoveByBits = BuildTopPayloadPatterns(effects, SpellEffectType.ForcedMove, 20);
 var unitStateSetByBits = BuildTopPayloadPatterns(effects, SpellEffectType.UnitStateSet, 20);
 var scaleByBits = BuildTopPayloadPatterns(effects, SpellEffectType.Scale, 20);
+var itemVisualSwapByBits = BuildTopPayloadPatterns(effects, SpellEffectType.ItemVisualSwap, 20);
+var disguiseOutfitByBits = BuildTopPayloadPatterns(effects, SpellEffectType.DisguiseOutfit, 20);
 
 HashSet<SpellEffectType> handledEffects = LoadHandledEffects(handlerPath);
 var topUnhandledEffects = effects
@@ -288,6 +290,8 @@ sb.AppendLine();
 AppendPayloadSection(sb, "ForcedMove Payload Patterns (Top 20)", forcedMoveByBits);
 AppendPayloadSection(sb, "UnitStateSet Payload Patterns (Top 20)", unitStateSetByBits);
 AppendPayloadSection(sb, "Scale Payload Patterns (Top 20)", scaleByBits);
+AppendPayloadSection(sb, "ItemVisualSwap Payload Patterns (Top 20)", itemVisualSwapByBits);
+AppendPayloadSection(sb, "DisguiseOutfit Payload Patterns (Top 20)", disguiseOutfitByBits);
 
 sb.AppendLine("## Periodic SpellClass Mix");
 sb.AppendLine("| SpellClass (raw) | ClassBucket | SpellCount |");

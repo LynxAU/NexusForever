@@ -1015,10 +1015,96 @@ namespace NexusForever.Game.Spell
             target.RemoveFromMap();
         }
 
+        [SpellEffectHandler(SpellEffectType.ItemVisualSwap)]
+        public static void HandleEffectItemVisualSwap(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            if (!TryResolveItemVisualSwapSlot(info.Entry.DataBits00, out ItemSlot slot))
+                return;
+
+            ushort newDisplayId = (ushort)Math.Min(info.Entry.DataBits01, ushort.MaxValue);
+            IItemVisual existingVisual = target.GetVisuals().FirstOrDefault(v => v.Slot == slot);
+            ushort? oldDisplayId = existingVisual?.DisplayId;
+
+            Action apply = () =>
+            {
+                if (newDisplayId == 0u)
+                    target.RemoveVisual(slot);
+                else
+                    target.AddVisual(slot, newDisplayId);
+            };
+
+            Action revert = () =>
+            {
+                if (oldDisplayId.HasValue && oldDisplayId.Value > 0u)
+                    target.AddVisual(slot, oldDisplayId.Value);
+                else
+                    target.RemoveVisual(slot);
+            };
+
+            if (info.Entry.DurationTime > 0u && target is UnitEntity unitEntity)
+            {
+                uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+                uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+                uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+                unitEntity.AddTimedAura(
+                    spell.Parameters.SpellInfo.Entry.Id,
+                    info.Entry.EffectType,
+                    spell.Caster.Guid,
+                    info.Entry.DurationTime / 1000d,
+                    0d,
+                    onApply: apply,
+                    onRemove: revert,
+                    stackGroupId: stackGroupId,
+                    stackCap: stackCap,
+                    stackTypeEnum: stackTypeEnum,
+                    isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                    isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                    isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+                return;
+            }
+
+            apply();
+        }
+
         [SpellEffectHandler(SpellEffectType.Proxy)]
         public static void HandleEffectProxy(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
             target.CastSpell(info.Entry.DataBits00, new SpellParameters
+            {
+                ParentSpellInfo        = spell.Parameters.SpellInfo,
+                RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                UserInitiatedSpellCast = false
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.ProxyLinearAE)]
+        public static void HandleEffectProxyLinearAE(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            uint proxySpellId = info.Entry.DataBits00;
+            if (proxySpellId == 0u)
+                return;
+
+            IUnitEntity castSource = target ?? spell.Caster;
+            castSource.CastSpell(proxySpellId, new SpellParameters
+            {
+                ParentSpellInfo        = spell.Parameters.SpellInfo,
+                RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                UserInitiatedSpellCast = false
+            });
+        }
+
+        [SpellEffectHandler(SpellEffectType.ProxyChannelVariableTime)]
+        public static void HandleEffectProxyChannelVariableTime(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            uint proxySpellId = info.Entry.DataBits00;
+            if (proxySpellId == 0u)
+                return;
+
+            IUnitEntity castSource = target ?? spell.Caster;
+            castSource.CastSpell(proxySpellId, new SpellParameters
             {
                 ParentSpellInfo        = spell.Parameters.SpellInfo,
                 RootSpellInfo          = spell.Parameters.RootSpellInfo,
@@ -1038,6 +1124,54 @@ namespace NexusForever.Game.Spell
                 return;
 
             target.DisplayInfo = displayGroupEntry.Creature2DisplayInfoId;
+        }
+
+        [SpellEffectHandler(SpellEffectType.DisguiseOutfit)]
+        public static void HandleEffectDisguiseOutfit(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target == null)
+                return;
+
+            uint oldDisplayInfo = target.DisplayInfo;
+            ushort oldOutfitInfo = target.OutfitInfo;
+
+            uint newDisplayInfo = oldDisplayInfo;
+            ushort newOutfitInfo = oldOutfitInfo;
+            if (info.Entry.DataBits00 != 0u && GameTableManager.Instance.Creature2OutfitInfo.GetEntry(info.Entry.DataBits00) != null)
+                newOutfitInfo = (ushort)Math.Min(info.Entry.DataBits00, ushort.MaxValue);
+
+            if (info.Entry.DataBits01 != 0u && GameTableManager.Instance.Creature2DisplayInfo.GetEntry(info.Entry.DataBits01) != null)
+                newDisplayInfo = info.Entry.DataBits01;
+
+            if (newDisplayInfo == oldDisplayInfo && newOutfitInfo == oldOutfitInfo)
+                return;
+
+            Action apply = () => target.SetVisualInfo(newDisplayInfo, newOutfitInfo);
+            Action revert = () => target.SetVisualInfo(oldDisplayInfo, oldOutfitInfo);
+
+            if (info.Entry.DurationTime > 0u && target is UnitEntity unitEntity)
+            {
+                uint stackGroupId = spell.Parameters.SpellInfo.StackGroup?.Id ?? 0u;
+                uint stackCap = spell.Parameters.SpellInfo.StackGroup?.StackCap ?? 0u;
+                uint stackTypeEnum = spell.Parameters.SpellInfo.StackGroup?.StackTypeEnum ?? 0u;
+                unitEntity.AddTimedAura(
+                    spell.Parameters.SpellInfo.Entry.Id,
+                    info.Entry.EffectType,
+                    spell.Caster.Guid,
+                    info.Entry.DurationTime / 1000d,
+                    0d,
+                    onApply: apply,
+                    onRemove: revert,
+                    stackGroupId: stackGroupId,
+                    stackCap: stackCap,
+                    stackTypeEnum: stackTypeEnum,
+                    isDispellable: spell.Parameters.SpellInfo.BaseInfo.IsDispellable,
+                    isDebuff: spell.Parameters.SpellInfo.BaseInfo.IsDebuff,
+                    isBuff: spell.Parameters.SpellInfo.BaseInfo.IsBuff);
+                return;
+            }
+
+            apply();
         }
 
         [SpellEffectHandler(SpellEffectType.SummonMount)]
@@ -1149,6 +1283,19 @@ namespace NexusForever.Game.Spell
             });
         }
 
+        [SpellEffectHandler(SpellEffectType.UnlockInlaidAugment)]
+        public static void HandleEffectUnlockInlaidAugment(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            ushort unlockId = (ushort)(info.Entry.DataBits00 != 0u ? info.Entry.DataBits00 : info.Entry.DataBits01);
+            if (unlockId == 0u)
+                return;
+
+            player.Account.GenericUnlockManager.Unlock(unlockId);
+        }
+
         [SpellEffectHandler(SpellEffectType.UnlockPetFlair)]
         public static void HandleEffectUnlockPetFlair(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
@@ -1203,6 +1350,60 @@ namespace NexusForever.Game.Spell
 
             if (player.Map.CanEnter(pet, position))
                 player.Map.EnqueueAdd(pet, position);
+        }
+
+        [SpellEffectHandler(SpellEffectType.SummonPet)]
+        public static void HandleEffectSummonPet(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint creatureId = info.Entry.DataBits00;
+            if (creatureId == 0u)
+                return;
+
+            // Replace existing summoned pet entity for deterministic spell-driven pet visuals.
+            if (player.VanityPetGuid != null)
+            {
+                IPetEntity oldPet = player.GetVisible<IPetEntity>(player.VanityPetGuid.Value);
+                oldPet?.RemoveFromMap();
+                player.VanityPetGuid = 0u;
+            }
+
+            var factory = LegacyServiceProvider.Provider.GetService<IEntityFactory>();
+            var pet = factory.CreateEntity<IPetEntity>();
+            pet.Initialise(player, creatureId);
+
+            var position = new MapPosition
+            {
+                Position = player.Position
+            };
+
+            if (player.Map.CanEnter(pet, position))
+                player.Map.EnqueueAdd(pet, position);
+        }
+
+        [SpellEffectHandler(SpellEffectType.PetCastSpell)]
+        public static void HandleEffectPetCastSpell(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (target is not IPlayer player)
+                return;
+
+            uint spellId = info.Entry.DataBits00;
+            if (spellId == 0u || player.VanityPetGuid == null)
+                return;
+
+            IPetEntity pet = player.GetVisible<IPetEntity>(player.VanityPetGuid.Value);
+            if (pet == null)
+                return;
+
+            pet.CastSpell(spellId, new SpellParameters
+            {
+                ParentSpellInfo        = spell.Parameters.SpellInfo,
+                RootSpellInfo          = spell.Parameters.RootSpellInfo,
+                UserInitiatedSpellCast = false,
+                PrimaryTargetId        = player.Guid
+            });
         }
 
         [SpellEffectHandler(SpellEffectType.TitleGrant)]
@@ -1692,6 +1893,31 @@ namespace NexusForever.Game.Spell
                 return false;
 
             return true;
+        }
+
+        private static bool TryResolveItemVisualSwapSlot(uint rawSlot, out ItemSlot slot)
+        {
+            if (Enum.IsDefined(typeof(ItemSlot), (int)rawSlot))
+            {
+                slot = (ItemSlot)rawSlot;
+                return true;
+            }
+
+            // Data-driven mapping observed in ItemVisualSwap payloads.
+            slot = rawSlot switch
+            {
+                0u => ItemSlot.ArmorChest,
+                1u => ItemSlot.ArmorLegs,
+                2u => ItemSlot.ArmorHead,
+                3u => ItemSlot.ArmorShoulder,
+                4u => ItemSlot.ArmorFeet,
+                5u => ItemSlot.ArmorHands,
+                6u => ItemSlot.WeaponPrimary,
+                16u => ItemSlot.WeaponPrimary,
+                _ => default
+            };
+
+            return slot != default;
         }
 
         private static bool TryResolveForcedMoveDistance(Spell4EffectsEntry entry, out float distance)

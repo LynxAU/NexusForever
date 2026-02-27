@@ -1,6 +1,6 @@
 # Spell Data-Driven Report
 
-Generated: 2026-02-27 05:18:02 UTC
+Generated: 2026-02-27 05:27:29 UTC
 Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 
 ## Coverage Snapshot
@@ -223,24 +223,17 @@ Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 | EffectType | Id | Rows |
 |---|---:|---:|
 | RavelSignal | 81 | 5262 |
-| ItemVisualSwap | 76 | 1542 |
 | FacilityModification | 71 | 771 |
-| ProxyLinearAE | 19 | 521 |
-| DisguiseOutfit | 112 | 358 |
-| UnlockInlaidAugment | 127 | 281 |
 | ChangeDisplayName | 82 | 268 |
 | ModifySpell | 55 | 255 |
 | SpellEffectImmunity | 79 | 229 |
 | SpellCounter | 2 | 200 |
 | RewardPropertyModifier | 50 | 197 |
 | ProxyRandomExclusive | 96 | 195 |
-| PetCastSpell | 111 | 191 |
 | ChangePhase | 34 | 161 |
-| SummonPet | 98 | 152 |
 | PersonalDmgHealMod | 151 | 145 |
 | Script | 13 | 104 |
 | ForcedAction | 24 | 95 |
-| ProxyChannelVariableTime | 94 | 86 |
 | ModifySpellEffect | 56 | 82 |
 | NpcForceFacing | 89 | 79 |
 | ModifyCreatureFlags | 60 | 75 |
@@ -252,6 +245,13 @@ Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 | ShieldOverload | 64 | 55 |
 | SpellImmunity | 32 | 53 |
 | HazardModify | 87 | 49 |
+| AchievementAdvance | 92 | 48 |
+| MimicDisguise | 100 | 33 |
+| ForceFacing | 28 | 32 |
+| VectorSlide | 142 | 30 |
+| GiveLootTableToPlayer | 44 | 29 |
+| AddSpellEffect | 58 | 25 |
+| RestedXpDecorBonus | 109 | 25 |
 
 ## ForcedMove Payload Patterns (Top 20)
 | DataBits00 | DataBits01 | DataBits02 | DataBits03 | DataBits04 | Flags | TargetFlags | Tick(ms) | Duration(ms) | Rows |
@@ -324,6 +324,54 @@ Table source: `C:\Games\Dev\WIldstar\NexusForever\tmp\tables\tbl`
 | 1073741824 | 1000 | 1000 | 0 | 0 | 0 | 2 | 0 | 2000 | 4 |
 | 1073741824 | 3000 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 4 |
 | 1066192077 | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 4 |
+
+## ItemVisualSwap Payload Patterns (Top 20)
+| DataBits00 | DataBits01 | DataBits02 | DataBits03 | DataBits04 | Flags | TargetFlags | Tick(ms) | Duration(ms) | Rows |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 16 | 5467 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 38 |
+| 3 | 610 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 0 | 607 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 5 | 608 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 1 | 609 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 4 | 606 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 16 | 3477 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 3 | 4587 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 0 | 4583 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 5 | 4586 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 1 | 4584 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 4 | 4585 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 16 | 3482 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 3 | 4377 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 0 | 4373 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 5 | 4376 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 1 | 4374 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 4 | 4375 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 16 | 6636 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 3 | 4761 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+
+## DisguiseOutfit Payload Patterns (Top 20)
+| DataBits00 | DataBits01 | DataBits02 | DataBits03 | DataBits04 | Flags | TargetFlags | Tick(ms) | Duration(ms) | Rows |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 9286 | 0 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 19 |
+| 9249 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1800000 | 14 |
+| 9274 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 10000 | 10 |
+| 9415 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 60000 | 8 |
+| 9249 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 60000 | 7 |
+| 0 | 593 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 6 |
+| 0 | 2192 | 0 | 0 | 0 | 0 | 1 | 0 | 2500 | 5 |
+| 0 | 1352 | 0 | 0 | 0 | 0 | 2 | 0 | 100 | 5 |
+| 0 | 594 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 4 |
+| 0 | 1946 | 0 | 0 | 0 | 0 | 1 | 0 | 4000 | 4 |
+| 9286 | 0 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 4 |
+| 0 | 149 | 0 | 0 | 0 | 8192 | 1 | 0 | 2000 | 4 |
+| 0 | 2332 | 0 | 0 | 0 | 0 | 1 | 0 | 2500 | 3 |
+| 0 | 2332 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 3 |
+| 0 | 79 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 3 |
+| 9038 | 0 | 0 | 0 | 0 | 2 | 1 | 0 | 0 | 3 |
+| 0 | 1608 | 0 | 0 | 0 | 2 | 2 | 0 | 0 | 3 |
+| 9337 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 10000 | 3 |
+| 0 | 594 | 0 | 0 | 0 | 8192 | 1 | 0 | 1500 | 3 |
+| 0 | 594 | 0 | 0 | 0 | 32 | 1 | 0 | 5350 | 3 |
 
 ## Periodic SpellClass Mix
 | SpellClass (raw) | ClassBucket | SpellCount |

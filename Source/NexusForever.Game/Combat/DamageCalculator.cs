@@ -144,7 +144,7 @@ namespace NexusForever.Game.Combat
             ApplyApproximateMultiHit(ref damage, desc, attacker);
 
             uint shieldAbsorb = CalculateShieldAmount(damage, victim);
-            damage -= shieldAbsorb;
+            damage = damage > shieldAbsorb ? damage - shieldAbsorb : 0u;
             desc.ShieldAbsorbAmount = shieldAbsorb;
             desc.AdjustedDamage     = damage;
 

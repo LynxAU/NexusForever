@@ -636,7 +636,7 @@ namespace NexusForever.Game.Spell
             if (!target.IsAlive)
                 return;
 
-            int requestedDelta = DecodeSignedEffectAmount(info.Entry);
+            int requestedDelta = ResolveInterruptArmorDelta(info.Entry);
             if (requestedDelta == 0)
                 return;
 
@@ -3481,6 +3481,38 @@ namespace NexusForever.Game.Spell
             }
 
             // Fallback to legacy behavior for rows that only carry raw integer payloads.
+            return DecodeSignedEffectAmount(entry);
+        }
+
+        private static int ResolveInterruptArmorDelta(Spell4EffectsEntry entry)
+        {
+            if (entry.DataBits01 != 0u)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits01);
+                if (value != 0f)
+                    return (int)Math.Round(value);
+            }
+
+            if (entry.DataBits00 != 0u)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits00);
+                if (value != 0f)
+                    return (int)Math.Round(value);
+            }
+
+            if (entry.DataBits02 != 0u)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits02);
+                if (value != 0f)
+                    return (int)Math.Round(value);
+            }
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                if (entry.ParameterValue[i] != 0f)
+                    return (int)Math.Round(entry.ParameterValue[i]);
+            }
+
             return DecodeSignedEffectAmount(entry);
         }
 

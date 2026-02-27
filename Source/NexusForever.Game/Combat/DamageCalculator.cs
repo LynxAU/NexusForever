@@ -94,7 +94,7 @@ namespace NexusForever.Game.Combat
             if (!isHealLike)
             {
                 uint shieldedAmount = CalculateShieldAmount(damage, victim);
-                damage -= shieldedAmount;
+                damage = damage > shieldedAmount ? damage - shieldedAmount : 0u;
                 damageDescription.ShieldAbsorbAmount = shieldedAmount;
             }
 
@@ -140,6 +140,8 @@ namespace NexusForever.Game.Combat
             uint preGlance = damage;
             if (CalculateGlance(ref damage, attacker, victim))
                 desc.GlanceAmount = preGlance - damage;
+
+            ApplyApproximateMultiHit(ref damage, desc, attacker);
 
             uint shieldAbsorb = CalculateShieldAmount(damage, victim);
             damage -= shieldAbsorb;

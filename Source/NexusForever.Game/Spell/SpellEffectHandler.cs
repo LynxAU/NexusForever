@@ -1448,7 +1448,12 @@ namespace NexusForever.Game.Spell
             if (target is not IPlayer player)
                 return;
 
-            Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(info.Entry.DataBits00);
+            uint rawSpellId = info.Entry.DataBits00 != 0u
+                ? info.Entry.DataBits00
+                : info.Entry.DataBits01;
+            uint spell4Id = ResolveSpell4IdCandidate(rawSpellId, player);
+
+            Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(spell4Id);
             if (spell4Entry == null)
                 return;
 
@@ -1456,7 +1461,7 @@ namespace NexusForever.Game.Spell
 
             player.Session.EnqueueMessageEncrypted(new ServerUnlockMount
             {
-                Spell4Id = info.Entry.DataBits00
+                Spell4Id = spell4Id
             });
         }
 
@@ -1695,7 +1700,12 @@ namespace NexusForever.Game.Spell
             if (target is not IPlayer player)
                 return;
 
-            Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(info.Entry.DataBits00);
+            uint rawSpellId = info.Entry.DataBits00 != 0u
+                ? info.Entry.DataBits00
+                : info.Entry.DataBits01;
+            uint spell4Id = ResolveSpell4IdCandidate(rawSpellId, player);
+
+            Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(spell4Id);
             if (spell4Entry == null)
                 return;
 
@@ -1703,7 +1713,7 @@ namespace NexusForever.Game.Spell
 
             player.Session.EnqueueMessageEncrypted(new ServerUnlockMount
             {
-                Spell4Id = info.Entry.DataBits00
+                Spell4Id = spell4Id
             });
         }
 

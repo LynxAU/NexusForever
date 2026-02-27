@@ -2266,7 +2266,7 @@ namespace NexusForever.Game.Spell
                 return;
 
             uint mode = info.Entry.DataBits00;
-            List<uint> linkedSpellIds = ResolveRavelSignalLinkedSpellIds(info.Entry);
+            List<uint> linkedSpellIds = ResolveRavelSignalLinkedSpellIds(info.Entry, subject as IPlayer);
             if (linkedSpellIds.Count == 0)
                 return;
 
@@ -3682,17 +3682,18 @@ namespace NexusForever.Game.Spell
             return (int)Math.Round(candidate);
         }
 
-        private static List<uint> ResolveRavelSignalLinkedSpellIds(Spell4EffectsEntry entry)
+        private static List<uint> ResolveRavelSignalLinkedSpellIds(Spell4EffectsEntry entry, IPlayer player)
         {
             var candidates = new List<uint>(6);
 
-            void addIfSpell4(uint spellId)
+            void addIfSpell4(uint rawSpellId)
             {
-                if (spellId == 0u || spellId == uint.MaxValue)
+                if (rawSpellId == 0u || rawSpellId == uint.MaxValue)
                     return;
 
-                if (GameTableManager.Instance.Spell4.GetEntry(spellId) != null)
-                    candidates.Add(spellId);
+                uint spell4Id = ResolveSpell4IdCandidate(rawSpellId, player);
+                if (spell4Id != 0u)
+                    candidates.Add(spell4Id);
             }
 
             // Ravel payloads are predominantly mode-driven where DataBits00 is an opcode-like value (1/4/5),

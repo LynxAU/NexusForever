@@ -56,6 +56,11 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                     log.LogDebug("Triggering LearnTradeskill quest objective for player {PlayerId}, entity {EntityGuid}, event {Event}",
                         session.Player.CharacterId, entityInteraction.Guid, entityInteraction.Event);
                     session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.LearnTradeskill, 0, 1u);
+
+                    // Keep compatibility with legacy objective rows (data=0) while also sending concrete tradeskill id when available.
+                    uint tradeskillId = entity.CreatureEntry?.TradeSkillIdTrainer ?? 0u;
+                    if (tradeskillId != 0u)
+                        session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.LearnTradeskill, tradeskillId, 1u);
                 }
                 // Tradeskill engraving station (event 79) triggers ObtainSchematic objectives
                 else if (isTradeskillEngraving)

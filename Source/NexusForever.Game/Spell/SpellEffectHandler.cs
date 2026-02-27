@@ -917,14 +917,8 @@ namespace NexusForever.Game.Spell
 
             uint targetSpellId = ResolveEffectTargetSpellId(info.Entry, spell.Parameters.SpellInfo.Entry.Id);
 
-            double cooldownSeconds = 0d;
-            if (info.Entry.DataBits01 > 0u)
-            {
-                cooldownSeconds = info.Entry.DataBits01 > 1000u
-                    ? info.Entry.DataBits01 / 1000d
-                    : info.Entry.DataBits01;
-            }
-            else
+            double cooldownSeconds = ResolveActivateCooldownSeconds(info.Entry, targetSpellId);
+            if (cooldownSeconds <= 0d)
             {
                 Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(targetSpellId);
                 cooldownSeconds = spell4Entry?.SpellCoolDown > 0u
@@ -3399,6 +3393,38 @@ namespace NexusForever.Game.Spell
             }
 
             return 0d;
+        }
+
+        private static double ResolveActivateCooldownSeconds(Spell4EffectsEntry entry, uint targetSpellId)
+        {
+            bool dataBits01LooksLikeSpellId = entry.DataBits01 != 0u && IsKnownSpellId(entry.DataBits01);
+            if (!dataBits01LooksLikeSpellId && entry.DataBits01 != 0u)
+                return entry.DataBits01 > 1000u ? entry.DataBits01 / 1000d : entry.DataBits01;
+
+            float candidate = 0f;
+
+            if (entry.DataBits02 != 0u && entry.DataBits02 != targetSpellId)
+                candidate = DecodeFlexibleEffectNumber(entry.DataBits02);
+
+            if (candidate == 0f && entry.DataBits03 != 0u && entry.DataBits03 != targetSpellId)
+                candidate = DecodeFlexibleEffectNumber(entry.DataBits03);
+
+            if (candidate == 0f)
+            {
+                for (int i = 0; i < entry.ParameterValue.Length; i++)
+                {
+                    if (entry.ParameterValue[i] != 0f)
+                    {
+                        candidate = entry.ParameterValue[i];
+                        break;
+                    }
+                }
+            }
+
+            if (candidate == 0f)
+                return 0d;
+
+            return Math.Abs(candidate) > 1000f ? candidate / 1000d : candidate;
         }
 
         private static List<uint> ResolveRavelSignalLinkedSpellIds(Spell4EffectsEntry entry)

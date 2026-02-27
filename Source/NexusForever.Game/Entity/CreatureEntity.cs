@@ -135,6 +135,8 @@ namespace NexusForever.Game.Entity
         {
             base.OnDeath();
 
+            scriptCollection?.Invoke<INonPlayerScript>(s => s.OnDeath());
+
             // Only respawn entities that were initialised from a DB record.
             if (SpawnModel == null)
                 return;

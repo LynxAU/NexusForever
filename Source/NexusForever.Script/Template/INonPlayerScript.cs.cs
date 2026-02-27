@@ -23,5 +23,12 @@
         void OnEvade()
         {
         }
+
+        /// <summary>
+        /// Invoked when this NPC's health reaches zero and it transitions to the dead state.
+        /// </summary>
+        void OnDeath()
+        {
+        }
     }
 }

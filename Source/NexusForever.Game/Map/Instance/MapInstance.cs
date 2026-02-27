@@ -60,6 +60,11 @@ namespace NexusForever.Game.Map.Instance
         private readonly HashSet<uint> playerEntities = new();
         private readonly Dictionary<uint, IMapInstanceRemoval> instanceRemovals = new();
 
+        /// <summary>
+        /// Number of players currently inside this instance.
+        /// </summary>
+        protected int PlayerCount => playerEntities.Count;
+
         #region Dependency Injection
 
         public MapInstance(
@@ -80,8 +85,14 @@ namespace NexusForever.Game.Map.Instance
 
             base.Initialise(entry);
 
-            // TODO: find where this should come from, this is just an arbitrary value
-            instanceLimit = 100u;
+            // Derive player cap from map type. WorldEntry has no explicit MaxPlayers field.
+            instanceLimit = entry.Type switch
+            {
+                MapType.Dungeon     => 5u,
+                MapType.Adventure   => 5u,
+                MapType.MiniDungeon => 5u, // Expeditions, housing dungeons, event instances
+                _                   => 100u
+            };
         }
 
         /// <summary>

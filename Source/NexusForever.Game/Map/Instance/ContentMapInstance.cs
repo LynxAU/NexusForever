@@ -90,7 +90,14 @@ namespace NexusForever.Game.Map.Instance
             base.RemoveEntity(entity);
 
             if (entity is IPlayer player)
+            {
                 Match?.MatchExit(player, false);
+
+                // When the last player leaves, reset the encounter so the instance
+                // returns to its initial state for the next attempt.
+                if (PlayerCount == 0 && UnloadStatus == null)
+                    TriggerEncounterReset();
+            }
         }
 
         /// <summary>
@@ -125,6 +132,22 @@ namespace NexusForever.Game.Map.Instance
 
             // Save instance lockout for all players in the instance
             SaveInstanceLockouts();
+        }
+
+        /// <summary>
+        /// Notify the instance script that an NPC with the given creature id has died.
+        /// </summary>
+        public void TriggerBossDeath(uint creatureId)
+        {
+            scriptCollection?.Invoke<IContentMapScript>(s => s.OnBossDeath(creatureId));
+        }
+
+        /// <summary>
+        /// Notify the instance script that the encounter has reset.
+        /// </summary>
+        public void TriggerEncounterReset()
+        {
+            scriptCollection?.Invoke<IContentMapScript>(s => s.OnEncounterReset());
         }
 
         private void SaveInstanceLockouts()

@@ -13,5 +13,20 @@ namespace NexusForever.Script.Template
         void OnMatchFinish()
         {
         }
+
+        /// <summary>
+        /// Invoked when a tracked NPC with the specified creature id dies inside this instance.
+        /// Use this to advance encounter state or trigger completion.
+        /// </summary>
+        void OnBossDeath(uint creatureId)
+        {
+        }
+
+        /// <summary>
+        /// Invoked when all players have left or died and the encounter should be reset to its initial state.
+        /// </summary>
+        void OnEncounterReset()
+        {
+        }
     }
 }

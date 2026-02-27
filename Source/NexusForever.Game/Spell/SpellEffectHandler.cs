@@ -1030,9 +1030,10 @@ namespace NexusForever.Game.Spell
             if (target == null)
                 return;
 
-            uint forcedSpellId = info.Entry.DataBits00 != 0u
+            uint rawForcedSpellId = info.Entry.DataBits00 != 0u
                 ? info.Entry.DataBits00
                 : info.Entry.DataBits01;
+            uint forcedSpellId = ResolveSpell4IdCandidate(rawForcedSpellId, target as IPlayer);
             if (forcedSpellId == 0u)
                 return;
 
@@ -1772,7 +1773,10 @@ namespace NexusForever.Game.Spell
             if (target is not IPlayer player)
                 return;
 
-            uint spellId = info.Entry.DataBits00;
+            uint rawSpellId = info.Entry.DataBits00 != 0u
+                ? info.Entry.DataBits00
+                : info.Entry.DataBits01;
+            uint spellId = ResolveSpell4IdCandidate(rawSpellId, player);
             if (spellId == 0u || player.VanityPetGuid == null)
                 return;
 
@@ -2303,8 +2307,17 @@ namespace NexusForever.Game.Spell
             if (subject == null)
                 return;
 
-            uint linkedSpellId = info.Entry.DataBits00;
-            if (linkedSpellId == 0u || GameTableManager.Instance.Spell4.GetEntry(linkedSpellId) == null)
+            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            uint linkedSpellId = candidates.FirstOrDefault(id => id != spell.Parameters.SpellInfo.Entry.Id);
+            if (linkedSpellId == 0u)
+            {
+                uint rawLinkedSpellId = info.Entry.DataBits00 != 0u
+                    ? info.Entry.DataBits00
+                    : info.Entry.DataBits01;
+                linkedSpellId = ResolveSpell4IdCandidate(rawLinkedSpellId, subject as IPlayer);
+            }
+
+            if (linkedSpellId == 0u)
                 return;
 
             uint mode = info.Entry.DataBits02;

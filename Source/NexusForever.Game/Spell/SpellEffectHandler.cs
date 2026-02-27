@@ -2356,8 +2356,9 @@ namespace NexusForever.Game.Spell
             if (subject == null)
                 return;
 
-            uint linkedSpellId = info.Entry.DataBits00;
-            if (linkedSpellId == 0u || GameTableManager.Instance.Spell4.GetEntry(linkedSpellId) == null)
+            List<uint> candidates = ResolveProxyCandidateSpellIds(info.Entry);
+            uint linkedSpellId = candidates.FirstOrDefault(id => id != spell.Parameters.SpellInfo.Entry.Id);
+            if (linkedSpellId == 0u)
                 return;
 
             subject.CastSpell(linkedSpellId, new SpellParameters

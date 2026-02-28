@@ -23,6 +23,11 @@ namespace NexusForever.Game.Entity
         private readonly IPlayer player;
         private readonly Dictionary<ulong, CharacterFriendModel> friends = new();
 
+        // Tracks friends added this session that must be INSERTed rather than UPDATEd.
+        private readonly HashSet<ulong> pendingCreate = new();
+        // Tracks friend models removed this session that must be DELETEd from the DB.
+        private readonly List<CharacterFriendModel> pendingDelete = new();
+
         public FriendManager(IPlayer owner, CharacterModel model)
         {
             player = owner;
@@ -40,10 +45,18 @@ namespace NexusForever.Game.Entity
 
         public void Save(CharacterContext context)
         {
+            foreach (CharacterFriendModel friend in pendingDelete)
+                context.CharacterFriend.Remove(friend);
+            pendingDelete.Clear();
+
             foreach (CharacterFriendModel friend in friends.Values)
             {
-                context.CharacterFriend.Update(friend);
+                if (pendingCreate.Contains(friend.FriendCharacterId))
+                    context.CharacterFriend.Add(friend);
+                else
+                    context.CharacterFriend.Update(friend);
             }
+            pendingCreate.Clear();
         }
 
         public void SendFriendList()
@@ -126,6 +139,7 @@ namespace NexusForever.Game.Entity
             };
 
             friends.Add(targetId, friendModel);
+            pendingCreate.Add(targetId);
 
             player.Session.EnqueueMessageEncrypted(new ServerFriendAdd
             {
@@ -154,6 +168,11 @@ namespace NexusForever.Game.Entity
             }
 
             friends.Remove(friendCharacterId);
+
+            // If the friend was added this session and never persisted, just discard it.
+            // Otherwise queue a DELETE for the next Save().
+            if (!pendingCreate.Remove(friendCharacterId))
+                pendingDelete.Add(friendModel);
 
             player.Session.EnqueueMessageEncrypted(new ServerFriendRemove
             {

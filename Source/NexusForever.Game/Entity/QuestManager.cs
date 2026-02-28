@@ -642,7 +642,11 @@ namespace NexusForever.Game.Entity
                 RewardQuest(entry);
             }
 
-            // TODO: fixed rewards
+            // Apply faction reputation rewards embedded directly in Quest2Entry.
+            if (info.Entry.Faction2IdRewardReputation00 != 0u && info.Entry.RewardReputationOverride00 != 0f)
+                player.ReputationManager.UpdateReputation((Faction)info.Entry.Faction2IdRewardReputation00, info.Entry.RewardReputationOverride00);
+            if (info.Entry.Faction2IdRewardReputation01 != 0u && info.Entry.RewardReputationOverride01 != 0f)
+                player.ReputationManager.UpdateReputation((Faction)info.Entry.Faction2IdRewardReputation01, info.Entry.RewardReputationOverride01);
 
             uint experience = info.GetRewardExperience();
             if (experience != 0u)

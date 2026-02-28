@@ -3,12 +3,15 @@ using System.IO;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Hosting.Systemd;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using NexusForever.Database;
+using NexusForever.Database.Character;
+using NexusForever.Database.Configuration.Model;
 using NexusForever.Game;
 using NexusForever.Game.Configuration.Model;
 using NexusForever.GameTable;
@@ -55,6 +58,10 @@ namespace NexusForever.WorldServer
                 })
                 .ConfigureServices((hb, sc) =>
                 {
+                    DatabaseConfig databaseConfig = hb.Configuration.GetSection("Database").Get<DatabaseConfig>();
+                    if (databaseConfig?.Character == null)
+                        throw new InvalidOperationException("Missing Database:Character configuration.");
+
                     // register world server service first since it needs to execute before the web host
                     sc.AddHostedService<HostedService>();
                     sc.AddHostedService<NetworkInternalHandlerHostedService>();
@@ -73,6 +80,7 @@ namespace NexusForever.WorldServer
                     sc.AddNetworkInternalHandlers();
 
                     sc.AddSingletonLegacy<ISharedConfiguration, SharedConfiguration>();
+                    sc.AddDbContextFactory<CharacterContext>(options => options.UseConfiguration(databaseConfig.Character));
                     sc.AddDatabase();
                     sc.AddGame();
                     sc.AddGameTable(
@@ -95,6 +103,7 @@ namespace NexusForever.WorldServer
             try
             {
                 var host = builder.Build();
+                LegacyServiceProvider.Provider = host.Services;
                 await host.RunAsync(cancellationToken.Token);
             }
             catch (Exception e)

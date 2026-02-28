@@ -58,7 +58,6 @@ namespace NexusForever.WorldServer.Service
 
         public HostedService(
             ILogger<IHostedService> log,
-            IServiceProvider serviceProvider,
             IScriptManager scriptManager,
             ILoginQueueManager loginQueueManager,
             INetworkManager<IWorldSession> networkManager,
@@ -70,8 +69,6 @@ namespace NexusForever.WorldServer.Service
             IWorldManager worldManager)
         {
             this.log               = log;
-
-            LegacyServiceProvider.Provider = serviceProvider;
 
             this.scriptManager      = scriptManager;
             this.loginQueueManager  = loginQueueManager;

@@ -1,4 +1,4 @@
-name: Targeted Build
+name: PR Guardrails
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
     branches: [ main ]
 
 jobs:
-  build-targeted:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,7 +18,7 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore Source/NexusForever.sln
 
       - name: Build Game.Abstract
         run: dotnet build Source/NexusForever.Game.Abstract/NexusForever.Game.Abstract.csproj --configuration Release --no-restore
@@ -28,3 +28,25 @@ jobs:
 
       - name: Build Aspire DB Migrations
         run: dotnet build Source/NexusForever.Aspire.Database.Migrations/NexusForever.Aspire.Database.Migrations.csproj --configuration Release --no-restore
+
+  deploy-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deploy script files exist
+        run: |
+          test -f scripts/deploy/deploy.sh
+          test -f scripts/deploy/healthcheck.sh
+          test -f scripts/deploy/migrate.sh
+          test -f scripts/deploy/release.sh
+          test -f scripts/deploy/rollback.sh
+
+      - name: Bash syntax check
+        run: |
+          bash -n scripts/deploy/deploy.sh
+          bash -n scripts/deploy/healthcheck.sh
+          bash -n scripts/deploy/migrate.sh
+          bash -n scripts/deploy/release.sh
+          bash -n scripts/deploy/rollback.sh

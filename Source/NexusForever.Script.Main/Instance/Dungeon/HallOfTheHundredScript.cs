@@ -18,56 +18,39 @@ namespace NexusForever.Script.Main.Instance.Dungeon
     /// PublicEvent IDs for this world: 666 (main), 677, 678, 693, 696, 874, 875.
     ///
     /// Spawn data: see WorldDatabaseRepo/Instance/Dungeon/Hall of the Hundred.sql
-    /// This script uses objective-derived fallback IDs so dungeon completion can progress
-    /// while deeper TargetGroup resolution is still pending.
+    /// TODO: Replace placeholder creature IDs with verified values.
     /// </summary>
     [ScriptFilterOwnerId(3009)]
     public class HallOfTheHundredScript : IContentMapScript, IOwnedScript<IContentMapInstance>
     {
-        // Objective-derived fallback candidates from PublicEvent 666:
+        // TODO: Replace with verified boss creature IDs once identified.
+        // Candidates from PublicEvent 666 objectives (all unverified):
         //   14128 — resolves to a quest NPC (incorrect)
         //   12162 — resolves to a creature variant template (incorrect)
         //   14048 — not found in Creature2.tbl
         //   12262 — resolves to a creature variant template (incorrect)
-        //   TG 12157 and TG 14275 target groups are still unresolved.
-        //
-        // Pragmatic fallback: finish on first qualifying kill so the map can complete
-        // until authoritative encounter IDs are wired.
+        //   TG 12157 and TG 14275 TargetGroup entries not yet resolved.
         private static readonly HashSet<uint> BossCreatureIds = new()
         {
-            12162u,
-            12262u,
-            14048u,
-            14128u
+            // TODO: Populate with correct boss IDs
         };
 
         private IContentMapInstance owner;
-        private bool completed;
 
         /// <inheritdoc/>
         public void OnLoad(IContentMapInstance owner)
         {
             this.owner = owner;
-            completed = false;
         }
 
         /// <inheritdoc/>
         public void OnBossDeath(uint creatureId)
         {
-            if (completed || !BossCreatureIds.Contains(creatureId))
-                return;
-
-            completed = true;
-            if (owner.Match != null)
-                owner.Match.MatchFinish();
-            else
-                owner.OnMatchFinish();
+            // No-op until boss IDs are confirmed.
+            // TODO: Implement completion tracking when creature IDs are verified.
         }
 
         /// <inheritdoc/>
-        public void OnEncounterReset()
-        {
-            completed = false;
-        }
+        public void OnEncounterReset() { }
     }
 }

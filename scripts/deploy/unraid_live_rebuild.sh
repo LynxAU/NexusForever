@@ -33,6 +33,7 @@ BACKUP_ROOT="${BACKUP_ROOT:-/mnt/user/nexusforever-live/backups/deploy-pre}"
 CREATE_BACKUP="${CREATE_BACKUP:-true}"
 AUTO_RESTORE_ON_FAILURE="${AUTO_RESTORE_ON_FAILURE:-true}"
 LOG_WINDOW_SECONDS="${LOG_WINDOW_SECONDS:-45}"
+MANIFEST_ROOT="${MANIFEST_ROOT:-/mnt/user/nexusforever-live/backups/deploy-manifests}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONTAINERS_STOPPED="false"
@@ -218,4 +219,23 @@ echo "[deploy] Tail logs (last 40 lines each) ..."
 docker logs --tail 40 "$AUTH_CONTAINER" || true
 docker logs --tail 40 "$WORLD_CONTAINER" || true
 
+mkdir -p "$MANIFEST_ROOT"
+MANIFEST_FILE="$MANIFEST_ROOT/$RELEASE_ID.txt"
+cat > "$MANIFEST_FILE" <<EOF
+release_id=$RELEASE_ID
+deployed_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+repo_root=$REPO_ROOT
+branch=$BRANCH
+remote=$REMOTE
+git_sha=$GIT_SHA
+auth_container=$AUTH_CONTAINER
+world_container=$WORLD_CONTAINER
+auth_mount_source=$AUTH_SRC
+world_mount_source=$WORLD_SRC
+auth_config_source=${AUTH_CONFIG_SRC:-none}
+world_config_source=${WORLD_CONFIG_SRC:-none}
+backup_dir=${LAST_BACKUP_DIR:-none}
+EOF
+
+echo "[deploy] Wrote release manifest: $MANIFEST_FILE"
 echo "[deploy] Completed release $RELEASE_ID"

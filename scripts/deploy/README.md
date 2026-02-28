@@ -42,11 +42,13 @@ Optional overrides:
 - `AUTH_CONFIG_DEST`, `WORLD_CONFIG_DEST`
 - `BACKUP_ROOT`, `CREATE_BACKUP`
 - `AUTO_RESTORE_ON_FAILURE`, `LOG_WINDOW_SECONDS`
+- `MANIFEST_ROOT`
 
 Behavior:
 - Performs dependency preflight checks for MySQL and RabbitMQ before stopping live auth/world.
 - If deploy fails after auth/world are stopped, it attempts automatic recovery by starting both containers.
 - Creates a pre-deploy backup (release dirs + config) and can automatically restore on deploy failure.
+- Writes a release manifest (`release_id`, git SHA, mount paths, backup path) for auditability.
 
 ## Canonical Unraid Compose
 Files:

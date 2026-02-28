@@ -39,7 +39,7 @@ namespace NexusForever.Game.Quest
             //if (entry.WorldZoneId != 0u && entry.WorldZoneId != player.Zone.Id)
             //    return false;
 
-            if (entry.MinLevel != 0u && player.Level < entry.MaxLevel)
+            if (entry.MinLevel != 0u && player.Level < entry.MinLevel)
                 return false;
 
             if (entry.MaxLevel != 0u && player.Level > entry.MaxLevel)

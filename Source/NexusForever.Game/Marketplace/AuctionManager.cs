@@ -5,12 +5,14 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using NexusForever.Database;
 using NexusForever.Database.Character;
+using NexusForever.Game;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Item;
+using NexusForever.Game.Static.Mail;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Static;
 using NexusForever.Network.World.Message.Model;
@@ -171,10 +173,23 @@ namespace NexusForever.Game.Marketplace
                 return (GenericError.VendorNotEnoughCash, null);
 
             // Process the bid
-            // Return previous bid to the previous bidder (if any)
+            // Return previous bid to the previous bidder (if any) before updating auction state.
             if (auction.CurrentBid > 0 && auction.TopBidderCharacterId != 0)
             {
-                // TODO: Mail the previous bidder their bid back
+                IPlayer previousBidder = GetOnlinePlayer(auction.TopBidderCharacterId);
+                if (previousBidder != null)
+                {
+                    previousBidder.CurrencyManager.CurrencyAddAmount(CurrencyType.Credits, auction.CurrentBid);
+                    previousBidder.Session.EnqueueMessageEncrypted(new ServerAuctionOutbid
+                    {
+                        Auction = ConvertToAuctionInfo(auction)
+                    });
+                }
+                else
+                {
+                    MailCreditsToCharacter(db, auction.TopBidderCharacterId, auction.CurrentBid,
+                        "Auction Outbid", "You were outbid on an auction. Your bid has been returned.");
+                }
                 log.Trace($"Returning bid {auction.CurrentBid} to previous bidder {auction.TopBidderCharacterId}");
             }
 
@@ -191,9 +206,6 @@ namespace NexusForever.Game.Marketplace
             // Update auction with new bid
             auction.CurrentBid = bidAmount;
             auction.TopBidderCharacterId = player.CharacterId;
-
-            // Notify previous top bidder they've been outbid
-            // TODO: Send outbid notification
 
             await db.SaveChangesAsync();
 
@@ -214,11 +226,12 @@ namespace NexusForever.Game.Marketplace
             // Give the seller their money (minus a tax - typically 5-10%)
             // For simplicity, we'll take 5% tax
             ulong sellerAmount = (ulong)(buyoutAmount * 0.95);
-            var seller = await GetPlayerByIdAsync(db, auction.OwnerCharacterId);
+            IPlayer seller = GetOnlinePlayer(auction.OwnerCharacterId);
             if (seller != null)
-            {
                 seller.CurrencyManager.CurrencyAddAmount(CurrencyType.Credits, sellerAmount);
-            }
+            else
+                MailCreditsToCharacter(db, auction.OwnerCharacterId, sellerAmount,
+                    "Auction Sold", "Your auction item was purchased. Credits enclosed.");
 
             // Delete the auction
             db.CharacterAuction.Remove(auction);
@@ -399,38 +412,36 @@ namespace NexusForever.Game.Marketplace
 
         private async Task FinalizeExpiredAuctionAsync(CharacterContext db, CharacterAuctionModel auction)
         {
-            // Get the winner
-            var winner = await GetPlayerByIdAsync(db, auction.TopBidderCharacterId);
+            IPlayer winner = GetOnlinePlayer(auction.TopBidderCharacterId);
             if (winner != null)
             {
-                // Give item to winner
                 winner.Inventory.ItemCreate(InventoryLocation.Inventory, auction.ItemId, auction.Quantity, ItemUpdateReason.NoReason);
-            }
-
-            // Give seller their money (minus 5% tax)
-            ulong sellerAmount = (ulong)(auction.CurrentBid * 0.95);
-            var seller = await GetPlayerByIdAsync(db, auction.OwnerCharacterId);
-            if (seller != null)
-            {
-                seller.CurrencyManager.CurrencyAddAmount(CurrencyType.Credits, sellerAmount);
-            }
-
-            // Notify winner
-            if (winner != null)
-            {
                 winner.Session.EnqueueMessageEncrypted(new ServerAuctionWon
                 {
                     Auction = ConvertToAuctionInfo(auction)
                 });
             }
+            else
+            {
+                // Offline winner: item delivery via mail requires item DB creation — log for now.
+                log.Warn($"Auction {auction.AuctionId} winner {auction.TopBidderCharacterId} is offline; item {auction.ItemId} cannot be mailed (offline item mail not implemented).");
+            }
 
-            // Notify seller
+            // Give seller their credits (minus 5% tax)
+            ulong sellerAmount = (ulong)(auction.CurrentBid * 0.95);
+            IPlayer seller = GetOnlinePlayer(auction.OwnerCharacterId);
             if (seller != null)
             {
+                seller.CurrencyManager.CurrencyAddAmount(CurrencyType.Credits, sellerAmount);
                 seller.Session.EnqueueMessageEncrypted(new ServerAuctionExpired
                 {
                     Auction = ConvertToAuctionInfo(auction)
                 });
+            }
+            else
+            {
+                MailCreditsToCharacter(db, auction.OwnerCharacterId, sellerAmount,
+                    "Auction Sold", "Your auction has ended. Credits enclosed.");
             }
 
             db.CharacterAuction.Remove(auction);
@@ -441,17 +452,18 @@ namespace NexusForever.Game.Marketplace
 
         private async Task ReturnExpiredItemAsync(CharacterContext db, CharacterAuctionModel auction)
         {
-            var owner = await GetPlayerByIdAsync(db, auction.OwnerCharacterId);
+            IPlayer owner = GetOnlinePlayer(auction.OwnerCharacterId);
             if (owner != null)
             {
-                // Return the item to the owner
                 owner.Inventory.ItemCreate(InventoryLocation.Inventory, auction.ItemId, auction.Quantity, ItemUpdateReason.NoReason);
-
-                // Notify owner
                 owner.Session.EnqueueMessageEncrypted(new ServerAuctionExpired
                 {
                     Auction = ConvertToAuctionInfo(auction)
                 });
+            }
+            else
+            {
+                log.Warn($"Auction {auction.AuctionId} owner {auction.OwnerCharacterId} is offline; item {auction.ItemId} cannot be returned via mail (offline item mail not implemented).");
             }
 
             db.CharacterAuction.Remove(auction);
@@ -460,11 +472,25 @@ namespace NexusForever.Game.Marketplace
             log.Trace($"Returned expired auction {auction.AuctionId} item to owner {auction.OwnerCharacterId}");
         }
 
-        private async Task<IPlayer> GetPlayerByIdAsync(CharacterContext db, ulong characterId)
+        private static IPlayer GetOnlinePlayer(ulong characterId)
         {
-            // This is a simplified version - in a real implementation we'd need access to the player session
-            // For now, we'll return null and handle the case where the player is offline
-            return null;
+            return PlayerManager.Instance.GetPlayer(characterId);
+        }
+
+        private static void MailCreditsToCharacter(CharacterContext db, ulong recipientId, ulong credits, string subject, string body)
+        {
+            db.CharacterMail.Add(new CharacterMailModel
+            {
+                Id             = AssetManager.Instance.NextMailId,
+                RecipientId    = recipientId,
+                SenderType     = (byte)SenderType.ItemAuction,
+                Subject        = subject,
+                Message        = body,
+                CurrencyType   = (byte)CurrencyType.Credits,
+                CurrencyAmount = credits,
+                DeliveryTime   = (byte)DeliverySpeed.Instant,
+                CreateTime     = DateTime.UtcNow
+            });
         }
 
         private uint GetItemFamilyId(uint itemId)

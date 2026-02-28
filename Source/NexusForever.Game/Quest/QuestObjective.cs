@@ -97,7 +97,8 @@ namespace NexusForever.Game.Quest
                     Id       = player.CharacterId,
                     QuestId  = (ushort)QuestInfo.Entry.Id,
                     Index    = Index,
-                    Progress = Progress
+                    Progress = Progress,
+                    Timer    = timer
                 });
             }
             else
@@ -118,7 +119,8 @@ namespace NexusForever.Game.Quest
 
                 if ((saveMask & QuestObjectiveSaveMask.Timer) != 0)
                 {
-                    // TODO
+                    model.Timer = timer;
+                    entity.Property(p => p.Timer).IsModified = true;
                 }
             }
 

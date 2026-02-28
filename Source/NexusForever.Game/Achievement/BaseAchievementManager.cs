@@ -177,10 +177,9 @@ namespace NexusForever.Game.Achievement
         /// </summary>
         private bool CanUpdateAchievement(IPlayer player, AchievementEntry entry, uint objectId, uint objectIdAlt)
         {
-            // TODO: should the server also check PrerequisiteId?
             if (entry.PrerequisiteIdServer != 0u && !PrerequisiteManager.Instance.Meets(player, entry.PrerequisiteIdServer))
                 return false;
-            
+
             if (entry.PrerequisiteId != 0u && !PrerequisiteManager.Instance.Meets(player, entry.PrerequisiteId))
                 return false;
 

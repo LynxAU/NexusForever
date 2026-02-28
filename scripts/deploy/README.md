@@ -54,6 +54,7 @@ Behavior:
 Files:
 - `scripts/deploy/unraid/docker-compose.nf_iso.yml`
 - `scripts/deploy/unraid/.env.example`
+- `scripts/deploy/unraid/bootstrap_nf_iso_stack.sh`
 
 Boot/recreate stack on Unraid:
 
@@ -61,4 +62,10 @@ Boot/recreate stack on Unraid:
 cd /mnt/user/nexusforever-live/repo/scripts/deploy/unraid
 cp .env.example .env
 docker compose -f docker-compose.nf_iso.yml --env-file .env up -d
+```
+
+Repair/recreate with network checks and auth/world restart:
+
+```bash
+./bootstrap_nf_iso_stack.sh .env
 ```

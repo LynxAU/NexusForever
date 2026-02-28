@@ -39,6 +39,7 @@ This command includes:
 Use:
 - `scripts/deploy/unraid/docker-compose.nf_iso.yml`
 - `scripts/deploy/unraid/.env.example`
+- `scripts/deploy/unraid/bootstrap_nf_iso_stack.sh`
 
 Bootstrap/recreate stack:
 
@@ -46,6 +47,12 @@ Bootstrap/recreate stack:
 cd /mnt/user/nexusforever-live/repo/scripts/deploy/unraid
 cp .env.example .env
 docker compose -f docker-compose.nf_iso.yml --env-file .env up -d
+```
+
+If the stack drifts (missing containers/network), run:
+
+```bash
+./bootstrap_nf_iso_stack.sh .env
 ```
 
 ## Rollback

@@ -61,6 +61,7 @@ jobs:
           test -f scripts/deploy/release.sh
           test -f scripts/deploy/rollback.sh
           test -f scripts/deploy/unraid_live_rebuild.sh
+          test -f scripts/deploy/unraid/bootstrap_nf_iso_stack.sh
 
       - name: Bash syntax check
         run: |
@@ -70,3 +71,4 @@ jobs:
           bash -n scripts/deploy/release.sh
           bash -n scripts/deploy/rollback.sh
           bash -n scripts/deploy/unraid_live_rebuild.sh
+          bash -n scripts/deploy/unraid/bootstrap_nf_iso_stack.sh

@@ -118,10 +118,13 @@ namespace NexusForever.Game.Entity
             if (player.SignatureEnabled)
                 signatureXp = (uint)(earnedXp * 0.25f); // TODO: Make rate configurable.
 
-            // Calculate Rest XP Bonus
+            // Consume rest XP from the pool: up to 50% of base XP per kill, capped by available pool.
             uint restXp = 0u;
-            if (reason == ExpReason.KillCreature)
-                restXp = (uint)(earnedXp * 0.5f);
+            if (reason == ExpReason.KillCreature && RestBonusXp > 0)
+            {
+                restXp = Math.Min((uint)(earnedXp * 0.5f), RestBonusXp);
+                RestBonusXp -= restXp;
+            }
 
             player.Session.EnqueueMessageEncrypted(new ServerExperienceGained
             {

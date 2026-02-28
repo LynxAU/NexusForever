@@ -724,12 +724,24 @@ namespace NexusForever.Game.Spell
 
             if (appliedDurationMs == 0u)
             {
+                // Check if the CC was blocked by interrupt armor or diminishing returns
+                bool ccConsumesInterruptArmor = UnitEntity.DoesCCStateConsumeInterruptArmor(state);
+                var result = CCStateApplyRulesResult.DiminishingReturnsTriggerCap;
+                uint interruptArmorTaken = 0u;
+
+                if (ccConsumesInterruptArmor)
+                {
+                    // CC was blocked by interrupt armor - it was consumed in ApplyCrowdControlState
+                    result = CCStateApplyRulesResult.TargetInterruptArmorBlocked;
+                    interruptArmorTaken = 1u;
+                }
+
                 info.AddCombatLog(new CombatLogCCState
                 {
                     State                       = state,
                     BRemoved                    = false,
-                    InterruptArmorTaken         = 0u,
-                    Result                      = CCStateApplyRulesResult.DiminishingReturnsTriggerCap,
+                    InterruptArmorTaken         = interruptArmorTaken,
+                    Result                      = result,
                     CcStateDiminishingReturnsId = (ushort)diminishingReturnsId,
                     CastData                    = BuildCastData(spell, target, info)
                 });

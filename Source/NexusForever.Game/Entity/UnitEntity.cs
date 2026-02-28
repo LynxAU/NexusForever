@@ -546,11 +546,50 @@ namespace NexusForever.Game.Entity
                 spellEffectImmunityCounts[effectType] = count - 1u;
         }
 
+        /// <summary>
+        /// Returns true if the CC state consumes interrupt armor.
+        /// </summary>
+        /// <remarks>
+        /// Hard CCs (Stun, Root, Sleep, Fear, Hold, Knockdown, Disorient, Polymorph, Daze) 
+        /// consume interrupt armor when applied. Soft CCs (Snare, Blind, Disarm, etc.) do not.
+        /// </remarks>
+        public static bool DoesCCStateConsumeInterruptArmor(CCState state)
+        {
+            return state switch
+            {
+                CCState.Stun or
+                CCState.Sleep or
+                CCState.Root or
+                CCState.Polymorph or
+                CCState.Fear or
+                CCState.Hold or
+                CCState.Knockdown or
+                CCState.Disorient or
+                CCState.Daze => true,
+                _ => false
+            };
+        }
+
+        /// <summary>
+        /// Apply a crowd control state to the entity.
+        /// </summary>
+        /// <returns>
+        /// Returns the applied duration in milliseconds, or 0 if the CC was blocked.
+        /// </returns>
         public uint ApplyCrowdControlState(CCState state, uint durationMs, uint sourceCasterId, uint diminishingReturnsId = 0u)
         {
+            // Check diminishing returns first - if CC is blocked by DR, don't consume interrupt armor
             double multiplier = ConsumeDiminishingReturnsMultiplier(diminishingReturnsId);
             if (multiplier <= 0d)
                 return 0u;
+
+            // Check if this CC state consumes interrupt armor
+            if (DoesCCStateConsumeInterruptArmor(state) && InterruptArmor > 0)
+            {
+                // Consume 1 interrupt armor and block the CC
+                InterruptArmor = InterruptArmor - 1;
+                return 0u;
+            }
 
             uint scaledDurationMs = (uint)Math.Round(durationMs * multiplier);
             double duration = Math.Max(0.05d, scaledDurationMs / 1000d);
@@ -768,6 +807,44 @@ namespace NexusForever.Game.Entity
                     MaxShieldCapacity * GetPropertyValue(Property.ShieldRegenPct) * statUpdateTimer.Duration,
                     (double)(MaxShieldCapacity - Shield));
                 Shield += regen;
+            }
+
+            // Interrupt armor regeneration
+            UpdateInterruptArmorRegen(lastTick);
+        }
+
+        private double interruptArmorRegenTimer;
+
+        /// <summary>
+        /// Handles interrupt armor regeneration over time.
+        /// </summary>
+        private void UpdateInterruptArmorRegen(double lastTick)
+        {
+            // Get interrupt armor properties
+            float rechargeCount = GetPropertyValue(Property.InterruptArmorRechargeCount);
+            float rechargeTime = GetPropertyValue(Property.InterruptArmorRechargeTime);
+
+            // If no recharge configured, use default: 1 point every 10 seconds
+            if (rechargeTime <= 0f)
+                rechargeTime = 10f;
+            if (rechargeCount <= 0f)
+                rechargeCount = 1f;
+
+            interruptArmorRegenTimer += lastTick;
+            if (interruptArmorRegenTimer >= rechargeTime)
+            {
+                interruptArmorRegenTimer = 0d;
+
+                // Recharge interrupt armor (capped at max, default max is 5)
+                float maxInterruptArmor = GetPropertyValue(Property.InterruptArmorThreshold);
+                if (maxInterruptArmor <= 0f)
+                    maxInterruptArmor = 5f;
+
+                if (InterruptArmor < (uint)maxInterruptArmor)
+                {
+                    uint newArmor = InterruptArmor + (uint)rechargeCount;
+                    InterruptArmor = (uint)Math.Min(newArmor, (uint)maxInterruptArmor);
+                }
             }
         }
 

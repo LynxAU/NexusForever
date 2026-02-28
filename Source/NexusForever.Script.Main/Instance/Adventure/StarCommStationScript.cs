@@ -5,23 +5,24 @@ namespace NexusForever.Script.Main.Instance.Adventure
     /// <summary>
     /// Map script for Star-Comm Station adventure (WorldId 1437).
     ///
-    /// Type: Combat — players fight through the Eldan relay station clearing
-    /// automated defenses including SCS-72 Commander and SCS-83 Augmentor.
+    /// Type: Combat  players fight through the Eldan relay station clearing
+    /// automated defenses.
     ///
-    /// Data source: local world DB spawns in
-    /// WorldDatabaseRepo/Olyssia/Wilderrun.sql filtered to WorldId 1437 and EntityType 10.
-    /// IDs are selected as high-confidence station boss candidates.
+    /// Boss creature IDs could not be confirmed from Creature2.tbl data
+    /// the original IDs (40353, 40365) mapped to Wilderrun quest objects.
+    /// Uses FallbackRequiredBossKills so that any 2 EncounterBossScript deaths
+    /// complete the adventure once correct creature IDs are added.
+    ///
+    /// TODO: Add boss scripts once creature IDs are confirmed via in-game testing.
     /// </summary>
     [ScriptFilterOwnerId(1437)]
     public class StarCommStationScript : AdventureScript
     {
-        private const uint SCS72CommanderCreatureId = 40353u;
-        private const uint SCS83AugmentorCreatureId = 40365u;
+        protected override int FallbackRequiredBossKills => 2;
 
         protected override void OnAdventureLoad()
         {
-            AddWave(SCS72CommanderCreatureId);
-            AddWave(SCS83AugmentorCreatureId);
+            // No explicit waves  awaiting confirmed creature IDs from in-game testing.
         }
     }
 }

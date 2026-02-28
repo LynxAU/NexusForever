@@ -3,27 +3,24 @@ using NexusForever.Script.Template.Filter;
 namespace NexusForever.Script.Main.Instance.Adventure
 {
     /// <summary>
-    /// Map script for Northern Wilds adventure (WorldId 1393).
+    /// Map script for Northern Wilds adventure / War of the Wilds (WorldId 1393).
     ///
-    /// Type: Rescue/combat — players rescue colonists and fight through Northern Wilds
-    /// threat encounters, ending with a final confrontation.
+    /// Three sequential boss encounters (normal and veteran variants):
+    ///   Lord Hoarfrost   25967 (normal) / 52497 (veteran)
+    ///   Glaciax          25968 (normal) / 52498 (veteran)
+    ///   The Frozen Corrupter  25970 (normal) / 52499 (veteran)
     ///
-    /// Data source: local world DB spawns in
-    /// WorldDatabaseRepo/Olyssia/Auroria.sql filtered to WorldId 1393 and EntityType 10.
-    /// IDs are selected as encounter anchors and should be validated against retail ordering.
+    /// Uses FallbackRequiredBossKills because only one variant set (normal OR veteran)
+    /// spawns per instance  any 3 unique boss deaths completes the adventure.
     /// </summary>
     [ScriptFilterOwnerId(1393)]
     public class NorthernWildsAdventureScript : AdventureScript
     {
-        private const uint ThreatEncounter1CreatureId = 27568u;
-        private const uint ThreatEncounter2CreatureId = 39332u;
-        private const uint FinalEncounterCreatureId = 29638u;
+        protected override int FallbackRequiredBossKills => 3;
 
         protected override void OnAdventureLoad()
         {
-            AddWave(ThreatEncounter1CreatureId);
-            AddWave(ThreatEncounter2CreatureId);
-            AddWave(FinalEncounterCreatureId);
+            // No explicit waves  FallbackRequiredBossKills handles completion.
         }
     }
 }

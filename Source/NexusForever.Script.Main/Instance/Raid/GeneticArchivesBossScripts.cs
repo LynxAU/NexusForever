@@ -349,16 +349,42 @@ namespace NexusForever.Script.Main.Instance.Raid
     [ScriptFilterCreatureId(56184u)]
     public class GAGravitronOperatorScript : BossEncounterScript
     {
-        // TODO: Extract Gravitron Operator Spell4 IDs from Spell4.tbl.
-        protected override void OnBossLoad() { }
+        // 62652 | Gravity Crush - Base
+        // 62731 | Gravity Spike - Base
+        // 70439 | Gravity Reversal - Base
+        // 70448 | Gravity Flux - Base
+        // 69770 | Anti-Gravity Bubble - Base
+        // 62736 | Gravity Swell
+        protected override void OnBossLoad()
+        {
+            ScheduleSpell(spell4Id: 62652, initialDelay:  4.0, interval: 10.0); // Gravity Crush
+            ScheduleSpell(spell4Id: 62731, initialDelay:  8.0, interval: 16.0); // Gravity Spike
+            ScheduleSpell(spell4Id: 70439, initialDelay: 14.0, interval: 24.0); // Gravity Reversal
+            ScheduleSpell(spell4Id: 70448, initialDelay: 20.0, interval: 28.0); // Gravity Flux
+            ScheduleSpell(spell4Id: 69770, initialDelay: 28.0, interval: 35.0); // Anti-Gravity Bubble
+            ScheduleSpell(spell4Id: 62736, initialDelay: 36.0, interval: 40.0); // Gravity Swell
+            SetEnrage(seconds: 480.0, enrageSpellId: 62731);
+        }
     }
 
     /// <summary>Miniboss — Hideously Malformed Mutant. Creature2Id 56178.</summary>
     [ScriptFilterCreatureId(56178u)]
     public class GAHideouslyMalformedMutantScript : BossEncounterScript
     {
-        // TODO: Extract Spell4 IDs.
-        protected override void OnBossLoad() { }
+        // 62657 | Cancerous Breeding - Base
+        // 62936 | Cellular Leech - Base
+        // 62733 | Consume - Base
+        // 62732 | Mitosis
+        // 69923 | Cellular Breakdown
+        protected override void OnBossLoad()
+        {
+            ScheduleSpell(spell4Id: 62657, initialDelay:  3.0, interval: 14.0); // Cancerous Breeding
+            ScheduleSpell(spell4Id: 62936, initialDelay:  7.0, interval: 18.0); // Cellular Leech
+            ScheduleSpell(spell4Id: 62733, initialDelay: 12.0, interval: 22.0); // Consume
+            ScheduleSpell(spell4Id: 62732, initialDelay: 20.0, interval: 30.0); // Mitosis
+            ScheduleSpell(spell4Id: 69923, initialDelay: 26.0, interval: 34.0); // Cellular Breakdown
+            SetEnrage(seconds: 480.0, enrageSpellId: 62733);
+        }
     }
 
     /// <summary>Miniboss — Fetid Miscreation (internal: Ravenok). Creature2Id 56377.</summary>
@@ -379,41 +405,94 @@ namespace NexusForever.Script.Main.Instance.Raid
     [ScriptFilterCreatureId(54785u)]
     public class GAGuardianEastScript : BossEncounterScript
     {
-        protected override void OnBossLoad() { } // TODO: Extract Spell4 IDs
+        protected override void OnBossLoad()
+        {
+            ScheduleSpell(spell4Id: 61418, initialDelay:  5.0, interval: 16.0); // Hookshot
+            ScheduleSpell(spell4Id: 61227, initialDelay: 10.0, interval: 24.0); // Banish
+            ScheduleSpell(spell4Id: 61494, initialDelay: 16.0, interval: 28.0); // Laser - Extermination Beam
+            ScheduleSpell(spell4Id: 61419, initialDelay: 24.0, interval: 34.0); // Eradicate
+            ScheduleSpell(spell4Id: 61287, initialDelay: 32.0, interval: 45.0); // Maintenance Protocol - East Signal
+            ScheduleSpell(spell4Id: 61321, initialDelay: 40.0, interval: 60.0); // Genetic Overload 3
+            SetEnrage(seconds: 480.0, enrageSpellId: 61321);
+        }
     }
 
     /// <summary>Miniboss — Guardian West. Creature2Id 54787.</summary>
     [ScriptFilterCreatureId(54787u)]
     public class GAGuardianWestScript : BossEncounterScript
     {
-        protected override void OnBossLoad() { } // TODO: Extract Spell4 IDs
+        protected override void OnBossLoad()
+        {
+            ScheduleSpell(spell4Id: 61418, initialDelay:  5.0, interval: 16.0); // Hookshot
+            ScheduleSpell(spell4Id: 61227, initialDelay: 10.0, interval: 24.0); // Banish
+            ScheduleSpell(spell4Id: 61494, initialDelay: 16.0, interval: 28.0); // Laser - Extermination Beam
+            ScheduleSpell(spell4Id: 61419, initialDelay: 24.0, interval: 34.0); // Eradicate
+            ScheduleSpell(spell4Id: 61293, initialDelay: 32.0, interval: 45.0); // Maintenance Protocol - West Signal
+            ScheduleSpell(spell4Id: 61321, initialDelay: 40.0, interval: 60.0); // Genetic Overload 3
+            SetEnrage(seconds: 480.0, enrageSpellId: 61321);
+        }
     }
 
     /// <summary>Miniboss — Malfunctioning Battery. Creature2Id 56174.</summary>
     [ScriptFilterCreatureId(56174u)]
     public class GAMalfunctioningBatteryScript : BossEncounterScript
     {
-        protected override void OnBossLoad() { } // TODO: Extract Spell4 IDs
+        protected override void OnBossLoad()
+        {
+            ScheduleSpell(spell4Id: 62637, initialDelay:  4.0, interval: 12.0); // Over-Charge
+            ScheduleSpell(spell4Id: 62638, initialDelay:  9.0, interval: 15.0); // Re-Charge
+            ScheduleSpell(spell4Id: 62640, initialDelay: 14.0, interval: 18.0); // Resistor-Charge
+            ScheduleSpell(spell4Id: 62691, initialDelay: 20.0, interval: 24.0); // Magnetized Cell
+            ScheduleSpell(spell4Id: 62683, initialDelay: 30.0, interval: 32.0); // Voltage Storm
+            ScheduleSpell(spell4Id: 70241, initialDelay: 36.0, interval: 40.0); // Power Siphon
+            SetEnrage(seconds: 480.0, enrageSpellId: 62683);
+        }
     }
 
     /// <summary>Miniboss — Malfunctioning Dynamo. Creature2Id 54935.</summary>
     [ScriptFilterCreatureId(54935u)]
     public class GAMalfunctioningDynamoScript : BossEncounterScript
     {
-        protected override void OnBossLoad() { } // TODO: Extract Spell4 IDs
+        protected override void OnBossLoad()
+        {
+            ScheduleSpell(spell4Id: 61322, initialDelay:  4.0, interval: 10.0); // Direct Current
+            ScheduleSpell(spell4Id: 62890, initialDelay:  8.0, interval: 15.0); // Arc Thrower
+            ScheduleSpell(spell4Id: 61340, initialDelay: 14.0, interval: 20.0); // Static Discharge
+            ScheduleSpell(spell4Id: 70111, initialDelay: 20.0, interval: 24.0); // Static Shock
+            ScheduleSpell(spell4Id: 61449, initialDelay: 28.0, interval: 32.0); // Critical Mass
+            ScheduleSpell(spell4Id: 61439, initialDelay: 34.0, interval: 38.0); // Overload
+            ScheduleSpell(spell4Id: 61385, initialDelay: 42.0, interval: 50.0); // Overdrive
+            SetEnrage(seconds: 480.0, enrageSpellId: 61439);
+        }
     }
 
     /// <summary>Miniboss — Malfunctioning Piston. Creature2Id 56106.</summary>
     [ScriptFilterCreatureId(56106u)]
     public class GAMalfunctioningPistonScript : BossEncounterScript
     {
-        protected override void OnBossLoad() { } // TODO: Extract Spell4 IDs
+        protected override void OnBossLoad()
+        {
+            ScheduleSpell(spell4Id: 62556, initialDelay:  4.0, interval: 10.0); // Dash
+            ScheduleSpell(spell4Id: 62552, initialDelay:  8.0, interval: 14.0); // Leap
+            ScheduleSpell(spell4Id: 62579, initialDelay: 12.0, interval: 18.0); // Burst Gasket
+            ScheduleSpell(spell4Id: 62554, initialDelay: 16.0, interval: 20.0); // Electrical Current
+            ScheduleSpell(spell4Id: 62566, initialDelay: 24.0, interval: 28.0); // Shatter Coupling
+            ScheduleSpell(spell4Id: 62568, initialDelay: 30.0, interval: 34.0); // Shear Casing
+            SetEnrage(seconds: 480.0, enrageSpellId: 62568);
+        }
     }
 
     /// <summary>Miniboss — Malfunctioning Gear. Creature2Id 55066.</summary>
     [ScriptFilterCreatureId(55066u)]
     public class GAMalfunctioningGearScript : BossEncounterScript
     {
-        protected override void OnBossLoad() { } // TODO: Extract Spell4 IDs
+        protected override void OnBossLoad()
+        {
+            ScheduleSpell(spell4Id: 70948, initialDelay:  5.0, interval: 14.0); // Corrosive Fluid
+            ScheduleSpell(spell4Id: 62521, initialDelay: 10.0, interval: 20.0); // Leaking Coolant
+            ScheduleSpell(spell4Id: 61496, initialDelay: 20.0, interval: 26.0); // Repeat
+            ScheduleSpell(spell4Id: 62506, initialDelay: 30.0, interval: 40.0); // Cleanup
+            SetEnrage(seconds: 480.0, enrageSpellId: 61496);
+        }
     }
 }

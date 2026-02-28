@@ -356,7 +356,11 @@ namespace NexusForever.Game.Entity
             if (value == ActiveActionSet)
                 return SpecError.NoChange;
 
-            // TODO: handle other errors
+            if (!player.IsAlive)
+                return SpecError.InVoid;
+
+            if (player.InCombat)
+                return SpecError.InCombat;
 
             ActiveActionSet = value;
             return SpecError.Ok;

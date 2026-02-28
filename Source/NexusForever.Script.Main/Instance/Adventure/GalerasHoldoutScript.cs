@@ -1,44 +1,25 @@
-using NexusForever.Game.Abstract.Map.Instance;
-using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 
 namespace NexusForever.Script.Main.Instance.Adventure
 {
     /// <summary>
-    /// Map script for Galeras Holdout adventure (WorldId 1233, internal "GalerasHoldout").
+    /// Map script for Galeras Holdout adventure (WorldId 1233).
     ///
-    /// NOTE: Boss creature IDs have not been identified. Adventure creatures in Creature2.tbl do
-    /// not use bracket prefixes and could not be reliably matched to this world without sniff data.
+    /// Type: Wave defense — players hold a fortified position in Galeras against
+    /// Dominion assault waves culminating in a commander fight.
     ///
-    /// This script is a framework placeholder. Completion tracking will activate once the correct
-    /// boss creature IDs are identified via in-game testing or retail sniff data.
-    ///
-    /// TODO: Identify and populate boss creature IDs for Galeras Holdout.
+    /// Creature IDs require in-game testing (no bracket prefix in Creature2.tbl).
+    /// TODO: Identify wave boss creature IDs and populate AddWave() calls.
     /// </summary>
     [ScriptFilterOwnerId(1233)]
-    public class GalerasHoldoutScript : IContentMapScript, IOwnedScript<IContentMapInstance>
+    public class GalerasHoldoutScript : AdventureScript
     {
-        // TODO: Populate with correct boss creature IDs once identified.
-        private static readonly HashSet<uint> BossCreatureIds = new()
+        protected override void OnAdventureLoad()
         {
-            // TODO: Add verified creature IDs
-        };
-
-        private IContentMapInstance owner;
-
-        /// <inheritdoc/>
-        public void OnLoad(IContentMapInstance owner)
-        {
-            this.owner = owner;
+            // TODO: Populate once creature IDs are confirmed via in-game testing.
+            //   AddWave(wave1CommanderId);    // First assault wave commander
+            //   AddWave(wave2CommanderId);    // Second wave
+            //   AddWave(finalCommanderId);    // Final commander
         }
-
-        /// <inheritdoc/>
-        public void OnBossDeath(uint creatureId)
-        {
-            // No-op until boss IDs are confirmed.
-        }
-
-        /// <inheritdoc/>
-        public void OnEncounterReset() { }
     }
 }

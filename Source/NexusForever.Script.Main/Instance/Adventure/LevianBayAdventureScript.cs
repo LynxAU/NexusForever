@@ -1,46 +1,27 @@
-using NexusForever.Game.Abstract.Map.Instance;
-using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 
 namespace NexusForever.Script.Main.Instance.Adventure
 {
     /// <summary>
-    /// Map script for Levian Bay adventure (WorldId 3176, internal "LevianBayAdventure").
+    /// Map script for Levian Bay adventure (WorldId 3176).
     ///
-    /// NOTE: Boss creature IDs have not been identified. Creature2.tbl "[LBPCP]" entries
-    /// (Levian Bay Player-Controlled Phase, 92 entries) may cover content in this adventure
-    /// world, but specific creature IDs were not extracted in the available search results.
+    /// Type: Combat — players push through Levian Bay fighting Purewater zealots
+    /// and Grimvoid operatives in sequential encounters.
     ///
-    /// This script is a framework placeholder. Completion tracking will activate once the correct
-    /// boss creature IDs are identified via in-game testing or retail sniff data.
-    ///
-    /// TODO: Extract [LBPCP] creature IDs relevant to Levian Bay adventure (WorldId 3176).
+    /// Potential creature IDs from [LBPCP] bracket in Creature2.tbl (92 entries);
+    /// exact Levian Bay IDs require in-game testing to confirm WorldId mapping.
+    /// TODO: Extract [LBPCP] creature IDs relevant to WorldId 3176 via testing.
     /// </summary>
     [ScriptFilterOwnerId(3176)]
-    public class LevianBayAdventureScript : IContentMapScript, IOwnedScript<IContentMapInstance>
+    public class LevianBayAdventureScript : AdventureScript
     {
-        // TODO: Populate with correct boss creature IDs once identified.
-        // Candidates: [LBPCP] entries (Purewater, Grimvoid encounters — creature IDs unknown).
-        private static readonly HashSet<uint> BossCreatureIds = new()
+        protected override void OnAdventureLoad()
         {
-            // TODO: Add verified creature IDs
-        };
-
-        private IContentMapInstance owner;
-
-        /// <inheritdoc/>
-        public void OnLoad(IContentMapInstance owner)
-        {
-            this.owner = owner;
+            // TODO: Populate once creature IDs are confirmed.
+            // Potential [LBPCP] candidates (WorldId 3176):
+            //   AddWave(puewaterBossId);     // Purewater encounter boss
+            //   AddWave(grimvoidBossId);     // Grimvoid encounter boss
+            //   AddWave(finalBossId);        // Final confrontation
         }
-
-        /// <inheritdoc/>
-        public void OnBossDeath(uint creatureId)
-        {
-            // No-op until boss IDs are confirmed.
-        }
-
-        /// <inheritdoc/>
-        public void OnEncounterReset() { }
     }
 }

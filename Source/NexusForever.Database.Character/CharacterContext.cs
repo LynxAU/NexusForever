@@ -36,6 +36,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterTradeskillMaterialModel> CharacterTradeskillMaterial { get; set; }
         public DbSet<CharacterVirtualItemModel> CharacterVirtualItem { get; set; }
         public DbSet<CharacterPrimalMatrixModel> CharacterPrimalMatrix { get; set; }
+        public DbSet<CharacterPrimalMatrixNodeModel> CharacterPrimalMatrixNode { get; set; }
         public DbSet<CharacterZonemapHexgroupModel> CharacterZonemapHexgroup { get; set; }
         public DbSet<ChatChannelModel> ChatChannel { get; set; }
         public DbSet<ChatChannelMemberModel> ChatChannelMember { get; set; }
@@ -2726,6 +2727,34 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.PrimalMatrix)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__character_primal_matrix_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterPrimalMatrixNodeModel>(entity =>
+            {
+                entity.ToTable("character_primal_matrix_node");
+
+                entity.HasKey(e => new { e.Id, e.NodeId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0ul);
+
+                entity.Property(e => e.NodeId)
+                    .HasColumnName("nodeId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.Property(e => e.Allocations)
+                    .HasColumnName("allocations")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.PrimalMatrixNodes)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_primal_matrix_node_id__character_id");
             });
         }
     }

@@ -1,47 +1,26 @@
-using NexusForever.Game.Abstract.Map.Instance;
-using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 
 namespace NexusForever.Script.Main.Instance.Adventure
 {
     /// <summary>
-    /// Map script for Star-Comm Station adventure (WorldId 1437, internal "StarCommStation").
+    /// Map script for Star-Comm Station adventure (WorldId 1437).
     ///
-    /// NOTE: Boss creature IDs have not been identified. Creature2.tbl "[LBPCP]" entries
-    /// (Levian Bay Player-Controlled Phase, 92 entries) reference "Star-Comm Station" bosses
-    /// including SCS-72 Commander and SCS-83 Augmentor, but specific creature IDs for those
-    /// entries were not extracted in the available search results.
+    /// Type: Combat — players fight through the Eldan relay station clearing
+    /// automated defenses including SCS-72 Commander and SCS-83 Augmentor.
     ///
-    /// This script is a framework placeholder. Completion tracking will activate once the correct
-    /// boss creature IDs are identified via in-game testing or retail sniff data.
-    ///
-    /// TODO: Extract [LBPCP] creature IDs for SCS-72 Commander and SCS-83 Augmentor.
+    /// Potential creature IDs from [LBPCP] bracket in Creature2.tbl (92 entries);
+    /// specific IDs for SCS-72/SCS-83 require in-game testing to confirm.
+    /// TODO: Extract [LBPCP] creature IDs and populate AddWave() calls.
     /// </summary>
     [ScriptFilterOwnerId(1437)]
-    public class StarCommStationScript : IContentMapScript, IOwnedScript<IContentMapInstance>
+    public class StarCommStationScript : AdventureScript
     {
-        // TODO: Populate with correct boss creature IDs once identified.
-        // Candidates: [LBPCP] SCS-72 Commander, [LBPCP] SCS-83 Augmentor (creature IDs unknown).
-        private static readonly HashSet<uint> BossCreatureIds = new()
+        protected override void OnAdventureLoad()
         {
-            // TODO: Add verified creature IDs
-        };
-
-        private IContentMapInstance owner;
-
-        /// <inheritdoc/>
-        public void OnLoad(IContentMapInstance owner)
-        {
-            this.owner = owner;
+            // TODO: Populate once creature IDs are confirmed.
+            // Candidates from [LBPCP] Creature2.tbl entries:
+            //   AddWave(scs72CommanderId);   // SCS-72 Commander
+            //   AddWave(scs83AugmentorId);   // SCS-83 Augmentor (final)
         }
-
-        /// <inheritdoc/>
-        public void OnBossDeath(uint creatureId)
-        {
-            // No-op until boss IDs are confirmed.
-        }
-
-        /// <inheritdoc/>
-        public void OnEncounterReset() { }
     }
 }

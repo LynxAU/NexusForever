@@ -1,44 +1,25 @@
-using NexusForever.Game.Abstract.Map.Instance;
-using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
 
 namespace NexusForever.Script.Main.Instance.Adventure
 {
     /// <summary>
-    /// Map script for Whitevale Offensive adventure (WorldId 1323, internal "WhitevaleOffensive").
+    /// Map script for Whitevale Offensive adventure (WorldId 1323).
     ///
-    /// NOTE: Boss creature IDs have not been identified. Adventure creatures in Creature2.tbl do
-    /// not use bracket prefixes and could not be reliably matched to this world without sniff data.
+    /// Type: Assault — players push through Whitevale Detention Center taking down
+    /// Dominion command staff in sequential encounters.
     ///
-    /// This script is a framework placeholder. Completion tracking will activate once the correct
-    /// boss creature IDs are identified via in-game testing or retail sniff data.
-    ///
-    /// TODO: Identify and populate boss creature IDs for Whitevale Offensive.
+    /// Creature IDs require in-game testing (no bracket prefix in Creature2.tbl).
+    /// TODO: Identify officer/commander creature IDs and populate AddWave() calls.
     /// </summary>
     [ScriptFilterOwnerId(1323)]
-    public class WhitevaleOffensiveScript : IContentMapScript, IOwnedScript<IContentMapInstance>
+    public class WhitevaleOffensiveScript : AdventureScript
     {
-        // TODO: Populate with correct boss creature IDs once identified.
-        private static readonly HashSet<uint> BossCreatureIds = new()
+        protected override void OnAdventureLoad()
         {
-            // TODO: Add verified creature IDs
-        };
-
-        private IContentMapInstance owner;
-
-        /// <inheritdoc/>
-        public void OnLoad(IContentMapInstance owner)
-        {
-            this.owner = owner;
+            // TODO: Populate once creature IDs are confirmed via in-game testing.
+            //   AddWave(officer1Id);    // First Dominion officer
+            //   AddWave(officer2Id);    // Second officer
+            //   AddWave(commanderId);   // Final commander
         }
-
-        /// <inheritdoc/>
-        public void OnBossDeath(uint creatureId)
-        {
-            // No-op until boss IDs are confirmed.
-        }
-
-        /// <inheritdoc/>
-        public void OnEncounterReset() { }
     }
 }

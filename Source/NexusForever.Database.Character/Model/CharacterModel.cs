@@ -59,6 +59,7 @@ namespace NexusForever.Database.Character.Model
         public ICollection<CharacterPetCustomisationModel> PetCustomisation { get; set; } = new HashSet<CharacterPetCustomisationModel>();
         public ICollection<CharacterPetFlairModel> PetFlair { get; set; } = new HashSet<CharacterPetFlairModel>();
         public ICollection<CharacterPrimalMatrixModel> PrimalMatrix { get; set; } = new HashSet<CharacterPrimalMatrixModel>();
+        public ICollection<CharacterPrimalMatrixNodeModel> PrimalMatrixNodes { get; set; } = new HashSet<CharacterPrimalMatrixNodeModel>();
         public ICollection<CharacterQuestModel> Quest { get; set; } = new HashSet<CharacterQuestModel>();
         public ICollection<CharacterReputation> Reputation { get; set; } = new HashSet<CharacterReputation>();
         public ICollection<CharacterSpellModel> Spell { get; set; } = new HashSet<CharacterSpellModel>();

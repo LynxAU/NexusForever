@@ -30,5 +30,12 @@
         void OnDeath()
         {
         }
+
+        /// <summary>
+        /// Invoked when the NPC begins fleeing from combat due to low health.
+        /// </summary>
+        void OnFlee()
+        {
+        }
     }
 }

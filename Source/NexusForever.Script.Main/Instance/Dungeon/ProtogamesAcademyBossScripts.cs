@@ -53,4 +53,14 @@ namespace NexusForever.Script.Main.Instance.Dungeon
     /// <summary>Super-Invulnotron — final boss, Veteran. TG 12361.</summary>
     [ScriptFilterCreatureId(71209u)]
     public class ProtogamesSuperInvulnotronVScript : EncounterBossScript { }
+
+    // ── Gorganoth (Optional / Secret Boss) ───────────────────────────────────
+
+    /// <summary>Gorganoth — optional secret boss, Normal. Creature2Id 67944.</summary>
+    [ScriptFilterCreatureId(67944u)]
+    public class ProtogamesGorganothNScript : EncounterBossScript { }
+
+    /// <summary>Gorganoth — optional secret boss, Veteran. Creature2Id 71226.</summary>
+    [ScriptFilterCreatureId(71226u)]
+    public class ProtogamesGorganothVScript : EncounterBossScript { }
 }

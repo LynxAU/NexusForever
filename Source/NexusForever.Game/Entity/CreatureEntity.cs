@@ -9,6 +9,7 @@ using NexusForever.Game.Abstract.Entity.Movement;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Entity.Movement.Generator;
 using NexusForever.Game.Spell;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Spell;
 using NexusForever.Game.Static.Entity.Movement.Spline;
 using NexusForever.GameTable;
@@ -41,6 +42,9 @@ namespace NexusForever.Game.Entity
         // Movement speed when chasing a combat target.
         private const float ChaseSpeed = 7f;
 
+        // Movement speed when fleeing from combat (slightly faster than chase).
+        private const float FleeSpeed = 9f;
+
         // Movement speed when returning to spawn after evading.
         private const float ReturnSpeed = 7f;
 
@@ -50,8 +54,11 @@ namespace NexusForever.Game.Entity
         // Seconds the corpse remains visible before being removed from the map.
         private const double CorpseDuration = 5.0;
 
-        // Seconds after corpse removal before the creature respawns.
-        private const double RespawnDelay = 30.0;
+        // Default respawn delay if not specified in creature data.
+        private const double DefaultRespawnDelay = 30.0;
+
+        // Per-creature respawn delay loaded from creature data.
+        private double respawnDelay = DefaultRespawnDelay;
 
         // AI decision tick interval in seconds.
         private readonly UpdateTimer aiUpdateTimer = new(0.5);
@@ -88,6 +95,17 @@ namespace NexusForever.Game.Entity
         // Default spell cooldown used when a spell has no DelayMS.
         private const double DefaultSpellCooldown = 10.0;
 
+        // Health percentage threshold at which the NPC will attempt to flee from combat.
+        private const float FleeHealthThreshold = 0.25f;
+
+        // Maximum distance the NPC will flee from their current position.
+        private const float FleeMaxDistance = 15f;
+
+        /// <summary>
+        /// The leash behavior for this NPC when exceeding leash range.
+        /// </nummary>
+        public LeashBehavior LeashBehavior { get; protected set; } = LeashBehavior.Standard;
+
         #region Dependency Injection
 
         public CreatureEntity(IMovementManager movementManager)
@@ -103,6 +121,62 @@ namespace NexusForever.Game.Entity
 
             scriptCollection = ScriptManager.Instance.InitialiseEntityScripts<ICreatureEntity>(this);
             LoadSpellActions();
+            DetermineLeashBehavior();
+            LoadRespawnDelay();
+        }
+
+        /// <summary>
+        /// Loads respawn delay from creature data, defaulting to 30 seconds if not specified.
+        /// </summary>
+        private void LoadRespawnDelay()
+        {
+            if (CreatureEntry != null && CreatureEntry.RescanCooldown > 0)
+            {
+                // RescanCooldown is in seconds.
+                respawnDelay = CreatureEntry.RescanCooldown;
+                log.Trace($"Creature {Guid} (CreatureId {CreatureEntry.Id}) has respawn delay: {respawnDelay}s.");
+            }
+            else
+            {
+                respawnDelay = DefaultRespawnDelay;
+            }
+        }
+
+        /// <summary>
+        /// Determines the leash behavior based on creature data.
+        /// Can be overridden by derived classes for custom behavior.
+        /// </summary>
+        protected virtual void DetermineLeashBehavior()
+        {
+            if (CreatureEntry == null)
+            {
+                LeashBehavior = LeashBehavior.Standard;
+                return;
+            }
+
+            // Check creature flags for special behavior.
+            // Flag 0x1 typically indicates a world boss or special NPC.
+            // Flag 0x2 could indicate no return behavior.
+            // This can be extended based on known WildStar flag values.
+            uint flags = CreatureEntry.Flags;
+
+            // Check for boss-like behavior (flag 0x1 = world boss)
+            if ((flags & 0x1) != 0)
+            {
+                LeashBehavior = LeashBehavior.Infinite;
+                log.Trace($"Creature {Guid} (CreatureId {CreatureEntry.Id}) has boss flag - using infinite leash.");
+                return;
+            }
+
+            // Check for no-leash behavior (flag 0x2 = never returns)
+            if ((flags & 0x2) != 0)
+            {
+                LeashBehavior = LeashBehavior.None;
+                log.Trace($"Creature {Guid} (CreatureId {CreatureEntry.Id}) has no-leash flag.");
+                return;
+            }
+
+            LeashBehavior = LeashBehavior.Standard;
         }
 
         /// <summary>
@@ -194,7 +268,7 @@ namespace NexusForever.Game.Entity
             corpseDespawnFired = true;
 
             if (SpawnModel != null)
-                Map?.ScheduleRespawn(SpawnModel, RespawnDelay);
+                Map?.ScheduleRespawn(SpawnModel, respawnDelay);
 
             Map?.EnqueueRemove(this);
         }
@@ -221,10 +295,23 @@ namespace NexusForever.Game.Entity
                 return;
             }
 
-            // Leash check — if we have wandered too far from spawn, evade and reset.
-            if (Vector3.Distance(Position, LeashPosition) > LeashRange)
+            // Leash check — if we have wandered too far from spawn, handle based on leash behavior.
+            if (LeashBehavior != LeashBehavior.None && Vector3.Distance(Position, LeashPosition) > LeashRange)
             {
-                Evade();
+                if (LeashBehavior == LeashBehavior.Infinite)
+                {
+                    // Infinite leash: clear threat but don't return to spawn, just stop chasing.
+                    scriptCollection?.Invoke<INonPlayerScript>(s => s.OnEvade());
+                    ThreatManager.ClearThreatList();
+                    SetTarget((IWorldEntity)null);
+                    patrolLaunched = false;
+                    log.Trace($"Creature {Guid} exceeded leash range with infinite leash - stopping chase.");
+                }
+                else
+                {
+                    // Standard behavior: evade and return to spawn.
+                    Evade();
+                }
                 return;
             }
 
@@ -232,6 +319,13 @@ namespace NexusForever.Game.Entity
             IHostileEntity topThreat = ThreatManager.GetTopHostile();
             if (topThreat == null)
                 return;
+
+            // Flee check — if health is below threshold, attempt to flee from combat.
+            if (ShouldFlee())
+            {
+                FleeFromTarget(topThreat);
+                return;
+            }
 
             IUnitEntity target = GetVisible<IUnitEntity>(topThreat.HatedUnitId);
             if (target == null || !target.IsAlive)
@@ -323,17 +417,111 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
-        /// Move toward <paramref name="target"/> using a direct linear path.
+        /// Move toward <paramref name="target"/> using a direct linear path with adaptive speed.
         /// </summary>
         private void ChaseTarget(IUnitEntity target)
         {
             MovementManager.SetRotationFaceUnit(target.Guid);
+
+            // Calculate distance and determine appropriate speed.
+            float distance = Vector3.Distance(Position, target.Position);
+            float attackRange = HitRadius + target.HitRadius + MeleeAttackBuffer;
+
+            // Determine chase destination - stop at attack range.
+            Vector3 direction = Vector3.Normalize(target.Position - Position);
+            Vector3 chaseDestination;
+
+            if (distance > attackRange)
+            {
+                // Stop slightly before attack range to avoid overshooting.
+                chaseDestination = target.Position - (direction * attackRange * 0.9f);
+            }
+            else
+            {
+                // Already in range, don't move closer.
+                chaseDestination = Position;
+            }
+
+            // Adaptive speed: slow down when close to target for smoother movement.
+            float speed = ChaseSpeed;
+            float distanceToDestination = Vector3.Distance(Position, chaseDestination);
+            if (distanceToDestination < 5f)
+            {
+                // Slow down when within 5 units of destination.
+                speed = MathF.Max(2f, ChaseSpeed * (distanceToDestination / 5f));
+            }
+
             MovementManager.LaunchGenerator(new DirectMovementGenerator
             {
                 Begin = Position,
-                Final = target.Position,
+                Final = chaseDestination,
                 Map   = Map
-            }, ChaseSpeed, SplineMode.OneShot);
+            }, speed, SplineMode.OneShot);
+        }
+
+        /// <summary>
+        /// Returns true if the NPC should attempt to flee from combat based on health threshold.
+        /// </summary>
+        private bool ShouldFlee()
+        {
+            // Don't flee if already in return state.
+            if (isReturning)
+                return false;
+
+            // Don't flee if dead.
+            if (!IsAlive)
+                return false;
+
+            // Check if health is below the flee threshold.
+            float healthPercent = (float)Health / MaxHealth;
+            return healthPercent <= FleeHealthThreshold;
+        }
+
+        /// <summary>
+        /// Makes the NPC flee away from <paramref name="hostile"/>, moving in the opposite direction.
+        /// </summary>
+        private void FleeFromTarget(IHostileEntity hostile)
+        {
+            IUnitEntity target = GetVisible<IUnitEntity>(hostile.HatedUnitId);
+            if (target == null)
+            {
+                // Target is no longer visible, just evade normally.
+                Evade();
+                return;
+            }
+
+            scriptCollection?.Invoke<INonPlayerScript>(s => s.OnFlee());
+
+            // Calculate flee direction: away from the target.
+            Vector3 fleeDirection = Position - target.Position;
+            if (fleeDirection.Length() < 0.001f)
+            {
+                // If we're at the same position, pick a random direction.
+                float angle = (float)(Random.Shared.NextDouble() * Math.PI * 2);
+                fleeDirection = new Vector3(MathF.Cos(angle), 0f, MathF.Sin(angle));
+            }
+
+            fleeDirection = Vector3.Normalize(fleeDirection);
+
+            // Calculate flee destination - move in the opposite direction from target.
+            Vector3 fleePosition = Position + (fleeDirection * FleeMaxDistance);
+
+            // Clamp to leash range - don't flee beyond the leash position.
+            float distanceFromLeash = Vector3.Distance(fleePosition, LeashPosition);
+            if (distanceFromLeash > LeashRange)
+            {
+                // If the ideal flee position is beyond leash range, flee towards the leash position instead.
+                fleePosition = Position + Vector3.Normalize(LeashPosition - Position) * FleeMaxDistance;
+            }
+
+            MovementManager.LaunchGenerator(new DirectMovementGenerator
+            {
+                Begin = Position,
+                Final = fleePosition,
+                Map   = Map
+            }, FleeSpeed, SplineMode.OneShot);
+
+            log.Trace($"Creature {Guid} is fleeing from {target.Guid} to position {fleePosition}.");
         }
 
         /// <summary>

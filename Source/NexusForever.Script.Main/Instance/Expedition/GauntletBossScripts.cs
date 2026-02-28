@@ -18,7 +18,7 @@ namespace NexusForever.Script.Main.Instance.Expedition
     //   74991 | Ionized Exhaust     AoE exhaust cloud
     //   74992 | Forced Aggression   enrage/charge ability
 
-    /// <summary>Rockstar Yeti  Creature2Id 69254.</summary>
+    /// <summary>Rockstar Yeti  Creature2Id 69254 (veteran).</summary>
     [ScriptFilterCreatureId(69254u)]
     public class GauntletBoss1Script : BossEncounterScript
     {
@@ -40,6 +40,10 @@ namespace NexusForever.Script.Main.Instance.Expedition
         }
     }
 
+    /// <summary>Rockstar Yeti  Creature2Id 48491 (normal equivalent).</summary>
+    [ScriptFilterCreatureId(48491u)]
+    public class GauntletBoss1NormalScript : GauntletBoss1Script { }
+
     //  The Championator
     //   5649  | Punch             primary melee
     //   5652  | Jab               quick melee
@@ -47,7 +51,7 @@ namespace NexusForever.Script.Main.Instance.Expedition
     //   52448 | Haymaker          heavy knockout punch
     //   60653 | Fire Bomb         ranged AoE bomb
 
-    /// <summary>The Championator  Creature2Id 69255.</summary>
+    /// <summary>The Championator  Creature2Id 69255 (veteran).</summary>
     [ScriptFilterCreatureId(69255u)]
     public class GauntletBoss2Script : BossEncounterScript
     {
@@ -70,11 +74,15 @@ namespace NexusForever.Script.Main.Instance.Expedition
         }
     }
 
+    /// <summary>The Championator  Creature2Id 48529 (normal equivalent).</summary>
+    [ScriptFilterCreatureId(48529u)]
+    public class GauntletBoss2NormalScript : GauntletBoss2Script { }
+
     //  The Morticianatrix (Showtime)
     //   34062 | Arcane Bolt     ranged spell attack
     //   55595 | Ring of Thorns  PBAoE damage ring
 
-    /// <summary>The Morticianatrix / Showtime  Creature2Id 69308.</summary>
+    /// <summary>The Morticianatrix / Showtime  Creature2Id 69308 (veteran).</summary>
     [ScriptFilterCreatureId(69308u)]
     public class GauntletBoss3Script : BossEncounterScript
     {
@@ -87,12 +95,16 @@ namespace NexusForever.Script.Main.Instance.Expedition
         }
     }
 
+    /// <summary>The Morticianatrix / Showtime  Creature2Id 48579 (normal equivalent).</summary>
+    [ScriptFilterCreatureId(48579u)]
+    public class GauntletBoss3NormalScript : GauntletBoss3Script { }
+
     //  Shock King
     //   34062 | Arcane Bolt     ranged spell attack
     //   74700 | Sandstorm       AoE sand/wind ability
     //   74724 | Ground Support  summoning / area control
 
-    /// <summary>Shock King  Creature2Id 69305 (final boss).</summary>
+    /// <summary>Shock King  Creature2Id 69305 (veteran final boss).</summary>
     [ScriptFilterCreatureId(69305u)]
     public class GauntletBoss4Script : BossEncounterScript
     {
@@ -111,4 +123,8 @@ namespace NexusForever.Script.Main.Instance.Expedition
             ScheduleSpell(spell4Id: 74700, initialDelay: 2.0, interval: 10.0); // Sandstorm (faster)
         }
     }
+
+    /// <summary>Shock King  Creature2Id 48554 (normal final boss equivalent).</summary>
+    [ScriptFilterCreatureId(48554u)]
+    public class GauntletBoss4NormalScript : GauntletBoss4Script { }
 }

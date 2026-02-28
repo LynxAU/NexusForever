@@ -6,6 +6,8 @@
 # NexusForever generated files
 *.tbl
 *.nfmap
+# Local publish/build artifacts used during deploys.
+.out/
 # Deploy-critical runtime assets are tracked from this path.
 !assets/
 !assets/tbl/

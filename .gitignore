@@ -7,6 +7,8 @@
 *.tbl
 *.nfmap
 tmp/
+.tmp-tools/
+config.json
 
 # User-specific files
 *.suo

@@ -34,8 +34,11 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Restore
-        run: dotnet restore Source/NexusForever.sln
+      - name: Restore targeted projects
+        run: |
+          dotnet restore Source/NexusForever.Game.Abstract/NexusForever.Game.Abstract.csproj
+          dotnet restore Source/NexusForever.Database.World/NexusForever.Database.World.csproj
+          dotnet restore Source/NexusForever.Aspire.Database.Migrations/NexusForever.Aspire.Database.Migrations.csproj
 
       - name: Build Game.Abstract
         run: dotnet build Source/NexusForever.Game.Abstract/NexusForever.Game.Abstract.csproj --configuration Release --no-restore

@@ -10,6 +10,7 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Static;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Item;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Static;
 using NexusForever.Network.World.Message.Model;
@@ -246,53 +247,106 @@ namespace NexusForever.Game.Marketplace
             Property sortProperty,
             bool reverseSort,
             uint page,
-            uint pageSize = 20)
+            uint pageSize = 20,
+            ulong? buyoutMax = null,
+            uint? levelMin = null,
+            uint? levelMax = null,
+            Quality? qualityMin = null,
+            Quality? qualityMax = null,
+            uint? raceRequired = null,
+            uint? classRequired = null)
         {
             await using var db = await dbContextFactory.CreateDbContextAsync();
 
-            var query = db.CharacterAuction.AsQueryable();
-
-            // Filter by item criteria
-            if (itemFamilyId.HasValue)
-                query = query.Where(a => GetItemFamilyId(a.ItemId) == itemFamilyId.Value);
-
-            if (itemCategoryId.HasValue)
-                query = query.Where(a => GetItemCategoryId(a.ItemId) == itemCategoryId.Value);
-
-            if (itemTypeId.HasValue)
-                query = query.Where(a => GetItemTypeId(a.ItemId) == itemTypeId.Value);
-
-            if (itemIds != null && itemIds.Count > 0)
-                query = query.Where(a => itemIds.Contains(a.ItemId));
-
-            // Only show active auctions
-            query = query.Where(a => a.ExpirationTime > DateTime.UtcNow);
-
-            // Get total count before pagination
-            uint totalCount = (uint)query.Count();
-
-            // Apply sorting - simplified for now
-            query = sortType switch
-            {
-                Game.Static.Marketplace.AuctionSort.MinBid => reverseSort
-                    ? query.OrderByDescending(a => a.MinimumBid)
-                    : query.OrderBy(a => a.MinimumBid),
-                Game.Static.Marketplace.AuctionSort.Buyout => reverseSort
-                    ? query.OrderByDescending(a => a.BuyoutPrice)
-                    : query.OrderBy(a => a.BuyoutPrice),
-                Game.Static.Marketplace.AuctionSort.TimeLeft => reverseSort
-                    ? query.OrderByDescending(a => a.ExpirationTime)
-                    : query.OrderBy(a => a.ExpirationTime),
-                _ => query.OrderBy(a => a.ExpirationTime)
-            };
-
-            // Apply pagination
-            var auctions = await query
-                .Skip((int)(page * pageSize))
-                .Take((int)pageSize)
+            // Fetch all active auctions in one DB query, then filter in-memory using GameTable lookups.
+            // This avoids EF Core translation failures for custom method calls.
+            var now = DateTime.UtcNow;
+            var allActive = await db.CharacterAuction
+                .Where(a => a.ExpirationTime > now)
                 .ToListAsync();
 
-            return (totalCount, auctions.Select(ConvertToAuctionInfo).ToList());
+            IEnumerable<CharacterAuctionModel> filtered = allActive;
+
+            // Buyout cap can be evaluated directly (DB field available)
+            if (buyoutMax.HasValue)
+                filtered = filtered.Where(a => a.BuyoutPrice == 0 || a.BuyoutPrice <= buyoutMax.Value);
+
+            // GameTable-backed in-memory filters
+            if (itemFamilyId.HasValue)
+                filtered = filtered.Where(a => GetItemFamilyId(a.ItemId) == itemFamilyId.Value);
+
+            if (itemCategoryId.HasValue)
+                filtered = filtered.Where(a => GetItemCategoryId(a.ItemId) == itemCategoryId.Value);
+
+            if (itemTypeId.HasValue)
+                filtered = filtered.Where(a => GetItemTypeId(a.ItemId) == itemTypeId.Value);
+
+            if (itemIds != null && itemIds.Count > 0)
+                filtered = filtered.Where(a => itemIds.Contains(a.ItemId));
+
+            if (levelMin.HasValue || levelMax.HasValue)
+            {
+                filtered = filtered.Where(a =>
+                {
+                    uint req = GameTableManager.Instance.Item.GetEntry(a.ItemId)?.RequiredLevel ?? 0u;
+                    return (!levelMin.HasValue || req >= levelMin.Value)
+                        && (!levelMax.HasValue || req <= levelMax.Value);
+                });
+            }
+
+            if (qualityMin.HasValue || qualityMax.HasValue)
+            {
+                filtered = filtered.Where(a =>
+                {
+                    uint qualityId = GameTableManager.Instance.Item.GetEntry(a.ItemId)?.ItemQualityId ?? 0u;
+                    return (!qualityMin.HasValue || qualityId >= (uint)qualityMin.Value)
+                        && (!qualityMax.HasValue || qualityId <= (uint)qualityMax.Value);
+                });
+            }
+
+            if (raceRequired.HasValue && raceRequired.Value != 0)
+            {
+                filtered = filtered.Where(a =>
+                {
+                    uint race = GameTableManager.Instance.Item.GetEntry(a.ItemId)?.RaceRequired ?? 0u;
+                    return race == 0 || race == raceRequired.Value;
+                });
+            }
+
+            if (classRequired.HasValue && classRequired.Value != 0)
+            {
+                filtered = filtered.Where(a =>
+                {
+                    uint cls = GameTableManager.Instance.Item.GetEntry(a.ItemId)?.ClassRequired ?? 0u;
+                    return cls == 0 || cls == classRequired.Value;
+                });
+            }
+
+            var list = filtered.ToList();
+            uint totalCount = (uint)list.Count;
+
+            // Apply sorting
+            list = (sortType switch
+            {
+                Game.Static.Marketplace.AuctionSort.MinBid => reverseSort
+                    ? list.OrderByDescending(a => a.MinimumBid)
+                    : list.OrderBy(a => a.MinimumBid),
+                Game.Static.Marketplace.AuctionSort.Buyout => reverseSort
+                    ? list.OrderByDescending(a => a.BuyoutPrice)
+                    : list.OrderBy(a => a.BuyoutPrice),
+                Game.Static.Marketplace.AuctionSort.TimeLeft => reverseSort
+                    ? list.OrderByDescending(a => a.ExpirationTime)
+                    : list.OrderBy(a => a.ExpirationTime),
+                _ => list.OrderBy(a => a.ExpirationTime)
+            }).ToList();
+
+            // Paginate
+            var page_results = list
+                .Skip((int)(page * pageSize))
+                .Take((int)pageSize)
+                .ToList();
+
+            return (totalCount, page_results.Select(ConvertToAuctionInfo).ToList());
         }
 
         /// <summary>
@@ -415,20 +469,17 @@ namespace NexusForever.Game.Marketplace
 
         private uint GetItemFamilyId(uint itemId)
         {
-            // For now return 0 - need proper GameTable access
-            return 0;
+            return GameTableManager.Instance.Item.GetEntry(itemId)?.Item2FamilyId ?? 0u;
         }
 
         private uint GetItemCategoryId(uint itemId)
         {
-            // For now return 0 - need proper GameTable access
-            return 0;
+            return GameTableManager.Instance.Item.GetEntry(itemId)?.Item2CategoryId ?? 0u;
         }
 
         private uint GetItemTypeId(uint itemId)
         {
-            // For now return 0 - need proper GameTable access
-            return 0;
+            return GameTableManager.Instance.Item.GetEntry(itemId)?.Item2TypeId ?? 0u;
         }
 
         private ulong GenerateAuctionId()

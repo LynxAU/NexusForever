@@ -17,7 +17,7 @@ namespace NexusForever.Database.Character.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.7")
+                .HasAnnotation("ProductVersion", "9.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
@@ -151,6 +151,124 @@ namespace NexusForever.Database.Character.Migrations
                     b.ToTable("character_appearance", (string)null);
                 });
 
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterAuctionModel", b =>
+                {
+                    b.Property<ulong>("AuctionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasColumnName("auctionId");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ulong>("AuctionId"));
+
+                    b.Property<ulong>("BuyoutPrice")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("buyoutPrice");
+
+                    b.Property<ulong>("CircuitData")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("circuitData");
+
+                    b.Property<DateTime>("CreateTime")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasColumnName("createTime")
+                        .HasDefaultValueSql("current_timestamp()");
+
+                    b.Property<ulong>("CurrentBid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("currentBid");
+
+                    b.Property<DateTime>("ExpirationTime")
+                        .HasColumnType("datetime")
+                        .HasColumnName("expirationTime");
+
+                    b.Property<uint>("GlyphData")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("glyphData");
+
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("id");
+
+                    b.Property<ulong>("ItemGuid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("itemGuid");
+
+                    b.Property<uint>("ItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("itemId");
+
+                    b.Property<ulong>("MinimumBid")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("minimumBid");
+
+                    b.Property<ulong>("OwnerCharacterId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("ownerCharacterId");
+
+                    b.Property<uint>("Quantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("quantity");
+
+                    b.Property<ulong>("ThresholdData")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("thresholdData");
+
+                    b.Property<ulong>("TopBidderCharacterId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("topBidderCharacterId");
+
+                    b.Property<uint>("Unknown2")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("unknown2");
+
+                    b.Property<uint>("WorldRequirementItem2Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("worldRequirement_Item2Id");
+
+                    b.HasKey("AuctionId")
+                        .HasName("PRIMARY");
+
+                    b.HasIndex("ExpirationTime")
+                        .HasDatabaseName("expirationTime");
+
+                    b.HasIndex("ItemId")
+                        .HasDatabaseName("itemId");
+
+                    b.HasIndex("OwnerCharacterId")
+                        .HasDatabaseName("ownerCharacterId");
+
+                    b.ToTable("character_auction", (string)null);
+                });
+
             modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterBoneModel", b =>
                 {
                     b.Property<ulong>("Id")
@@ -171,6 +289,81 @@ namespace NexusForever.Database.Character.Migrations
                         .HasName("PRIMARY");
 
                     b.ToTable("character_bone", (string)null);
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterCommodityOrderModel", b =>
+                {
+                    b.Property<ulong>("OrderId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasColumnName("orderId");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ulong>("OrderId"));
+
+                    b.Property<ulong>("CharacterId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("characterId");
+
+                    b.Property<DateTime>("CreateTime")
+                        .HasColumnType("datetime")
+                        .HasColumnName("createTime");
+
+                    b.Property<DateTime>("ExpirationTime")
+                        .HasColumnType("datetime")
+                        .HasColumnName("expirationTime");
+
+                    b.Property<uint>("FilledQuantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("filledQuantity");
+
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("id");
+
+                    b.Property<bool>("IsBuyOrder")
+                        .HasColumnType("tinyint(1)")
+                        .HasColumnName("isBuyOrder");
+
+                    b.Property<uint>("ItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("itemId");
+
+                    b.Property<uint>("Quantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("quantity");
+
+                    b.Property<ulong>("UnitPrice")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("unitPrice");
+
+                    b.HasKey("OrderId")
+                        .HasName("PRIMARY");
+
+                    b.HasIndex("CharacterId")
+                        .HasDatabaseName("characterId");
+
+                    b.HasIndex("ExpirationTime")
+                        .HasDatabaseName("expirationTime");
+
+                    b.HasIndex("IsBuyOrder")
+                        .HasDatabaseName("isBuyOrder");
+
+                    b.HasIndex("ItemId")
+                        .HasDatabaseName("itemId");
+
+                    b.ToTable("character_commodity_order", (string)null);
                 });
 
             modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterCostumeItemModel", b =>
@@ -762,6 +955,108 @@ namespace NexusForever.Database.Character.Migrations
                     b.ToTable("character_entitlement", (string)null);
                 });
 
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterFriendModel", b =>
+                {
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint unsigned");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ulong>("Id"));
+
+                    b.Property<ulong>("CharacterId")
+                        .HasColumnType("bigint(20) unsigned");
+
+                    b.Property<ulong>("FriendCharacterId")
+                        .HasColumnType("bigint unsigned");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("longtext");
+
+                    b.Property<byte>("Type")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CharacterId");
+
+                    b.ToTable("CharacterFriend");
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterInstanceModel", b =>
+                {
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasColumnName("id");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ulong>("Id"));
+
+                    b.Property<ulong>("CharacterId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("characterId");
+
+                    b.Property<byte>("Difficulty")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasDefaultValue((byte)0)
+                        .HasColumnName("difficulty");
+
+                    b.Property<ulong>("InstanceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("instanceId");
+
+                    b.Property<DateTime>("LockoutExpiry")
+                        .HasColumnType("datetime")
+                        .HasColumnName("lockoutExpiry");
+
+                    b.Property<float>("PositionX")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("float")
+                        .HasDefaultValue(0f)
+                        .HasColumnName("positionX");
+
+                    b.Property<float>("PositionY")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("float")
+                        .HasDefaultValue(0f)
+                        .HasColumnName("positionY");
+
+                    b.Property<float>("PositionZ")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("float")
+                        .HasDefaultValue(0f)
+                        .HasColumnName("positionZ");
+
+                    b.Property<byte>("PrimeLevel")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasDefaultValue((byte)0)
+                        .HasColumnName("primeLevel");
+
+                    b.Property<float>("Rotation")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("float")
+                        .HasDefaultValue(0f)
+                        .HasColumnName("rotation");
+
+                    b.Property<ushort>("WorldId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint(5) unsigned")
+                        .HasDefaultValue((ushort)0)
+                        .HasColumnName("worldId");
+
+                    b.HasKey("Id")
+                        .HasName("PRIMARY");
+
+                    b.HasIndex("CharacterId");
+
+                    b.ToTable("character_instance", (string)null);
+                });
+
             modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterKeybindingModel", b =>
                 {
                     b.Property<ulong>("Id")
@@ -1291,6 +1586,58 @@ namespace NexusForever.Database.Character.Migrations
                     b.ToTable("character_pet_flair", (string)null);
                 });
 
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterPrimalMatrixModel", b =>
+                {
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("id");
+
+                    b.Property<uint>("EssenceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("essenceId");
+
+                    b.Property<uint>("Amount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("amount");
+
+                    b.HasKey("Id", "EssenceId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("character_primal_matrix", (string)null);
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterPrimalMatrixNodeModel", b =>
+                {
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("id");
+
+                    b.Property<uint>("NodeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("nodeId");
+
+                    b.Property<uint>("Allocations")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("allocations");
+
+                    b.HasKey("Id", "NodeId")
+                        .HasName("PRIMARY");
+
+                    b.ToTable("character_primal_matrix_node", (string)null);
+                });
+
             modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterQuestModel", b =>
                 {
                     b.Property<ulong>("Id")
@@ -1500,6 +1847,30 @@ namespace NexusForever.Database.Character.Migrations
                         .HasName("PRIMARY");
 
                     b.ToTable("character_tradeskill_materials", (string)null);
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterVirtualItemModel", b =>
+                {
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint unsigned");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ulong>("Id"));
+
+                    b.Property<ulong?>("CharacterId")
+                        .HasColumnType("bigint(20) unsigned");
+
+                    b.Property<uint>("Count")
+                        .HasColumnType("int unsigned");
+
+                    b.Property<ushort>("VirtualItemId")
+                        .HasColumnType("smallint unsigned");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CharacterId");
+
+                    b.ToTable("CharacterVirtualItem");
                 });
 
             modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterZonemapHexgroupModel", b =>
@@ -2432,6 +2803,45 @@ namespace NexusForever.Database.Character.Migrations
                     b.ToTable("residence", (string)null);
                 });
 
+            modelBuilder.Entity("NexusForever.Database.Character.Model.ResidenceNeighbor", b =>
+                {
+                    b.Property<ulong>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasColumnName("id");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<ulong>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)")
+                        .HasColumnName("createdAt");
+
+                    b.Property<ulong>("NeighborResidenceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("neighborResidenceId");
+
+                    b.Property<bool>("Pending")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false)
+                        .HasColumnName("pending");
+
+                    b.Property<ulong>("ResidenceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint(20) unsigned")
+                        .HasDefaultValue(0ul)
+                        .HasColumnName("residenceId");
+
+                    b.HasKey("Id")
+                        .HasName("PRIMARY");
+
+                    b.HasIndex("ResidenceId");
+
+                    b.ToTable("residence_neighbor", (string)null);
+                });
+
             modelBuilder.Entity("NexusForever.Database.Character.Model.ResidencePlotModel", b =>
                 {
                     b.Property<ulong>("Id")
@@ -2451,6 +2861,21 @@ namespace NexusForever.Database.Character.Migrations
                         .HasDefaultValue((byte)0)
                         .HasColumnName("buildState");
 
+                    b.Property<uint>("ContributionTotal0")
+                        .HasColumnType("int unsigned");
+
+                    b.Property<uint>("ContributionTotal1")
+                        .HasColumnType("int unsigned");
+
+                    b.Property<uint>("ContributionTotal2")
+                        .HasColumnType("int unsigned");
+
+                    b.Property<uint>("ContributionTotal3")
+                        .HasColumnType("int unsigned");
+
+                    b.Property<uint>("ContributionTotal4")
+                        .HasColumnType("int unsigned");
+
                     b.Property<ushort>("PlotInfoId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("smallint(5) unsigned")
@@ -2468,6 +2893,18 @@ namespace NexusForever.Database.Character.Migrations
                         .HasColumnType("smallint(5) unsigned")
                         .HasDefaultValue((ushort)0)
                         .HasColumnName("plugItemId");
+
+                    b.Property<uint>("UpgradeLevel")
+                        .HasColumnType("int unsigned");
+
+                    b.Property<uint>("UpkeepCharges")
+                        .HasColumnType("int unsigned");
+
+                    b.Property<float>("UpkeepTime")
+                        .HasColumnType("float");
+
+                    b.Property<ushort>("WarplotPlugItemId")
+                        .HasColumnType("smallint unsigned");
 
                     b.HasKey("Id", "Index")
                         .HasName("PRIMARY");
@@ -2607,6 +3044,29 @@ namespace NexusForever.Database.Character.Migrations
                     b.Navigation("Character");
                 });
 
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterFriendModel", b =>
+                {
+                    b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
+                        .WithMany("Friends")
+                        .HasForeignKey("CharacterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Character");
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterInstanceModel", b =>
+                {
+                    b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
+                        .WithMany("Instance")
+                        .HasForeignKey("CharacterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK__character_instance_characterId__character_id");
+
+                    b.Navigation("Character");
+                });
+
             modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterKeybindingModel", b =>
                 {
                     b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
@@ -2684,6 +3144,30 @@ namespace NexusForever.Database.Character.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK__character_pet_flair_id__character_id");
+
+                    b.Navigation("Character");
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterPrimalMatrixModel", b =>
+                {
+                    b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
+                        .WithMany("PrimalMatrix")
+                        .HasForeignKey("Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK__character_primal_matrix_id__character_id");
+
+                    b.Navigation("Character");
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterPrimalMatrixNodeModel", b =>
+                {
+                    b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
+                        .WithMany("PrimalMatrixNodes")
+                        .HasForeignKey("Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK__character_primal_matrix_node_id__character_id");
 
                     b.Navigation("Character");
                 });
@@ -2768,6 +3252,15 @@ namespace NexusForever.Database.Character.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("FK__character_tradeskill_material_id__character_id");
+
+                    b.Navigation("Character");
+                });
+
+            modelBuilder.Entity("NexusForever.Database.Character.Model.CharacterVirtualItemModel", b =>
+                {
+                    b.HasOne("NexusForever.Database.Character.Model.CharacterModel", "Character")
+                        .WithMany("VirtualItem")
+                        .HasForeignKey("CharacterId");
 
                     b.Navigation("Character");
                 });
@@ -2884,6 +3377,18 @@ namespace NexusForever.Database.Character.Migrations
                     b.Navigation("Guild");
                 });
 
+            modelBuilder.Entity("NexusForever.Database.Character.Model.ResidenceNeighbor", b =>
+                {
+                    b.HasOne("NexusForever.Database.Character.Model.ResidenceModel", "Residence")
+                        .WithMany("Neighbor")
+                        .HasForeignKey("ResidenceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK__residence_neighbor_residenceId__residence_id");
+
+                    b.Navigation("Residence");
+                });
+
             modelBuilder.Entity("NexusForever.Database.Character.Model.ResidencePlotModel", b =>
                 {
                     b.HasOne("NexusForever.Database.Character.Model.ResidenceModel", "Residence")
@@ -2930,6 +3435,10 @@ namespace NexusForever.Database.Character.Migrations
 
                     b.Navigation("Entitlement");
 
+                    b.Navigation("Friends");
+
+                    b.Navigation("Instance");
+
                     b.Navigation("Item");
 
                     b.Navigation("Keybinding");
@@ -2942,6 +3451,10 @@ namespace NexusForever.Database.Character.Migrations
 
                     b.Navigation("PetFlair");
 
+                    b.Navigation("PrimalMatrix");
+
+                    b.Navigation("PrimalMatrixNodes");
+
                     b.Navigation("Quest");
 
                     b.Navigation("Reputation");
@@ -2953,6 +3466,8 @@ namespace NexusForever.Database.Character.Migrations
                     b.Navigation("Stat");
 
                     b.Navigation("TradeskillMaterials");
+
+                    b.Navigation("VirtualItem");
 
                     b.Navigation("ZonemapHexgroup");
                 });
@@ -2988,6 +3503,8 @@ namespace NexusForever.Database.Character.Migrations
             modelBuilder.Entity("NexusForever.Database.Character.Model.ResidenceModel", b =>
                 {
                     b.Navigation("Decor");
+
+                    b.Navigation("Neighbor");
 
                     b.Navigation("Plot");
                 });

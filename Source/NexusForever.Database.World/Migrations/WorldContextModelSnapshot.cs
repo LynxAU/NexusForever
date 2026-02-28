@@ -17,10 +17,82 @@ namespace NexusForever.Database.World.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.7")
+                .HasAnnotation("ProductVersion", "9.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
+
+            modelBuilder.Entity("NexusForever.Database.World.Model.CreatureLootEntryModel", b =>
+                {
+                    b.Property<uint>("CreatureId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("creatureId");
+
+                    b.Property<uint>("LootGroupId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("lootGroupId");
+
+                    b.Property<uint>("ItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("itemId");
+
+                    b.Property<byte>("Context")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasDefaultValue((byte)0)
+                        .HasColumnName("context");
+
+                    b.Property<byte>("SourceConfidence")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(3) unsigned")
+                        .HasDefaultValue((byte)0)
+                        .HasColumnName("sourceConfidence");
+
+                    b.Property<float>("DropRate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("float")
+                        .HasDefaultValue(1f)
+                        .HasColumnName("dropRate");
+
+                    b.Property<bool>("Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true)
+                        .HasColumnName("enabled");
+
+                    b.Property<string>("EvidenceRef")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varchar(255)")
+                        .HasDefaultValue("")
+                        .HasColumnName("evidenceRef");
+
+                    b.Property<uint>("MaxCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(1u)
+                        .HasColumnName("maxCount");
+
+                    b.Property<uint>("MinCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(1u)
+                        .HasColumnName("minCount");
+
+                    b.HasKey("CreatureId", "LootGroupId", "ItemId", "Context", "SourceConfidence")
+                        .HasName("PRIMARY");
+
+                    b.HasIndex("CreatureId", "Context", "Enabled")
+                        .HasDatabaseName("ix_creature_loot_entry_creature_context_enabled");
+
+                    b.ToTable("creature_loot_entry", (string)null);
+                });
 
             modelBuilder.Entity("NexusForever.Database.World.Model.DisableModel", b =>
                 {

@@ -59,6 +59,7 @@ namespace NexusForever.WorldServer
                     sc.AddHostedService<HostedService>();
                     sc.AddHostedService<NetworkInternalHandlerHostedService>();
                     sc.AddHostedService<OnlineHostedService>();
+                    sc.AddHostedService<MarketplaceHostedService>();
 
                     sc.AddOptions<NetworkConfig>()
                         .Bind(hb.Configuration.GetSection("Network"));

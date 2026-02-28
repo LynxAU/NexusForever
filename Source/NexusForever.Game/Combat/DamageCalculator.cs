@@ -105,6 +105,9 @@ namespace NexusForever.Game.Combat
                 damage = ApplyDefensiveModifiers(damage, attacker, victim);
             }
 
+            if (!isHealLike && EncounterAbilityTuning.TryResolveTunedDamage(attacker, victim, spell, out uint tunedDamage))
+                damage = tunedDamage;
+
             damageDescription.AdjustedDamage = damage;
 
             info.AddDamage(damageDescription);

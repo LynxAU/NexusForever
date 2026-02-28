@@ -120,7 +120,22 @@ namespace NexusForever.Game.Loot
             if (worldDatabase.GetCreatureLootEntries().Any(e => e.SourceConfidence == (byte)LootSourceConfidence.ClientReverse))
                 return;
 
-            var lootPinataRows = gameTableManager.LootPinataInfo.Entries
+            if (gameTableManager == null)
+            {
+                log.Warn("Creature loot bootstrap skipped: game table manager is unavailable.");
+                return;
+            }
+
+            var lootPinataTable = gameTableManager.LootPinataInfo;
+            var lootSpellTable  = gameTableManager.LootSpell;
+
+            if (lootPinataTable == null || lootSpellTable == null)
+            {
+                log.Warn("Creature loot bootstrap skipped: LootPinataInfo or LootSpell game table is not loaded.");
+                return;
+            }
+
+            var lootPinataRows = lootPinataTable.Entries
                 .Where(r => r.Item2Id != 0u)
                 .Where(r => r.Creature2IdChest != 0u)
                 .GroupBy(r => r.Creature2IdChest)
@@ -167,7 +182,7 @@ namespace NexusForever.Game.Loot
 
             // LootSpell does not provide explicit item semantics in all cases.
             // Seed only rows where we can deterministically resolve a single Item2 id, and keep disabled by default.
-            foreach (var creatureRows in gameTableManager.LootSpell.Entries
+            foreach (var creatureRows in lootSpellTable.Entries
                 .Where(r => r.Creature2Id != 0u)
                 .GroupBy(r => r.Creature2Id))
             {

@@ -52,6 +52,7 @@ namespace NexusForever.Database.Character
         public DbSet<ResidencePlotModel> ResidencePlot { get; set; }
         public DbSet<ResidenceNeighbor> ResidenceNeighbor { get; set; }
         public DbSet<CharacterAuctionModel> CharacterAuction { get; set; }
+        public DbSet<CharacterCommodityOrderModel> CharacterCommodityOrder { get; set; }
 
         private readonly IConnectionString config;
 
@@ -2696,6 +2697,72 @@ namespace NexusForever.Database.Character
 
                 entity.HasIndex(e => e.OwnerCharacterId)
                     .HasDatabaseName("ownerCharacterId");
+
+                entity.HasIndex(e => e.ExpirationTime)
+                    .HasDatabaseName("expirationTime");
+            });
+
+            modelBuilder.Entity<CharacterCommodityOrderModel>(entity =>
+            {
+                entity.ToTable("character_commodity_order");
+
+                entity.HasKey(e => e.OrderId)
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.OrderId)
+                    .HasColumnName("orderId")
+                    .HasColumnType("bigint(20) unsigned");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CharacterId)
+                    .HasColumnName("characterId")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.ItemId)
+                    .HasColumnName("itemId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Quantity)
+                    .HasColumnName("quantity")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.FilledQuantity)
+                    .HasColumnName("filledQuantity")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.UnitPrice)
+                    .HasColumnName("unitPrice")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.IsBuyOrder)
+                    .HasColumnName("isBuyOrder")
+                    .HasColumnType("tinyint(1)");
+
+                entity.Property(e => e.ExpirationTime)
+                    .HasColumnName("expirationTime")
+                    .HasColumnType("datetime");
+
+                entity.Property(e => e.CreateTime)
+                    .HasColumnName("createTime")
+                    .HasColumnType("datetime");
+
+                entity.HasIndex(e => e.ItemId)
+                    .HasDatabaseName("itemId");
+
+                entity.HasIndex(e => e.CharacterId)
+                    .HasDatabaseName("characterId");
+
+                entity.HasIndex(e => e.IsBuyOrder)
+                    .HasDatabaseName("isBuyOrder");
 
                 entity.HasIndex(e => e.ExpirationTime)
                     .HasDatabaseName("expirationTime");

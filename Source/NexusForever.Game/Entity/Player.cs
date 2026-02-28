@@ -255,7 +255,8 @@ namespace NexusForever.Game.Entity
         private PrimalMatrixManager _primalMatrixManager;
         public IPrimalMatrixManager PrimalMatrixManager => _primalMatrixManager ??= new PrimalMatrixManager(this);
 
-        public IVendorInfo SelectedVendorInfo { get; set; } // TODO unset this when too far away from vendor
+        public IVendorInfo SelectedVendorInfo { get; set; }
+        public uint? SelectedVendorGuid { get; set; }
 
         private bool forceSave;
         private UpdateTimer saveTimer = new(SaveDuration);
@@ -421,6 +422,17 @@ namespace NexusForever.Game.Entity
                         Z = Position.Z
                     }
                 }).FireAndForgetAsync();
+
+                // Clear vendor selection if the vendor entity is gone or the player has moved too far away.
+                if (SelectedVendorGuid != null)
+                {
+                    IWorldEntity vendor = Map?.GetEntity<IWorldEntity>(SelectedVendorGuid.Value);
+                    if (vendor == null || Position.GetDistance(vendor.Position) > 10f)
+                    {
+                        SelectedVendorInfo = null;
+                        SelectedVendorGuid = null;
+                    }
+                }
 
                 relocationTimer.Reset(false);
             }

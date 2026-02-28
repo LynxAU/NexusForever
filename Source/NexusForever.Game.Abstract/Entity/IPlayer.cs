@@ -100,6 +100,7 @@ namespace NexusForever.Game.Abstract.Entity
         IPrimalMatrixManager PrimalMatrixManager { get; }
 
         IVendorInfo SelectedVendorInfo { get; set; }
+        uint? SelectedVendorGuid { get; set; }
 
         /// <summary>
         /// Save <see cref="IPlayer"/> to database, invoke supplied <see cref="Action"/> once save is complete.

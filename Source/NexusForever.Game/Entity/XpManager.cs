@@ -78,23 +78,12 @@ namespace NexusForever.Game.Entity
             float xpForNextLevel = GameTableManager.Instance.XpPerLevel.GetEntry(player.Level + 1)?.MinXpForLevel ?? 0f;
             uint maximumBonusXp  = (uint)((xpForNextLevel - xpForLevel) * 1.5f);
 
-            double xpPercentEarned;
-
-            // TODO: Calculate Rest Bonus XP earned since last login, properly.
-            // Data from this video was used in initial calculations: https://www.youtube.com/watch?v=xEMMd7CGg4s
-            // Video is out of date, but the assumption is the formulas are the same just modified more post-F2P.
+            // Base rate: ~0.24% of level XP per hour, accumulates regardless of logout location.
+            // WildStar rest XP accrued offline everywhere; housing gave the same base rate plus
+            // potential decor bonuses (TODO: apply decor/spell bonuses when those systems support it).
+            const double RestXpBaseRate = 0.0024;
             double hoursSinceLogin = DateTime.UtcNow.Subtract((DateTime)model.LastOnline).TotalHours;
-            switch (model.WorldId)
-            {
-                case 1229:
-                    // TODO: Apply bonuses from decor or other things that increase rested XP gain.
-                    xpPercentEarned = hoursSinceLogin * 0.0024f;
-                    break;
-                // TODO: Add support for home cities, towns and sleeping bag (?!) gain rates.
-                default:
-                    xpPercentEarned = 0d;
-                    break;
-            }
+            double xpPercentEarned = hoursSinceLogin * RestXpBaseRate;
 
             // TODO: Apply bonuses from spells as necessary
 

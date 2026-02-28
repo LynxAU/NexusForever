@@ -322,7 +322,12 @@ namespace NexusForever.Game.Entity
             }
             else
             {
-                // TODO: contracts use reward property for max slots, RewardProperty.ActiveContractSlots
+                int activeContracts = activeQuests.Values.Count(q => q.Info.IsContract());
+                float? maxSlots = player.Account.RewardPropertyManager
+                    .GetRewardProperty(RewardPropertyType.ActiveContractSlots)
+                    .GetValue(0u);
+                if (activeContracts >= (int)(maxSlots ?? 2f))
+                    return false;
             }
 
             return true;

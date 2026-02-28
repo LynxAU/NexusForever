@@ -162,6 +162,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                 throw new InvalidOperationException();
 
             session.Player.SelectedVendorInfo = vendorEntity.VendorInfo;
+            session.Player.SelectedVendorGuid = vendorEntity.Guid;
 
             ServerVendorItemsUpdated vendorItemsUpdated = vendorEntity.VendorInfo.Build();
             vendorItemsUpdated.Guid = vendorEntity.Guid;

@@ -45,8 +45,14 @@ namespace NexusForever.Aspire.Database.Migrations.Service
                 return;
             }
 
-            foreach (string filePath in Directory.GetFiles(_options.Path, "*.sql", SearchOption.AllDirectories))
+            string[] orderedFiles = Directory.GetFiles(_options.Path, "*.sql", SearchOption.AllDirectories)
+                .OrderBy(f => Path.GetRelativePath(_options.Path, f), StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            foreach (string filePath in orderedFiles)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 string fileName    = Path.GetFileName(filePath);
                 string fileContent = File.ReadAllText(filePath);
                 string fileHash    = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(fileContent)));
@@ -64,12 +70,12 @@ namespace NexusForever.Aspire.Database.Migrations.Service
                 _log.LogInformation("Applying world database migration: {FileName}", fileName);
                 try
                 {
-                    await _context.Database.ExecuteSqlRawAsync(fileContent);
+                    await _context.Database.ExecuteSqlRawAsync(fileContent, cancellationToken);
                 }
                 catch (Exception ex)
                 {
                     _log.LogError(ex, "Failed to apply world database migration: {FileName}", fileName);
-                    continue;
+                    throw;
                 }
                 _log.LogInformation("Applied world database migration: {FileName}", fileName);
 

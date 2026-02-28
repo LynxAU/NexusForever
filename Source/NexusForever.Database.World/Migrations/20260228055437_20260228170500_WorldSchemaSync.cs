@@ -30,7 +30,9 @@ namespace NexusForever.Database.World.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql("DROP TABLE IF EXISTS `creature_loot_entry`;");
+            // No-op: this migration only normalises schema on environments that
+            // may not have run the original CreateTable migration.
+            // Dropping the table here would invalidate earlier applied migrations.
         }
     }
 }

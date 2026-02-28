@@ -1,0 +1,19 @@
+# Default owner
+* @LynxAU
+
+# Database schema and migrations
+/Source/NexusForever.Database.*/ @LynxAU
+/Source/NexusForever.Aspire.Database.Migrations/ @LynxAU
+
+# Gameplay scripting and combat
+/Source/NexusForever.Script.Main/ @LynxAU
+/Source/NexusForever.Game/Entity/ @LynxAU
+/Source/NexusForever.Game/Spell/ @LynxAU
+
+# Networking/protocol
+/Source/NexusForever.Network*/ @LynxAU
+/Source/NexusForever.WorldServer/Network/ @LynxAU
+
+# Deployment and operations
+/scripts/deploy/ @LynxAU
+/docs/ @LynxAU

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using NexusForever.Game;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Housing;
@@ -9,6 +10,7 @@ using NexusForever.Game.Static.Housing;
 using NexusForever.Network;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Network.World.Message.Static;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Housing
 {
@@ -57,23 +59,57 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Housing
 
             if (residence == null)
             {
-                //session.Player.SendGenericError();
-                // TODO: show error
+                session.Player.Session.EnqueueMessageEncrypted(new ServerHousingResult
+                {
+                    Result = HousingResult.InvalidResidence
+                });
                 return;
             }
 
             switch (residence.PrivacyLevel)
             {
                 case ResidencePrivacyLevel.Private:
-                {
-                    // TODO: show error
+                    session.Player.Session.EnqueueMessageEncrypted(new ServerHousingResult
+                    {
+                        ResidenceId = residence.Id,
+                        Result      = HousingResult.Visit_Private
+                    });
                     return;
-                }
-                // TODO: check if player is either a neighbour or roommate
+
                 case ResidencePrivacyLevel.NeighborsOnly:
+                {
+                    // Allow if the visiting player is a neighbour of the residence owner.
+                    IResidence visitorResidence = globalResidenceManager.GetResidenceByOwner(session.Player.CharacterId);
+                    bool isNeighbour = visitorResidence != null
+                        && residence.GetNeighbors().Any(n => n.ResidenceId == visitorResidence.Id && !n.IsPending);
+                    if (!isNeighbour)
+                    {
+                        session.Player.Session.EnqueueMessageEncrypted(new ServerHousingResult
+                        {
+                            ResidenceId = residence.Id,
+                            Result      = HousingResult.InvalidPermissions
+                        });
+                        return;
+                    }
                     break;
+                }
+
                 case ResidencePrivacyLevel.RoommatesOnly:
+                {
+                    // Allow if the visiting player shares a community plot with the residence owner.
+                    IResidence parent = residence.Parent ?? residence;
+                    bool isRoommate = parent.GetChild(session.Player.CharacterId) != null;
+                    if (!isRoommate)
+                    {
+                        session.Player.Session.EnqueueMessageEncrypted(new ServerHousingResult
+                        {
+                            ResidenceId = residence.Id,
+                            Result      = HousingResult.InvalidPermissions
+                        });
+                        return;
+                    }
                     break;
+                }
             }
 
             IMapLock mapLock = mapLockManager.GetResidenceLock(residence.Parent ?? residence);

@@ -3,26 +3,26 @@ using NexusForever.Script.Template.Filter;
 namespace NexusForever.Script.Main.Instance.Adventure
 {
     /// <summary>
-    /// Map script for Star-Comm Station adventure (WorldId 1437).
+    /// Map script for the Astrovoid Prison adventure (WorldId 1437, AdventureAstrovoidPrison).
     ///
-    /// Type: Combat  players fight through the Eldan relay station clearing
-    /// automated defenses.
+    /// NOTE: This adventure was previously mislabelled as "Star-Comm Station".
+    /// World.tbl asset path confirms WorldId 1437 = Map\AdventureAstrovoidPrison.
     ///
-    /// Boss creature IDs could not be confirmed from Creature2.tbl data
-    /// the original IDs (40353, 40365) mapped to Wilderrun quest objects.
-    /// Uses FallbackRequiredBossKills so that any 2 EncounterBossScript deaths
-    /// complete the adventure once correct creature IDs are added.
+    /// Type: Combat - players fight through a Dominion prison in the Astrovoid.
     ///
-    /// TODO: Add boss scripts once creature IDs are confirmed via in-game testing.
+    /// Boss creatures (confirmed from Creature2.tbl w1437 description search):
+    ///   Warden Rhadman           - Creature2Id 27444
+    ///   Professor Goldbough (N3) - Creature2Id 48517
+    ///   Professor Goldbough (N5) - Creature2Id 48846
+    ///   Gadget-Equipped Prisoner - Creature2Id 49720
+    ///
+    /// FallbackRequiredBossKills = 3 (three of the four bosses must die).
     /// </summary>
     [ScriptFilterOwnerId(1437)]
     public class StarCommStationScript : AdventureScript
     {
-        protected override int FallbackRequiredBossKills => 2;
+        protected override int FallbackRequiredBossKills => 3;
 
-        protected override void OnAdventureLoad()
-        {
-            // No explicit waves  awaiting confirmed creature IDs from in-game testing.
-        }
+        protected override void OnAdventureLoad() { }
     }
 }

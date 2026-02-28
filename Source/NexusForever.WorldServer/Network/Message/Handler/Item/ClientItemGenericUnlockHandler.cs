@@ -1,4 +1,5 @@
 ﻿using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Static.GenericUnlock;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network;
@@ -31,9 +32,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Item
             if (entry == null)
                 throw new InvalidPacketValueException();
 
-            // TODO: should some client error be shown for this?
-            if (!session.Account.GenericUnlockManager.IsUnlocked(entry.GenericUnlockTypeEnum, entry.UnlockObject))
+            // If this unlock is already owned, tell the client and don't consume the item.
+            if (session.Account.GenericUnlockManager.IsUnlocked(entry.GenericUnlockTypeEnum, entry.UnlockObject))
+            {
+                session.Account.GenericUnlockManager.SendUnlockResult(GenericUnlockResult.AlreadyUnlocked);
                 return;
+            }
 
             if (session.Player.Inventory.ItemUse(item))
                 session.Account.GenericUnlockManager.Unlock((ushort)entry.Id);

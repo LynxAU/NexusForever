@@ -76,77 +76,15 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.SapVital)]
         public static void HandleEffectSapVital(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Assumption: SapVital uses the same primary data layout as VitalModifier
-            // (DataBits00 = Vital, DataBits01 = amount), but always drains the target.
-            Vital vital = (Vital)info.Entry.DataBits00;
-
-            uint amount = DecodeUnsignedEffectAmount(info.Entry);
-            if (amount == 0u)
-                return;
-
-            float before = target.GetVitalValue(vital);
-            target.ModifyVital(vital, -(float)amount);
-            float after = target.GetVitalValue(vital);
-
-            float appliedAmount = after - before;
-            if (appliedAmount == 0f)
-                return;
-
-            info.AddCombatLog(new CombatLogVitalModifier
-            {
-                Amount         = appliedAmount,
-                VitalModified  = vital,
-                BShowCombatLog = true,
-                CastData       = BuildCastData(spell, target, info)
-            });
+            HandleEffectSapVitalInternal(spell, target, info);
+            SchedulePeriodicTicks(spell, target, info, tickInfo => HandleEffectSapVitalInternal(spell, target, tickInfo));
         }
 
         [SpellEffectHandler(SpellEffectType.ClampVital)]
         public static void HandleEffectClampVital(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Assumption: DataBits00 = Vital, DataBits01 = Min, DataBits02 = Max.
-            // If both bounds are zero, fall back to the first parameter values.
-            Vital vital = (Vital)info.Entry.DataBits00;
-
-            float minValue = info.Entry.DataBits01;
-            float maxValue = info.Entry.DataBits02;
-
-            if (minValue == 0f && maxValue == 0f)
-            {
-                if (info.Entry.ParameterValue.Length > 0)
-                    minValue = info.Entry.ParameterValue[0];
-                if (info.Entry.ParameterValue.Length > 1)
-                    maxValue = info.Entry.ParameterValue[1];
-            }
-
-            bool hasMin = minValue != 0f;
-            bool hasMax = maxValue != 0f;
-            if (!hasMin && !hasMax)
-                return;
-
-            if (hasMin && hasMax && maxValue < minValue)
-                (minValue, maxValue) = (maxValue, minValue);
-
-            float current = target.GetVitalValue(vital);
-            float clamped = current;
-            if (hasMin)
-                clamped = Math.Max(clamped, minValue);
-            if (hasMax)
-                clamped = Math.Min(clamped, maxValue);
-
-            float delta = clamped - current;
-            if (delta == 0f)
-                return;
-
-            target.ModifyVital(vital, delta);
-
-            info.AddCombatLog(new CombatLogVitalModifier
-            {
-                Amount         = delta,
-                VitalModified  = vital,
-                BShowCombatLog = true,
-                CastData       = BuildCastData(spell, target, info)
-            });
+            HandleEffectClampVitalInternal(spell, target, info);
+            SchedulePeriodicTicks(spell, target, info, tickInfo => HandleEffectClampVitalInternal(spell, target, tickInfo));
         }
 
         [SpellEffectHandler(SpellEffectType.Damage)]
@@ -2703,14 +2641,26 @@ namespace NexusForever.Game.Spell
         [SpellEffectHandler(SpellEffectType.RewardPropertyModifier)]
         public static void HandleEffectRewardPropertyModifier(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Baseline: reward-property modifiers share duration/stack behavior with generic unit property modifiers.
+            if (target is IPlayer player
+                && TryResolveRewardPropertyModifierPayload(info.Entry, out RewardPropertyType type, out float value, out uint data))
+            {
+                player.Account.RewardPropertyManager.UpdateRewardProperty(type, value, data);
+                return;
+            }
+
             HandleEffectPropertyModifier(spell, target, info);
         }
 
         [SpellEffectHandler(SpellEffectType.PersonalDmgHealMod)]
         public static void HandleEffectPersonalDmgHealMod(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
         {
-            // Baseline: model this as a unit property modifier until full retail semantics are reconstructed.
+            if (target is IPlayer player
+                && TryResolveRewardPropertyModifierPayload(info.Entry, out RewardPropertyType type, out float value, out uint data))
+            {
+                player.Account.RewardPropertyManager.UpdateRewardProperty(type, value, data);
+                return;
+            }
+
             HandleEffectPropertyModifier(spell, target, info);
         }
 
@@ -3185,6 +3135,203 @@ namespace NexusForever.Game.Spell
         {
             recipient = target as IPlayer ?? spell.Caster as IPlayer;
             return recipient != null;
+        }
+
+        private static void HandleEffectSapVitalInternal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (!TryResolveEffectVital(info.Entry, out Vital vital))
+                return;
+
+            float requestedAmount = ResolveSignedEffectScalar(info.Entry);
+            if (requestedAmount == 0f)
+                return;
+
+            // Sap semantics drain the target vital.
+            float drainAmount = Math.Abs(requestedAmount);
+
+            float before = target.GetVitalValue(vital);
+            target.ModifyVital(vital, -drainAmount);
+            float after = target.GetVitalValue(vital);
+
+            float appliedAmount = after - before;
+            if (appliedAmount == 0f)
+                return;
+
+            info.AddCombatLog(new CombatLogVitalModifier
+            {
+                Amount         = appliedAmount,
+                VitalModified  = vital,
+                BShowCombatLog = true,
+                CastData       = BuildCastData(spell, target, info)
+            });
+        }
+
+        private static void HandleEffectClampVitalInternal(ISpell spell, IUnitEntity target, ISpellTargetEffectInfo info)
+        {
+            if (!TryResolveEffectVital(info.Entry, out Vital vital))
+                return;
+
+            bool hasMin = TryResolveClampBound(info.Entry.DataBits01, info.Entry.ParameterValue.ElementAtOrDefault(0), out float minValue);
+            bool hasMax = TryResolveClampBound(info.Entry.DataBits02, info.Entry.ParameterValue.ElementAtOrDefault(1), out float maxValue);
+
+            if (!hasMin && !hasMax)
+            {
+                hasMin = TryResolveClampBound(info.Entry.DataBits03, info.Entry.ParameterValue.ElementAtOrDefault(2), out minValue);
+                hasMax = TryResolveClampBound(info.Entry.DataBits04, info.Entry.ParameterValue.ElementAtOrDefault(3), out maxValue);
+            }
+
+            if (!hasMin && !hasMax)
+                return;
+
+            if (hasMin && hasMax && maxValue < minValue)
+                (minValue, maxValue) = (maxValue, minValue);
+
+            float current = target.GetVitalValue(vital);
+            float clamped = current;
+            if (hasMin)
+                clamped = Math.Max(clamped, minValue);
+            if (hasMax)
+                clamped = Math.Min(clamped, maxValue);
+
+            float delta = clamped - current;
+            if (delta == 0f)
+                return;
+
+            target.ModifyVital(vital, delta);
+
+            info.AddCombatLog(new CombatLogVitalModifier
+            {
+                Amount         = delta,
+                VitalModified  = vital,
+                BShowCombatLog = true,
+                CastData       = BuildCastData(spell, target, info)
+            });
+        }
+
+        private static bool TryResolveEffectVital(Spell4EffectsEntry entry, out Vital vital)
+        {
+            if (Enum.IsDefined(typeof(Vital), (int)entry.DataBits00) && entry.DataBits00 != 0u)
+            {
+                vital = (Vital)entry.DataBits00;
+                return true;
+            }
+
+            if (Enum.IsDefined(typeof(Vital), (int)entry.DataBits01) && entry.DataBits01 != 0u)
+            {
+                vital = (Vital)entry.DataBits01;
+                return true;
+            }
+
+            if (entry.ParameterValue.Length > 0)
+            {
+                uint candidate = (uint)Math.Round(entry.ParameterValue[0]);
+                if (Enum.IsDefined(typeof(Vital), (int)candidate) && candidate != 0u)
+                {
+                    vital = (Vital)candidate;
+                    return true;
+                }
+            }
+
+            vital = default;
+            return false;
+        }
+
+        private static bool TryResolveClampBound(uint rawBits, float fallback, out float value)
+        {
+            value = 0f;
+            if (rawBits != 0u && rawBits != uint.MaxValue)
+            {
+                value = DecodeFlexibleEffectNumber(rawBits);
+                if (value != 0f)
+                    return true;
+            }
+
+            if (fallback != 0f)
+            {
+                value = fallback;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static float ResolveSignedEffectScalar(Spell4EffectsEntry entry)
+        {
+            if (entry.DataBits01 != 0u && entry.DataBits01 != uint.MaxValue)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits01);
+                if (value != 0f)
+                    return value;
+            }
+
+            if (entry.DataBits02 != 0u && entry.DataBits02 != uint.MaxValue)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits02);
+                if (value != 0f)
+                    return value;
+            }
+
+            if (entry.DataBits00 != 0u && entry.DataBits00 != uint.MaxValue)
+            {
+                float value = DecodeFlexibleEffectNumber(entry.DataBits00);
+                if (value != 0f && !Enum.IsDefined(typeof(Vital), (int)entry.DataBits00))
+                    return value;
+            }
+
+            for (int i = 0; i < entry.ParameterValue.Length; i++)
+            {
+                if (entry.ParameterValue[i] != 0f)
+                    return entry.ParameterValue[i];
+            }
+
+            return 0f;
+        }
+
+        private static bool TryResolveRewardPropertyModifierPayload(Spell4EffectsEntry entry, out RewardPropertyType type, out float value, out uint data)
+        {
+            data = 0u;
+
+            bool tryResolveType(uint raw, out RewardPropertyType resolved)
+            {
+                resolved = default;
+                if (!Enum.IsDefined(typeof(RewardPropertyType), (int)raw))
+                    return false;
+
+                var candidateType = (RewardPropertyType)raw;
+                if (GameTableManager.Instance.RewardProperty.GetEntry((ulong)candidateType) == null)
+                    return false;
+
+                resolved = candidateType;
+                return true;
+            }
+
+            bool typeFromBits00 = tryResolveType(entry.DataBits00, out type);
+            if (!typeFromBits00 && !tryResolveType(entry.DataBits01, out type))
+            {
+                value = 0f;
+                return false;
+            }
+
+            data = typeFromBits00
+                ? (entry.DataBits01 != uint.MaxValue ? entry.DataBits01 : 0u)
+                : (entry.DataBits00 != uint.MaxValue ? entry.DataBits00 : 0u);
+
+            value = ResolveSignedEffectScalar(new Spell4EffectsEntry
+            {
+                DataBits00 = entry.DataBits02,
+                DataBits01 = entry.DataBits03,
+                DataBits02 = entry.DataBits04,
+                ParameterValue = entry.ParameterValue
+            });
+
+            if (value == 0f)
+            {
+                value = DecodeFlexibleEffectNumber(entry.DataBits02);
+                if (value == 0f)
+                    value = DecodeFlexibleEffectNumber(entry.DataBits03);
+            }
+
+            return value != 0f;
         }
 
         private static uint ResolveCreature2Id(Spell4EffectsEntry entry)

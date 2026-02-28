@@ -1,3 +1,6 @@
+using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Character;
+using NexusForever.Game.Entity;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
 
@@ -5,14 +8,24 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Friend
 {
     public class ClientFriendRemoveByNameHandler : IMessageHandler<IWorldSession, ClientFriendRemoveByName>
     {
-        /// <summary>
-        /// Handles removal of a friend by name
-        /// </summary>
         public void HandleMessage(IWorldSession session, ClientFriendRemoveByName message)
         {
-            // For now, we'll need to look up the character by name
-            // This is a placeholder - in production would need PlayerManager lookup
-            session.Player.FriendManager.RemoveFriend(0); // TODO: Implement name lookup
+            ulong? targetId = null;
+
+            IPlayer online = PlayerManager.Instance.GetPlayer(message.Name);
+            if (online != null)
+                targetId = online.CharacterId;
+            else
+            {
+                var offline = CharacterManager.Instance.GetCharacter(message.Name);
+                if (offline != null)
+                    targetId = offline.CharacterId;
+            }
+
+            if (targetId == null)
+                return; // character not found; client will time out gracefully
+
+            session.Player.FriendManager.RemoveFriend(targetId.Value);
         }
     }
 }

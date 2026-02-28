@@ -17,6 +17,8 @@ AUTH_CONTAINER="${AUTH_CONTAINER:-nf_iso_auth}"
 WORLD_CONTAINER="${WORLD_CONTAINER:-nf_iso_world}"
 AUTH_DEST="${AUTH_DEST:-/srv/AuthServer}"
 WORLD_DEST="${WORLD_DEST:-/srv/WorldServer}"
+AUTH_CONFIG_DEST="${AUTH_CONFIG_DEST:-/srv/AuthServer/AuthServer.json}"
+WORLD_CONFIG_DEST="${WORLD_CONFIG_DEST:-/srv/WorldServer/WorldServer.json}"
 
 AUTH_PORT="${AUTH_PORT:-23115}"
 WORLD_PORT="${WORLD_PORT:-24000}"
@@ -27,9 +29,18 @@ MYSQL_PORT="${MYSQL_PORT:-33306}"
 RABBIT_HOST="${RABBIT_HOST:-127.0.0.1}"
 RABBIT_PORT="${RABBIT_PORT:-35672}"
 DEPENDENCY_TIMEOUT="${DEPENDENCY_TIMEOUT:-20}"
+BACKUP_ROOT="${BACKUP_ROOT:-/mnt/user/nexusforever-live/backups/deploy-pre}"
+CREATE_BACKUP="${CREATE_BACKUP:-true}"
+AUTO_RESTORE_ON_FAILURE="${AUTO_RESTORE_ON_FAILURE:-true}"
+LOG_WINDOW_SECONDS="${LOG_WINDOW_SECONDS:-45}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONTAINERS_STOPPED="false"
+AUTH_SRC=""
+WORLD_SRC=""
+AUTH_CONFIG_SRC=""
+WORLD_CONFIG_SRC=""
+LAST_BACKUP_DIR=""
 
 require_cmd() {
   local cmd="$1"
@@ -83,10 +94,25 @@ container_exists() {
 }
 
 recover_containers_on_error() {
+  local rc=$?
+  set +e
+
+  if [[ "$AUTO_RESTORE_ON_FAILURE" == "true" && -n "$LAST_BACKUP_DIR" && -d "$LAST_BACKUP_DIR" ]]; then
+    echo "[deploy] Error occurred. Restoring from backup: $LAST_BACKUP_DIR"
+    "$SCRIPT_DIR/restore_deploy_backup.sh" \
+      "$LAST_BACKUP_DIR" \
+      "$AUTH_SRC" \
+      "$WORLD_SRC" \
+      "$AUTH_CONFIG_SRC" \
+      "$WORLD_CONFIG_SRC" || true
+  fi
+
   if [[ "$CONTAINERS_STOPPED" == "true" ]]; then
     echo "[deploy] Error occurred. Attempting to bring $AUTH_CONTAINER and $WORLD_CONTAINER back up ..."
     docker start "$AUTH_CONTAINER" "$WORLD_CONTAINER" >/dev/null 2>&1 || true
   fi
+
+  exit "$rc"
 }
 
 trap recover_containers_on_error ERR
@@ -94,6 +120,7 @@ trap recover_containers_on_error ERR
 require_cmd git
 require_cmd dotnet
 require_cmd docker
+require_cmd bash
 
 cd "$REPO_ROOT"
 
@@ -143,10 +170,23 @@ fi
 
 AUTH_SRC="$(resolve_mount_source "$AUTH_CONTAINER" "$AUTH_DEST")"
 WORLD_SRC="$(resolve_mount_source "$WORLD_CONTAINER" "$WORLD_DEST")"
+AUTH_CONFIG_SRC="$(resolve_mount_source "$AUTH_CONTAINER" "$AUTH_CONFIG_DEST")"
+WORLD_CONFIG_SRC="$(resolve_mount_source "$WORLD_CONTAINER" "$WORLD_CONFIG_DEST")"
 
 if [[ -z "$AUTH_SRC" || -z "$WORLD_SRC" ]]; then
   echo "Unable to resolve auth/world bind mounts. Check container names and mounts." >&2
   exit 1
+fi
+
+if [[ "$CREATE_BACKUP" == "true" ]]; then
+  echo "[deploy] Creating pre-deploy backup ..."
+  LAST_BACKUP_DIR="$("$SCRIPT_DIR/create_deploy_backup.sh" \
+    "$BACKUP_ROOT" \
+    "$AUTH_SRC" \
+    "$WORLD_SRC" \
+    "$AUTH_CONFIG_SRC" \
+    "$WORLD_CONFIG_SRC")"
+  echo "[deploy] Backup created: $LAST_BACKUP_DIR"
 fi
 
 echo "[deploy] Stopping $AUTH_CONTAINER and $WORLD_CONTAINER ..."
@@ -166,6 +206,13 @@ CONTAINERS_STOPPED="false"
 echo "[deploy] Running health checks ..."
 "$SCRIPT_DIR/healthcheck.sh" "$HEALTH_HOST" "$AUTH_PORT" "$HEALTH_TIMEOUT"
 "$SCRIPT_DIR/healthcheck.sh" "$HEALTH_HOST" "$WORLD_PORT" "$HEALTH_TIMEOUT"
+"$SCRIPT_DIR/verify_live_stack.sh" \
+  "$AUTH_CONTAINER" \
+  "$WORLD_CONTAINER" \
+  "$AUTH_PORT" \
+  "$WORLD_PORT" \
+  "$HEALTH_HOST" \
+  "$LOG_WINDOW_SECONDS"
 
 echo "[deploy] Tail logs (last 40 lines each) ..."
 docker logs --tail 40 "$AUTH_CONTAINER" || true

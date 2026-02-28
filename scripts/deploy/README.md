@@ -6,6 +6,9 @@
 - `rollback.sh` - switch `current` back to a previous release.
 - `migrate.sh` - run DB migrations via `NexusForever.Aspire.Database.Migrations`.
 - `healthcheck.sh` - simple TCP reachability check for service startup.
+- `create_deploy_backup.sh` - snapshot auth/world release directories and config files.
+- `restore_deploy_backup.sh` - restore auth/world release directories and config files from a backup snapshot.
+- `verify_live_stack.sh` - verify auth/world container state, port reachability, and recent fatal logs.
 - `unraid_live_rebuild.sh` - pull a branch on Unraid, rebuild `AuthServer` and `WorldServer`, sync into live bind-mount paths, restart live containers, and run health checks.
 
 ## Typical Flow
@@ -36,7 +39,24 @@ Optional overrides:
 - `MYSQL_HOST`, `MYSQL_PORT`
 - `RABBIT_HOST`, `RABBIT_PORT`
 - `DEPENDENCY_TIMEOUT`
+- `AUTH_CONFIG_DEST`, `WORLD_CONFIG_DEST`
+- `BACKUP_ROOT`, `CREATE_BACKUP`
+- `AUTO_RESTORE_ON_FAILURE`, `LOG_WINDOW_SECONDS`
 
 Behavior:
 - Performs dependency preflight checks for MySQL and RabbitMQ before stopping live auth/world.
 - If deploy fails after auth/world are stopped, it attempts automatic recovery by starting both containers.
+- Creates a pre-deploy backup (release dirs + config) and can automatically restore on deploy failure.
+
+## Canonical Unraid Compose
+Files:
+- `scripts/deploy/unraid/docker-compose.nf_iso.yml`
+- `scripts/deploy/unraid/.env.example`
+
+Boot/recreate stack on Unraid:
+
+```bash
+cd /mnt/user/nexusforever-live/repo/scripts/deploy/unraid
+cp .env.example .env
+docker compose -f docker-compose.nf_iso.yml --env-file .env up -d
+```

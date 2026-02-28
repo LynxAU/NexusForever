@@ -562,7 +562,6 @@ namespace NexusForever.Game.Map
         /// </summary>
         public virtual ResurrectionType GetResurrectionType()
         {
-            // TODO: add support for Holocrypts and instances
             return ResurrectionType.None;
         }
 

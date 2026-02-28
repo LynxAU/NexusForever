@@ -5,6 +5,7 @@ using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Abstract.PublicEvent;
 using NexusForever.Game.Map.Search;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Script;
 using NexusForever.Script.Template;
 
@@ -110,6 +111,14 @@ namespace NexusForever.Game.Map.Instance
 
             Match = match;
             Match.SetMap(this);
+        }
+
+        /// <summary>
+        /// Return <see cref="ResurrectionType"/> applicable to this map.
+        /// </summary>
+        public override ResurrectionType GetResurrectionType()
+        {
+            return ResurrectionType.ExitInstance;
         }
 
         /// <summary>

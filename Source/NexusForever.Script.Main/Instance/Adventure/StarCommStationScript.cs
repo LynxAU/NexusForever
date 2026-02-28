@@ -3,25 +3,26 @@ using NexusForever.Script.Template.Filter;
 namespace NexusForever.Script.Main.Instance.Adventure
 {
     /// <summary>
-    /// Map script for Star-Comm Station adventure (WorldId 1437).
+    /// Map script for the Astrovoid Prison adventure (WorldId 1437, AdventureAstrovoidPrison).
     ///
-    /// Type: Combat — players fight through the Eldan relay station clearing
-    /// automated defenses including SCS-72 Commander and SCS-83 Augmentor.
+    /// NOTE: This adventure was previously mislabelled as "Star-Comm Station".
+    /// World.tbl asset path confirms WorldId 1437 = Map\AdventureAstrovoidPrison.
     ///
-    /// Data source: local world DB spawns in
-    /// WorldDatabaseRepo/Olyssia/Wilderrun.sql filtered to WorldId 1437 and EntityType 10.
-    /// IDs are selected as high-confidence station boss candidates.
+    /// Type: Combat - players fight through a Dominion prison in the Astrovoid.
+    ///
+    /// Boss creatures (confirmed from Creature2.tbl w1437 description search):
+    ///   Warden Rhadman           - Creature2Id 27444
+    ///   Professor Goldbough (N3) - Creature2Id 48517
+    ///   Professor Goldbough (N5) - Creature2Id 48846
+    ///   Gadget-Equipped Prisoner - Creature2Id 49720
+    ///
+    /// FallbackRequiredBossKills = 3 (three of the four bosses must die).
     /// </summary>
     [ScriptFilterOwnerId(1437)]
     public class StarCommStationScript : AdventureScript
     {
-        private const uint SCS72CommanderCreatureId = 40353u;
-        private const uint SCS83AugmentorCreatureId = 40365u;
+        protected override int FallbackRequiredBossKills => 3;
 
-        protected override void OnAdventureLoad()
-        {
-            AddWave(SCS72CommanderCreatureId);
-            AddWave(SCS83AugmentorCreatureId);
-        }
+        protected override void OnAdventureLoad() { }
     }
 }

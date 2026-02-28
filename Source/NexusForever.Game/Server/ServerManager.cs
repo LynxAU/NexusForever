@@ -46,6 +46,9 @@ namespace NexusForever.Game.Server
             if (realmId != null && Servers.All(s => s.Model.Id != realmId))
                 throw new ConfigurationException($"Realm id {realmId} in configuration file doesn't exist in the database!");
 
+            // Populate realm online state immediately so clients do not see an empty realm list just after startup.
+            RefreshServerStatus();
+
             cancellationToken = new CancellationTokenSource();
 
             serverPollThread = new Thread(ServerPollThread);
@@ -80,31 +83,47 @@ namespace NexusForever.Game.Server
             while (!cancellationToken.IsCancellationRequested)
             {
                 stopwatch.Restart();
-
-                // check for updates to the server definitions in the database every 60 seconds
-                checkTimer.Update(lastTick);
-                if (checkTimer.HasElapsed)
+                try
                 {
-                    InitialiseServers();
-                    InitialiseServerMessages();
+                    // check for updates to the server definitions in the database every 60 seconds
+                    checkTimer.Update(lastTick);
+                    if (checkTimer.HasElapsed)
+                    {
+                        InitialiseServers();
+                        InitialiseServerMessages();
+                        checkTimer.Reset();
+                    }
 
-                    checkTimer.Reset();
+                    // check for server heartbeats every 15 seconds
+                    pingCheckTimer.Update(lastTick);
+                    if (pingCheckTimer.HasElapsed)
+                    {
+                        RefreshServerStatus();
+                        pingCheckTimer.Reset();
+                    }
                 }
-
-                // check for server heartbeats every 15 seconds
-                pingCheckTimer.Update(lastTick);
-                if (pingCheckTimer.HasElapsed)
+                catch (Exception e)
                 {
-                    Task.WaitAll(Servers
-                        .Where(server => server.Model.Id != serverRealmId)
-                        .Select(server => server.PingHostAsync())
-                        .ToArray());
-                    pingCheckTimer.Reset();
+                    // keep poll thread alive even if dependencies are briefly unavailable
+                    log.Error(e, "Error during server poll update.");
                 }
 
                 Thread.Sleep(1000);
                 lastTick = (double)stopwatch.ElapsedTicks / Stopwatch.Frequency;
             }
+        }
+
+        private void RefreshServerStatus()
+        {
+            Task[] pingTasks = Servers
+                .Where(server => server.Model.Id != serverRealmId)
+                .Select(server => server.PingHostAsync())
+                .ToArray();
+
+            if (pingTasks.Length == 0)
+                return;
+
+            Task.WaitAll(pingTasks);
         }
 
         /// <summary>

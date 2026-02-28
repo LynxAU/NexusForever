@@ -3,28 +3,24 @@ using NexusForever.Script.Template.Filter;
 namespace NexusForever.Script.Main.Instance.Adventure
 {
     /// <summary>
-    /// Map script for Galeras Holdout adventure (WorldId 1233).
+    /// Map script for Galeras Holdout / Siege of Tempest Refuge adventure (WorldId 1233).
     ///
-    /// Type: Wave defense — players hold a fortified position in Galeras against
-    /// Dominion assault waves culminating in a commander fight.
+    /// Type: Wave defense  players hold a fortified position against assault waves.
+    /// Boss encounters vary by player faction (Exile vs Dominion) and random selection.
+    /// Over 20 possible boss creatures exist (class-specific bosses, tank bosses, etc.)
+    /// with both normal (level 30-50) and veteran (level 50, Tier 3) variants.
     ///
-    /// Data source: local world DB spawns in
-    /// WorldDatabaseRepo/Olyssia/Auroria.sql filtered to WorldId 1233 and EntityType 10.
-    /// IDs are selected as likely command-tier encounters and should be tuned from
-    /// live parity playtesting.
+    /// Uses FallbackRequiredBossKills because different factions/paths face different bosses.
     /// </summary>
     [ScriptFilterOwnerId(1233)]
     public class GalerasHoldoutScript : AdventureScript
     {
-        private const uint Wave1CommanderCreatureId = 12909u;
-        private const uint Wave2CommanderCreatureId = 33904u;
-        private const uint FinalCommanderCreatureId = 39445u;
+        protected override int FallbackRequiredBossKills => 3;
 
         protected override void OnAdventureLoad()
         {
-            AddWave(Wave1CommanderCreatureId);
-            AddWave(Wave2CommanderCreatureId);
-            AddWave(FinalCommanderCreatureId);
+            // No explicit waves  FallbackRequiredBossKills handles completion
+            // regardless of which faction-specific bosses spawn.
         }
     }
 }

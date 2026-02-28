@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Filter;
@@ -7,21 +8,17 @@ namespace NexusForever.Script.Main.Instance.Expedition
     /// <summary>
     /// Map script for the Evil From The Ether expedition (WorldId 3404).
     ///
-    /// Completion condition: Creature2Id 71037 (level 23 elite, faction 218) must die.
+    /// Completion condition: Katja Zarkhov must die.
+    ///   71037  level 23 elite, faction 218 (normal)
+    ///   71039  level 50 elite, faction 218 (veteran scaling variant)
     ///   Source: expedition-data-report.md, PublicEvent objective 4925 KillTargetGroup.
-    ///   Note: 71039 is the level 50 scaling variant of the same boss — add that creature ID
-    ///         to BossCreatureIds if the server is upgraded to serve level-50 content.
     ///
     /// Spawn data: see WorldDatabaseRepo/Instance/Expedition/Evil from the Ether.sql
-    ///   (full sniff-captured spawn data from LaughingWS fork — real coordinates available)
     /// </summary>
     [ScriptFilterOwnerId(3404)]
     public class EvilFromTheEtherScript : IContentMapScript, IOwnedScript<IContentMapInstance>
     {
-        // Creature2Id 71037 — level 23 elite, faction 218, primary boss of Evil From The Ether.
-        // Source: expedition-data-report.md, PublicEvent objective 4925 KillTargetGroup.
-        // 71039 is the level-50 scaling variant; add it here when needed.
-        private const uint BossCreatureId = 71037u;
+        private static readonly HashSet<uint> BossCreatureIds = new() { 71037u, 71039u };
 
         private IContentMapInstance owner;
         private bool bossDefeated;
@@ -36,7 +33,7 @@ namespace NexusForever.Script.Main.Instance.Expedition
         /// <inheritdoc/>
         public void OnBossDeath(uint creatureId)
         {
-            if (creatureId != BossCreatureId || bossDefeated)
+            if (!BossCreatureIds.Contains(creatureId) || bossDefeated)
                 return;
 
             bossDefeated = true;

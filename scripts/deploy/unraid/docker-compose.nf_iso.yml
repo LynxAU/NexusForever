@@ -1,0 +1,70 @@
+services:
+  nf_iso_mysql:
+    image: mysql:8.0
+    container_name: nf_iso_mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: ${TZ:-Australia/Sydney}
+    ports:
+      - "33306:3306"
+    volumes:
+      - ${APPDATA_ROOT}/mysql-data:/var/lib/mysql
+      - ${APPDATA_ROOT}/mysql-init:/docker-entrypoint-initdb.d
+    networks:
+      - nf_iso_net
+
+  nf_iso_rabbit:
+    image: rabbitmq:3-management
+    container_name: nf_iso_rabbit
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASS}
+      TZ: ${TZ:-Australia/Sydney}
+    ports:
+      - "35672:5672"
+      - "35673:15672"
+    volumes:
+      - ${APPDATA_ROOT}/rabbitmq-data:/var/lib/rabbitmq
+      - ${APPDATA_ROOT}/rabbitmq-log:/var/log/rabbitmq
+    networks:
+      - nf_iso_net
+
+  nf_iso_auth:
+    image: mcr.microsoft.com/dotnet/runtime:10.0
+    container_name: nf_iso_auth
+    restart: unless-stopped
+    working_dir: /srv/AuthServer
+    command: ["./NexusForever.AuthServer"]
+    network_mode: host
+    depends_on:
+      - nf_iso_mysql
+      - nf_iso_rabbit
+    volumes:
+      - ${NEXUS_ROOT}/current/AuthServer:/srv/AuthServer
+      - ${NEXUS_ROOT}/config/AuthServer.json:/srv/AuthServer/AuthServer.json
+
+  nf_iso_world:
+    image: mcr.microsoft.com/dotnet/runtime:10.0
+    container_name: nf_iso_world
+    restart: unless-stopped
+    working_dir: /srv/WorldServer
+    command: ["./NexusForever.WorldServer"]
+    network_mode: host
+    depends_on:
+      - nf_iso_mysql
+      - nf_iso_rabbit
+    volumes:
+      - ${NEXUS_ROOT}/current/WorldServer:/srv/WorldServer
+      - ${NEXUS_ROOT}/config/WorldServer.json:/srv/WorldServer/WorldServer.json
+      - ${NEXUS_ROOT}/data/assets/tbl:/srv/WorldServer/tbl
+      - ${NEXUS_ROOT}/data/assets/map:/srv/WorldServer/map
+
+networks:
+  nf_iso_net:
+    external: true

@@ -9,6 +9,7 @@ namespace NexusForever.Game.Server
     public class ServerInfo : IServerInfo
     {
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
+        private bool? lastOnlineState;
 
         public ServerModel Model { get; }
         public uint Address { get; }
@@ -42,11 +43,32 @@ namespace NexusForever.Game.Server
         public async Task PingHostAsync()
         {
             using var client = new TcpClient();
-            await client.ConnectAsync(Model.Host, Model.Port).ContinueWith(task =>
+            bool isOnline;
+            try
             {
-                IsOnline = !task.IsFaulted;
-                return task;
-            });
+                Task connectTask = client.ConnectAsync(Model.Host, Model.Port);
+                Task completedTask = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(2.5)));
+                if (completedTask != connectTask)
+                {
+                    isOnline = false;
+                }
+                else
+                {
+                    await connectTask;
+                    isOnline = true;
+                }
+            }
+            catch
+            {
+                isOnline = false;
+            }
+
+            IsOnline = isOnline;
+            if (lastOnlineState != IsOnline)
+            {
+                log.Info($"Server '{Model.Name}' ({Model.Host}:{Model.Port}) online state changed: {IsOnline}");
+                lastOnlineState = IsOnline;
+            }
         }
     }
 }

@@ -771,6 +771,10 @@ namespace NexusForever.Network.Message
         ServerVehiclePassengerRemove    = 0x08C7,
         ServerUnitSetChair              = 0x08CF,
         ServerReputationOverrideAdd     = 0x08D7,
+        // Primal Matrix (placeholder opcodes — verify against retail sniff data)
+        ServerPrimalMatrixEssence       = 0x08D8,
+        ServerPrimalMatrixNode          = 0x08D9,
+        ClientActivatePrimalMatrixNode  = 0x08DA,
         ServerEntityVisualUpdate        = 0x0905,
         ServerEntityTargetUnit          = 0x0908,
         ServerEntityThreatListUpdate    = 0x0909,

@@ -6,6 +6,7 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Entity;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
+using NexusForever.Network.World.Message.Model.Entity;
 using NexusForever.Network.World.Message.Static;
 using NLog;
 
@@ -85,6 +86,7 @@ namespace NexusForever.Game.PrimalMatrix
 
             log.Trace($"Player {player.CharacterId} earned {amount}x essence[{essenceId}], total={essences[essenceId]}");
 
+            SendEssenceUpdate(essenceId, essences[essenceId]);
             CheckUnlockThresholds();
         }
 
@@ -137,6 +139,15 @@ namespace NexusForever.Game.PrimalMatrix
             modifiedNodes.Add(nodeId);
 
             log.Trace($"Player {player.CharacterId} activated node {nodeId} ({currentAlloc + 1}/{maxAlloc})");
+
+            // Notify client of updated essence amounts for each colour that had a cost.
+            if (nodeEntry.CostRedEssence    > 0) SendEssenceUpdate(EssenceIdRed,    GetEssenceAmount(EssenceIdRed));
+            if (nodeEntry.CostBlueEssence   > 0) SendEssenceUpdate(EssenceIdBlue,   GetEssenceAmount(EssenceIdBlue));
+            if (nodeEntry.CostGreenEssence  > 0) SendEssenceUpdate(EssenceIdGreen,  GetEssenceAmount(EssenceIdGreen));
+            if (nodeEntry.CostPurpleEssence > 0) SendEssenceUpdate(EssenceIdPurple, GetEssenceAmount(EssenceIdPurple));
+
+            // Notify client of the node allocation.
+            SendNodeUpdate(nodeId, nodeAllocations[nodeId]);
 
             GrantNodeReward(nodeEntry, player.Class);
             return true;
@@ -198,6 +209,26 @@ namespace NexusForever.Game.PrimalMatrix
         private void CheckUnlockThresholds()
         {
             // Future: notify client UI about newly affordable nodes.
+        }
+
+        private void SendEssenceUpdate(uint essenceId, uint amount)
+        {
+            player.Session.EnqueueMessageEncrypted(new ServerPrimalMatrixEssence
+            {
+                EssenceId = essenceId,
+                Amount    = amount
+            });
+        }
+
+        private void SendNodeUpdate(uint nodeId, uint allocations)
+        {
+            player.Session.EnqueueMessageEncrypted(new ServerPrimalMatrixNode
+            {
+                EntityId  = player.Guid,
+                NodeId    = nodeId,
+                EssenceId = 0u,
+                Amount    = allocations
+            });
         }
 
         // ── Save ──────────────────────────────────────────────────────────────────
@@ -280,9 +311,15 @@ namespace NexusForever.Game.PrimalMatrix
 
         public void SendInitialPackets()
         {
-            // TODO: send ServerPrimalMatrixEssence / ServerPrimalMatrixNodeUnlock packets
-            // once the network protocol for this system is reverse-engineered.
-            log.Trace($"Sending initial primal matrix data for player {player.CharacterId}");
+            // Send current essence amounts for all four colours (even if zero).
+            SendEssenceUpdate(EssenceIdRed,    GetEssenceAmount(EssenceIdRed));
+            SendEssenceUpdate(EssenceIdBlue,   GetEssenceAmount(EssenceIdBlue));
+            SendEssenceUpdate(EssenceIdGreen,  GetEssenceAmount(EssenceIdGreen));
+            SendEssenceUpdate(EssenceIdPurple, GetEssenceAmount(EssenceIdPurple));
+
+            // Send all activated node allocations.
+            foreach ((uint nodeId, uint alloc) in nodeAllocations)
+                SendNodeUpdate(nodeId, alloc);
         }
     }
 }

@@ -27,6 +27,7 @@ namespace NexusForever.MapGenerator
             services.AddSingleton<GameTableManager>();
             services.AddSingleton<ExtractionManager>();
             services.AddSingleton<GenerationManager>();
+            services.AddSingleton<EntityExtractionManager>();
 
             LegacyServiceProvider.Provider = services.BuildServiceProvider();
 
@@ -43,14 +44,14 @@ namespace NexusForever.MapGenerator
             if (!Directory.Exists(parameters.PatchPath))
                 throw new DirectoryNotFoundException();
 
-            if (!parameters.Extract && !parameters.Generate)
+            if (!parameters.Extract && !parameters.Generate && !parameters.Entities)
             {
-                log.Warn("Please specify the Extract or Generate parameter");
+                log.Warn("Please specify the Extract, Generate, or Entities parameter");
                 log.Info(GetHelp());
                 return;
             }
 
-            if ((parameters.Extract || parameters.Generate) && !string.IsNullOrEmpty(parameters.OutputDir))
+            if ((parameters.Extract || parameters.Generate || parameters.Entities) && !string.IsNullOrEmpty(parameters.OutputDir))
             {
                 if (!Directory.Exists(parameters.OutputDir))
                     throw new DirectoryNotFoundException(parameters.OutputDir);
@@ -74,6 +75,9 @@ namespace NexusForever.MapGenerator
                 TimeSpan span = DateTime.UtcNow - start;
                 log.Info($"Generated base maps in {span.TotalSeconds}s.");
             }
+
+            if (parameters.Entities)
+                EntityExtractionManager.Instance.Initialise(parameters.OutputDir ?? ".");
         }
 
         private static string GetHelp()

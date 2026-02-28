@@ -16,6 +16,10 @@ namespace NexusForever.MapGenerator
             HelpText = "Generate base map files (.nfmap) from the area files.")]
         public bool Generate { get; set; }
 
+        [Option('n', "entities",
+            HelpText = "Dump raw entity/spawn chunk data from .area files as CSV for reverse engineering.")]
+        public bool Entities { get; set; }
+
         [Option('o', "output",
             HelpText = "The base directory where output files will be created.", Default = "")]
         public string OutputDir { get; set; }

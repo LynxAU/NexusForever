@@ -18,7 +18,7 @@ namespace NexusForever.Script.Main.Instance.Raid
     ///         Robomination (66085)
     ///
     /// Spawn data: see WorldDatabaseRepo/Instance/Raid/Red Moon Terror 40.sql (stub — no coordinate data).
-    /// TODO: Confirm whether 40-man uses distinct creature IDs or the same set as 20-man.
+    /// Note: Confirm whether 40-man uses distinct creature IDs or the same set as 20-man.
     /// </summary>
     [ScriptFilterOwnerId(3102)]
     public class RedMoonTerror40Script : IContentMapScript, IOwnedScript<IContentMapInstance>

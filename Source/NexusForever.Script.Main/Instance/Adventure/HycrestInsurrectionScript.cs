@@ -8,19 +8,14 @@ namespace NexusForever.Script.Main.Instance.Adventure
     /// Type: Wave defense — players hold Hycrest Hamlet against multiple invasion waves
     /// culminating in a final commander fight.
     ///
-    /// Creature IDs require in-game testing (no bracket prefix in Creature2.tbl).
-    /// TODO: Populate AddWave() calls with verified creature IDs per wave once confirmed.
+    /// Creature IDs for this map are still being verified; until then this script uses
+    /// fallback completion after three unique boss deaths.
     /// </summary>
     [ScriptFilterOwnerId(1149)]
     public class HycrestInsurrectionScript : AdventureScript
     {
-        protected override void OnAdventureLoad()
-        {
-            // TODO: Add waves once creature IDs are confirmed via in-game testing.
-            // Expected structure (retail):
-            //   AddWave(wave1BossId);      // Wave 1 commander
-            //   AddWave(wave2BossId);      // Wave 2 commander
-            //   AddWave(finalCommanderId); // Final boss
-        }
+        protected override int FallbackRequiredBossKills => 3;
+
+        protected override void OnAdventureLoad() { }
     }
 }

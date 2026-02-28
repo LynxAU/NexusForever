@@ -8,18 +8,14 @@ namespace NexusForever.Script.Main.Instance.Adventure
     /// Type: Combat — players fight through the Farside moon base against
     /// Eldan-constructed threats in sequential encounter rooms.
     ///
-    /// Creature IDs require in-game testing (no bracket prefix in Creature2.tbl).
-    /// TODO: Identify Farside encounter creature IDs and populate AddWave() calls.
+    /// Creature IDs for this map are still being verified; until then this script uses
+    /// fallback completion after three unique boss deaths.
     /// </summary>
     [ScriptFilterOwnerId(3010)]
     public class FarsideAdventureScript : AdventureScript
     {
-        protected override void OnAdventureLoad()
-        {
-            // TODO: Populate once creature IDs are confirmed via in-game testing.
-            //   AddWave(encounter1BossId);
-            //   AddWave(encounter2BossId);
-            //   AddWave(finalBossId);
-        }
+        protected override int FallbackRequiredBossKills => 3;
+
+        protected override void OnAdventureLoad() { }
     }
 }

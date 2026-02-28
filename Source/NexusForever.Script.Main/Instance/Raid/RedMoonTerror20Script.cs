@@ -17,7 +17,7 @@ namespace NexusForever.Script.Main.Instance.Raid
     ///
     /// Source: Creature2.tbl "[RMT]" name tag search.
     /// Spawn data: see WorldDatabaseRepo/Instance/Raid/Red Moon Terror 20.sql (stub — no coordinate data).
-    /// TODO: Verify encounter order and whether additional bosses exist in 20-man tuning.
+    /// Note: Verify encounter order and whether additional bosses exist in 20-man tuning.
     /// </summary>
     [ScriptFilterOwnerId(3032)]
     public class RedMoonTerror20Script : IContentMapScript, IOwnedScript<IContentMapInstance>

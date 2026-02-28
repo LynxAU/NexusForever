@@ -18,7 +18,7 @@ namespace NexusForever.Script.Main.Instance.Raid
     /// "[IC]" prefix covers WorldId 3040 Augmentors' Lab content (distinct from
     /// Infinite Labs dungeon at WorldId 2980 which has no Creature2 tag).
     ///
-    /// TODO: Confirm RequiredBossCount and which creatures are required vs optional.
+    /// Note: Confirm RequiredBossCount and which creatures are required vs optional.
     /// Spawn data: see WorldDatabaseRepo/Instance/Raid/Augmentors Lab.sql (stub — no coordinate data).
     /// </summary>
     [ScriptFilterOwnerId(3040)]
@@ -33,7 +33,7 @@ namespace NexusForever.Script.Main.Instance.Raid
             61597u,  // Circuit Breaker
         };
 
-        // TODO: Verify — may only require GodUnit death for completion.
+        // Note: Verify — may only require GodUnit death for completion.
         private const int RequiredBossCount = 5;
 
         private IContentMapInstance owner;

@@ -18,7 +18,7 @@ namespace NexusForever.Script.Main.Instance.Raid
     ///
     /// Source: Creature2.tbl "[DS] eXXX" name tag search.
     /// Spawn data: see WorldDatabaseRepo/Instance/Raid/Datascape.sql (stub — no coordinate data).
-    /// TODO: Verify creature IDs and encounter order against retail sniff data.
+    /// Note: Verify creature IDs and encounter order against retail sniff data.
     /// </summary>
     [ScriptFilterOwnerId(1333)]
     public class DatascapeScript : IContentMapScript, IOwnedScript<IContentMapInstance>

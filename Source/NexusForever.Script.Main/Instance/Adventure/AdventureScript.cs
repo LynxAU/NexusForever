@@ -48,6 +48,7 @@ namespace NexusForever.Script.Main.Instance.Adventure
 
         private readonly List<AdventureWave> waves = new();
         private int currentWave = 0;
+        private readonly HashSet<uint> fallbackBossKills = new();
 
         protected IContentMapInstance Owner { get; private set; }
 
@@ -59,6 +60,7 @@ namespace NexusForever.Script.Main.Instance.Adventure
             Owner       = owner;
             currentWave = 0;
             waves.Clear(); // Clear before rebuilding so repeated loads don't double waves.
+            fallbackBossKills.Clear();
             OnAdventureLoad();
         }
 
@@ -72,7 +74,18 @@ namespace NexusForever.Script.Main.Instance.Adventure
         /// <inheritdoc/>
         public void OnBossDeath(uint creatureId)
         {
-            if (waves.Count == 0 || currentWave >= waves.Count)
+            if (waves.Count == 0)
+            {
+                int requiredKills = FallbackRequiredBossKills;
+                if (requiredKills <= 0 || !fallbackBossKills.Add(creatureId))
+                    return;
+
+                if (fallbackBossKills.Count >= requiredKills)
+                    FinishAdventure();
+                return;
+            }
+
+            if (currentWave >= waves.Count)
                 return;
 
             if (!waves[currentWave].RecordKill(creatureId))
@@ -89,6 +102,7 @@ namespace NexusForever.Script.Main.Instance.Adventure
         public void OnEncounterReset()
         {
             currentWave = 0;
+            fallbackBossKills.Clear();
             foreach (AdventureWave wave in waves)
                 wave.Reset();
         }
@@ -115,6 +129,13 @@ namespace NexusForever.Script.Main.Instance.Adventure
         /// Override to play emotes, spawn reinforcements, or apply other per-wave effects.
         /// </summary>
         protected virtual void OnWaveComplete(int waveIndex) { }
+
+        /// <summary>
+        /// Optional fallback used when no waves are registered: adventure completes after this
+        /// many unique boss deaths observed through <see cref="OnBossDeath"/>.
+        /// Keep at 0 to disable fallback and require explicit waves.
+        /// </summary>
+        protected virtual int FallbackRequiredBossKills => 0;
 
         // ── Completion ────────────────────────────────────────────────────────────
 

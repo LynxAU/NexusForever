@@ -57,4 +57,3 @@ namespace NexusForever.WorldServer.Service
         }
     }
 }
-</invoke>

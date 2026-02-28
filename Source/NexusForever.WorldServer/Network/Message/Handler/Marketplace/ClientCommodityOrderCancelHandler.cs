@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using NexusForever.Game.Marketplace;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model.Marketplace;
@@ -15,16 +14,18 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Marketplace
             this.commodityExchangeManager = commodityExchangeManager;
         }
 
-        public async Task HandleMessage(IWorldSession session, ClientCommodityOrderCancel packet)
+        public void HandleMessage(IWorldSession session, ClientCommodityOrderCancel packet)
         {
             var player = session.Player;
             if (player == null)
                 return;
 
-            var (result, order) = await commodityExchangeManager.CancelOrderAsync(
+            var (result, order) = commodityExchangeManager.CancelOrderAsync(
                 player,
                 packet.CommodityOrderId,
-                packet.Item2Id);
+                packet.Item2Id)
+                .GetAwaiter()
+                .GetResult();
 
             // Send result back to client
             // Note: Cancel result format might need adjustment based on actual protocol

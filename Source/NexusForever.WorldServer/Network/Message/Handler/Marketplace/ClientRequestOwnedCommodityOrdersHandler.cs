@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using NexusForever.Game.Marketplace;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model.Marketplace;
@@ -14,13 +13,15 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Marketplace
             this.commodityExchangeManager = commodityExchangeManager;
         }
 
-        public async Task HandleMessage(IWorldSession session, ClientRequestOwnedCommodityOrders packet)
+        public void HandleMessage(IWorldSession session, ClientRequestOwnedCommodityOrders packet)
         {
             var player = session.Player;
             if (player == null)
                 return;
 
-            var orders = await commodityExchangeManager.GetOwnedOrdersAsync(player.CharacterId);
+            var orders = commodityExchangeManager.GetOwnedOrdersAsync(player.CharacterId)
+                .GetAwaiter()
+                .GetResult();
 
             player.Session.EnqueueMessageEncrypted(new ServerOwnedCommodityOrders
             {
@@ -29,4 +30,3 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Marketplace
         }
     }
 }
-</invoke>

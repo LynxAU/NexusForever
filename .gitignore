@@ -10,6 +10,10 @@ tmp/
 .tmp-tools/
 .playwright-cli/
 config.json
+.claude/
+.github/
+Obsolete/
+Tools/
 
 # User-specific files
 *.suo

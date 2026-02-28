@@ -66,7 +66,7 @@ namespace NexusForever.Game.Marketplace
             // Validate item exists
             var itemEntry = GameTableManager.Instance.Item.GetEntry(itemId);
             if (itemEntry == null)
-                return (GenericError.ItemNotFound, null);
+                return (GenericError.ItemBadId, null);
 
             // Check if item is stackable (required for commodity exchange)
             if (itemEntry.MaxStackCount <= 1)
@@ -91,7 +91,7 @@ namespace NexusForever.Game.Marketplace
             {
                 // For buy orders, player needs to have the money upfront
                 if (!player.CurrencyManager.CanAfford(CurrencyType.Credits, totalPrice))
-                    return (GenericError.CurrencyNotEnough, null);
+                    return (GenericError.VendorNotEnoughCash, null);
 
                 // Deduct the credits
                 player.CurrencyManager.CurrencySubtractAmount(CurrencyType.Credits, totalPrice);
@@ -99,12 +99,11 @@ namespace NexusForever.Game.Marketplace
             else
             {
                 // For sell orders, check if player has the items
-                uint itemsInInventory = player.Inventory.GetItemCount(InventoryLocation.Inventory, itemId);
-                if (itemsInInventory < quantity)
-                    return (GenericError.ItemNotFound, null);
+                if (!player.Inventory.HasItemCount(itemId, quantity))
+                    return (GenericError.ItemNoItems, null);
 
                 // Remove items from inventory
-                player.Inventory.ItemDelete(InventoryLocation.Inventory, itemId, quantity, ItemUpdateReason.Auction);
+                player.Inventory.ItemDelete(itemId, quantity, ItemUpdateReason.Auction);
             }
 
             // Create the order
@@ -262,13 +261,17 @@ namespace NexusForever.Game.Marketplace
             bool lookingForBuyOrders = !newOrder.IsBuyOrder;
 
             var now = DateTime.UtcNow;
-            var matchingOrders = await db.CharacterCommodityOrder
+            var matchingOrdersQuery = db.CharacterCommodityOrder
                 .Where(o => o.ItemId == newOrder.ItemId 
                     && o.IsBuyOrder == lookingForBuyOrders 
                     && o.ExpirationTime > now 
                     && o.FilledQuantity < o.Quantity
-                    && o.CharacterId != newOrder.CharacterId) // Don't match with self
-                .OrderBy(o => lookingForBuyOrders ? o.UnitPrice : -o.UnitPrice) // Best price first
+                    && o.CharacterId != newOrder.CharacterId); // Don't match with self
+
+            // Best-price-first ordering: when selling, match highest buy; when buying, match lowest sell.
+            var matchingOrders = await (lookingForBuyOrders
+                ? matchingOrdersQuery.OrderByDescending(o => o.UnitPrice)
+                : matchingOrdersQuery.OrderBy(o => o.UnitPrice))
                 .ToListAsync();
 
             uint remainingToFill = newOrder.Quantity - newOrder.FilledQuantity;
@@ -481,10 +484,9 @@ namespace NexusForever.Game.Marketplace
                 RecipientId = recipientId,
                 SenderType = (byte)SenderType.ItemAuction,
                 Subject = subject,
-                Body = body,
+                Message = body,
                 CurrencyAmount = amount,
-                IsCashOnDelivery = false,
-                HasItems = false,
+                IsCashOnDelivery = 0,
                 Flags = 0,
                 CreateTime = DateTime.UtcNow
             };

@@ -1,0 +1,30 @@
+name: Targeted Build
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-targeted:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build Game.Abstract
+        run: dotnet build Source/NexusForever.Game.Abstract/NexusForever.Game.Abstract.csproj --configuration Release --no-restore
+
+      - name: Build World Database
+        run: dotnet build Source/NexusForever.Database.World/NexusForever.Database.World.csproj --configuration Release --no-restore
+
+      - name: Build Aspire DB Migrations
+        run: dotnet build Source/NexusForever.Aspire.Database.Migrations/NexusForever.Aspire.Database.Migrations.csproj --configuration Release --no-restore

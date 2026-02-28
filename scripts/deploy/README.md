@@ -1,0 +1,17 @@
+# Deploy Scripts
+
+## Scripts
+- `release.sh` - publish a release artifact from source.
+- `deploy.sh` - copy a release into the release store and switch `current`.
+- `rollback.sh` - switch `current` back to a previous release.
+- `migrate.sh` - run DB migrations via `NexusForever.Aspire.Database.Migrations`.
+- `healthcheck.sh` - simple TCP reachability check for service startup.
+
+## Typical Flow
+1. `release.sh` to build a new version.
+2. Backup database.
+3. `migrate.sh` to apply schema changes.
+4. `deploy.sh` to switch active release.
+5. Restart service.
+6. `healthcheck.sh` to validate service is up.
+7. If needed, `rollback.sh` to revert active release.

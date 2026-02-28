@@ -82,8 +82,7 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void Update(double lastTick)
         {
-            // TODO: timer
-            //wakeHereTimer.Update(lastTick);
+            wakeHereTimer.Update(lastTick);
         }
 
         /// <summary>
@@ -106,7 +105,7 @@ namespace NexusForever.Game.Entity
                 ShowRezFlags        = ResurrectionType,
                 HasCasterRezRequest = false,
                 TimeUntilForceRezMs = 0u,
-                TimeUntilWakeHereMs = wakeHereTimer.IsTicking ? (uint)wakeHereTimer.Duration * 1000u : 0u
+                TimeUntilWakeHereMs = wakeHereTimer.IsTicking ? (uint)(wakeHereTimer.Time * 1000.0) : 0u
             });
 
             log.Trace($"Player {owner.Guid} has resurrect options {resurrectionType}.");
@@ -173,9 +172,7 @@ namespace NexusForever.Game.Entity
                 return false;
 
             owner.CurrencyManager.CurrencySubtractAmount(CurrencyType.Credits, cost);
-            
-            // TODO: timer
-            //wakeHereTimer.Reset();
+            wakeHereTimer.Reset();
 
             return true;
         }

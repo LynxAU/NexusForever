@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
+using NexusForever.Game.Abstract.Character;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Character;
 using NexusForever.Game;
@@ -83,65 +84,65 @@ namespace NexusForever.Game.Entity
 
         public FriendshipResult AddFriend(string name, string note)
         {
-            // Look up character by name
-            var characterManager = PlayerManager.Instance;
-            IPlayer targetPlayer = characterManager.GetPlayer(name);
+            // Resolve target: prefer online player, fall back to CharacterManager cache (offline characters).
+            ulong targetId;
+            string targetName;
 
-            if (targetPlayer == null)
+            IPlayer onlinePlayer = PlayerManager.Instance.GetPlayer(name);
+            if (onlinePlayer != null)
             {
-                // TODO: Look up character from database if offline
-                log.Warn($"Cannot add friend: {name} not found online or in database.");
-                return FriendshipResult.PlayerOffline;
+                targetId   = onlinePlayer.CharacterId;
+                targetName = onlinePlayer.Name;
+            }
+            else
+            {
+                ICharacter offlineCharacter = CharacterManager.Instance.GetCharacter(name);
+                if (offlineCharacter == null)
+                {
+                    log.Warn($"Cannot add friend: {name} not found.");
+                    return FriendshipResult.PlayerNotFound;
+                }
+
+                targetId   = offlineCharacter.CharacterId;
+                targetName = offlineCharacter.Name;
             }
 
-            if (targetPlayer.CharacterId == player.CharacterId)
-            {
+            if (targetId == player.CharacterId)
                 return FriendshipResult.CannotInviteSelf;
-            }
 
-            if (friends.ContainsKey(targetPlayer.CharacterId))
-            {
+            if (friends.ContainsKey(targetId))
                 return FriendshipResult.PlayerAlreadyFriend;
-            }
 
-            // Check max friends limit
-            if (friends.Count >= 100) // Typical max friends
-            {
+            if (friends.Count >= 100)
                 return FriendshipResult.MaxFriends;
-            }
 
-            // Create new friend entry
             var friendModel = new CharacterFriendModel
             {
-                Id = (ulong)DateTime.UtcNow.Ticks,
-                CharacterId = player.CharacterId,
-                FriendCharacterId = targetPlayer.CharacterId,
-                Type = (byte)FriendshipType.Friend,
-                Note = note ?? ""
+                Id                = (ulong)DateTime.UtcNow.Ticks,
+                CharacterId       = player.CharacterId,
+                FriendCharacterId = targetId,
+                Type              = (byte)FriendshipType.Friend,
+                Note              = note ?? ""
             };
 
-            friends.Add(targetPlayer.CharacterId, friendModel);
-
-            // Send notification to the player who added the friend
-            var friendData = new FriendData
-            {
-                FriendshipId = friendModel.Id,
-                Type = FriendshipType.Friend,
-                Note = friendModel.Note,
-                PlayerIdentity = new Identity
-                {
-                    Id      = targetPlayer.CharacterId,
-                    RealmId = RealmContext.Instance.RealmId
-                }
-            };
+            friends.Add(targetId, friendModel);
 
             player.Session.EnqueueMessageEncrypted(new ServerFriendAdd
             {
-                Friend = friendData
+                Friend = new FriendData
+                {
+                    FriendshipId = friendModel.Id,
+                    Type         = FriendshipType.Friend,
+                    Note         = friendModel.Note,
+                    PlayerIdentity = new Identity
+                    {
+                        Id      = targetId,
+                        RealmId = RealmContext.Instance.RealmId
+                    }
+                }
             });
 
-            log.Debug($"Player {player.Name} added {targetPlayer.Name} as friend.");
-
+            log.Debug($"Player {player.Name} added {targetName} as friend.");
             return FriendshipResult.RequestSent;
         }
 

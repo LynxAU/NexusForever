@@ -739,10 +739,9 @@ namespace NexusForever.Game.Entity
                 }
 
                 QuestManager.ObjectiveUpdate(QuestObjectiveType.EnterZone, Zone.Id, 1);
-                // EnterArea objectives use WorldLocation2 which requires proper tracking
-                // For now, trigger with data=0 as a placeholder - later needs WorldLocation2 trigger
-                log.Debug("Triggering EnterArea quest objective for player {PlayerId}, zone {ZoneId}", CharacterId, Zone.Id);
-                QuestManager.ObjectiveUpdate(QuestObjectiveType.EnterArea, 0, 1);
+                
+                // EnterArea objectives use WorldLocation2 - properly check if we're in the right zone
+                QuestManager.CheckEnterAreaObjectives(Zone.Id);
             }
 
             ZoneMapManager.OnZoneUpdate();

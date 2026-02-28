@@ -841,5 +841,40 @@ namespace NexusForever.Game.Entity
         {
             return activeQuests.Values;
         }
+
+        /// <summary>
+        /// Check and update any EnterArea objectives when entering a zone.
+        /// EnterArea objectives use WorldLocation2 IDs which have associated WorldZoneIds.
+        /// </summary>
+        public void CheckEnterAreaObjectives(uint zoneId)
+        {
+            foreach (IQuest quest in activeQuests.Values)
+            {
+                foreach (IQuestObjective objective in quest)
+                {
+                    if (objective.ObjectiveInfo.Type != QuestObjectiveType.EnterArea)
+                        continue;
+
+                    if (objective.IsComplete())
+                        continue;
+
+                    // Get the WorldLocation2 ID from the objective's Data field
+                    uint worldLocation2Id = objective.ObjectiveInfo.Entry.Data;
+                    if (worldLocation2Id == 0)
+                        continue;
+
+                    // Check if this WorldLocation2 belongs to the current zone
+                    var worldLocation2Entry = GameTableManager.Instance.WorldLocation2.GetEntry(worldLocation2Id);
+                    if (worldLocation2Entry == null)
+                        continue;
+
+                    if (worldLocation2Entry.WorldZoneId == zoneId)
+                    {
+                        // This objective's WorldLocation2 is in the current zone - complete it
+                        quest.ObjectiveUpdate(QuestObjectiveType.EnterArea, worldLocation2Id, 1);
+                    }
+                }
+            }
+        }
     }
 }

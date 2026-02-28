@@ -33,3 +33,10 @@ Optional overrides:
 - `AUTH_CONTAINER`, `WORLD_CONTAINER`
 - `AUTH_PORT`, `WORLD_PORT`
 - `HEALTH_HOST`, `HEALTH_TIMEOUT`
+- `MYSQL_HOST`, `MYSQL_PORT`
+- `RABBIT_HOST`, `RABBIT_PORT`
+- `DEPENDENCY_TIMEOUT`
+
+Behavior:
+- Performs dependency preflight checks for MySQL and RabbitMQ before stopping live auth/world.
+- If deploy fails after auth/world are stopped, it attempts automatic recovery by starting both containers.

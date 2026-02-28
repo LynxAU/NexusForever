@@ -22,8 +22,14 @@ AUTH_PORT="${AUTH_PORT:-23115}"
 WORLD_PORT="${WORLD_PORT:-24000}"
 HEALTH_HOST="${HEALTH_HOST:-127.0.0.1}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-45}"
+MYSQL_HOST="${MYSQL_HOST:-127.0.0.1}"
+MYSQL_PORT="${MYSQL_PORT:-33306}"
+RABBIT_HOST="${RABBIT_HOST:-127.0.0.1}"
+RABBIT_PORT="${RABBIT_PORT:-35672}"
+DEPENDENCY_TIMEOUT="${DEPENDENCY_TIMEOUT:-20}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONTAINERS_STOPPED="false"
 
 require_cmd() {
   local cmd="$1"
@@ -55,11 +61,56 @@ safe_sync_dir() {
   cp -a "$source"/. "$target"/
 }
 
+wait_for_tcp() {
+  local host="$1"
+  local port="$2"
+  local timeout_seconds="$3"
+  local end=$((SECONDS + timeout_seconds))
+
+  while (( SECONDS < end )); do
+    if bash -c ">/dev/tcp/$host/$port" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  return 1
+}
+
+container_exists() {
+  local container="$1"
+  docker inspect "$container" >/dev/null 2>&1
+}
+
+recover_containers_on_error() {
+  if [[ "$CONTAINERS_STOPPED" == "true" ]]; then
+    echo "[deploy] Error occurred. Attempting to bring $AUTH_CONTAINER and $WORLD_CONTAINER back up ..."
+    docker start "$AUTH_CONTAINER" "$WORLD_CONTAINER" >/dev/null 2>&1 || true
+  fi
+}
+
+trap recover_containers_on_error ERR
+
 require_cmd git
 require_cmd dotnet
 require_cmd docker
 
 cd "$REPO_ROOT"
+
+if ! container_exists "$AUTH_CONTAINER" || ! container_exists "$WORLD_CONTAINER"; then
+  echo "Missing expected containers: $AUTH_CONTAINER and/or $WORLD_CONTAINER." >&2
+  exit 1
+fi
+
+echo "[deploy] Preflight dependency checks ..."
+if ! wait_for_tcp "$MYSQL_HOST" "$MYSQL_PORT" "$DEPENDENCY_TIMEOUT"; then
+  echo "MySQL dependency is not reachable at $MYSQL_HOST:$MYSQL_PORT." >&2
+  exit 1
+fi
+if ! wait_for_tcp "$RABBIT_HOST" "$RABBIT_PORT" "$DEPENDENCY_TIMEOUT"; then
+  echo "RabbitMQ dependency is not reachable at $RABBIT_HOST:$RABBIT_PORT." >&2
+  exit 1
+fi
 
 echo "[deploy] Fetching $REMOTE/$BRANCH ..."
 git fetch "$REMOTE" "$BRANCH"
@@ -100,6 +151,7 @@ fi
 
 echo "[deploy] Stopping $AUTH_CONTAINER and $WORLD_CONTAINER ..."
 docker stop "$AUTH_CONTAINER" "$WORLD_CONTAINER" >/dev/null
+CONTAINERS_STOPPED="true"
 
 echo "[deploy] Syncing AuthServer to $AUTH_SRC ..."
 safe_sync_dir "$AUTH_OUT" "$AUTH_SRC"
@@ -109,6 +161,7 @@ safe_sync_dir "$WORLD_OUT" "$WORLD_SRC"
 
 echo "[deploy] Starting $AUTH_CONTAINER and $WORLD_CONTAINER ..."
 docker start "$AUTH_CONTAINER" "$WORLD_CONTAINER" >/dev/null
+CONTAINERS_STOPPED="false"
 
 echo "[deploy] Running health checks ..."
 "$SCRIPT_DIR/healthcheck.sh" "$HEALTH_HOST" "$AUTH_PORT" "$HEALTH_TIMEOUT"

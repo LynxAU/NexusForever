@@ -6,6 +6,13 @@
 # NexusForever generated files
 *.tbl
 *.nfmap
+# Deploy-critical runtime assets are tracked from this path.
+!assets/
+!assets/tbl/
+!assets/tbl/*.tbl
+!assets/tbl/en-US.bin
+!assets/map/
+!assets/map/*.nfmap
 tmp/
 .tmp-tools/
 .playwright-cli/

@@ -1,7 +1,7 @@
 # Deploy Scripts
 
 ## Scripts
-- `release.sh` - publish a release artifact from source.
+- `release.sh` - publish a release artifact from source and bundle tracked game data from `assets/tbl` and `assets/map`.
 - `deploy.sh` - copy a release into the release store and switch `current`.
 - `rollback.sh` - switch `current` back to a previous release.
 - `migrate.sh` - run DB migrations via `NexusForever.Aspire.Database.Migrations`.

@@ -11,7 +11,7 @@
 
 ## Release Steps
 1. Pull latest source and checkout target tag/commit.
-2. Build/publish release artifact.
+2. Build/publish release artifact. The release bundles deploy-critical world data from `assets/tbl` and `assets/map`.
 3. Backup database.
 4. Run schema migrations (fail-fast).
 5. Switch `current` symlink to new release.

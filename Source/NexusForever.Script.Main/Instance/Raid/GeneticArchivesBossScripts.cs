@@ -182,11 +182,15 @@ namespace NexusForever.Script.Main.Instance.Raid
     [ScriptFilterCreatureId(54055u)]
     public class GAPhageGuardianC148Script : BossEncounterScript
     {
-        // TODO: Extract specific Probebot #1 Spell4 IDs from Spell4.tbl once [GA] C-148 tag confirmed.
+        // 61431 | Guardian - Maintenance Probe - Chain Lightning - Tier 1
+        // 61464 | Guardian - Technophage Probe - Target Selection - Base - Tier 1
+        // 61466 | Guardian - Technophage Probe 2 - Self-Destruct - Tier 1
         protected override void OnBossLoad()
         {
-            ScheduleSpell(spell4Id: 64839, initialDelay: 5.0, interval: 20.0); // Shared Drill from Augmentor set
-            SetEnrage(seconds: 480.0, enrageSpellId: 64839);
+            ScheduleSpell(spell4Id: 61464, initialDelay:  3.0, interval: 12.0); // Target Selection
+            ScheduleSpell(spell4Id: 61431, initialDelay:  6.0, interval: 14.0); // Chain Lightning
+            ScheduleSpell(spell4Id: 61466, initialDelay: 20.0, interval: 35.0); // Self-Destruct cycle
+            SetEnrage(seconds: 480.0, enrageSpellId: 61431);
         }
     }
 
@@ -194,23 +198,27 @@ namespace NexusForever.Script.Main.Instance.Raid
     [ScriptFilterCreatureId(54056u)]
     public class GAPhageGuardianC432Script : BossEncounterScript
     {
-        // TODO: Extract specific Probebot #2 Spell4 IDs.
+        // 61431 | Guardian - Maintenance Probe - Chain Lightning - Tier 1
+        // 61464 | Guardian - Technophage Probe - Target Selection - Base - Tier 1
+        // 61466 | Guardian - Technophage Probe 2 - Self-Destruct - Tier 1
         protected override void OnBossLoad()
         {
-            ScheduleSpell(spell4Id: 59719, initialDelay: 5.0, interval: 20.0); // Shared Pulse from Protector set
-            SetEnrage(seconds: 480.0, enrageSpellId: 59719);
+            ScheduleSpell(spell4Id: 61464, initialDelay:  3.0, interval: 10.0); // Target Selection
+            ScheduleSpell(spell4Id: 61431, initialDelay:  5.0, interval: 12.0); // Chain Lightning
+            ScheduleSpell(spell4Id: 61466, initialDelay: 16.0, interval: 28.0); // Self-Destruct cycle
+            SetEnrage(seconds: 480.0, enrageSpellId: 61466);
         }
     }
 
     // ── Phageborn Convergence ─ Five-Member Council ────────────────────────────
     //
-    // Role mapping to creature IDs is unconfirmed; abilities are assigned by inferred role.
-    // TODO: Confirm creature-to-role mapping via in-game testing.
+    // Role mapping to creature IDs is inferred from Spell4 naming families and may need in-game tuning.
     //
     //   Leader:    58423 Essence Rot | 57232 Equalize HP | 60399 Piercing Vision
     //   DPS:       57862 Leap        | 57686/57838 MegaCast (20s enrage pair)
     //   Healer:    57623 DOT Cast    | 57412 HOT PBAE    | 60377 MegaCast Reconstruct Sinew
     //   Control:   56983 Foul Scourge| 56962 Time Bomb   | 56978/60349 MegaCast
+    //   Tank:      56877 Distributed Damage | 56634 Knock Away | 60367/57157 MegaCast
 
     /// <summary>TMNS council — Leader role (unconfirmed). Creature2Id 52963.</summary>
     [ScriptFilterCreatureId(52963u)]
@@ -264,10 +272,19 @@ namespace NexusForever.Script.Main.Instance.Raid
     [ScriptFilterCreatureId(52971u)]
     public class GATMNSMember5Script : BossEncounterScript
     {
-        // TODO: Identify fifth council member's role and extract Spell4 IDs.
+        // Tank-role assignment inferred from [GA] TMNS - Tank spell family in Spell4.tbl.
+        // 56877 | Tank - Distributed Damage - Base
+        // 56634 | Tank - Knock Away
+        // 57088 | Tank - Taunt
+        // 60367 | Tank - MegaCast - Gathering Energy - Base
+        // 57157 | Tank - MegaCast - Channel
         protected override void OnBossLoad()
         {
-            ScheduleSpell(spell4Id: 58423, initialDelay: 10.0, interval: 22.0); // Placeholder: Essence Rot
+            ScheduleSpell(spell4Id: 57088, initialDelay:  4.0, interval: 15.0); // Taunt
+            ScheduleSpell(spell4Id: 56634, initialDelay:  8.0, interval: 18.0); // Knock Away
+            ScheduleSpell(spell4Id: 56877, initialDelay: 12.0, interval: 22.0); // Distributed Damage
+            ScheduleSpell(spell4Id: 60367, initialDelay: 45.0, interval: 90.0); // MegaCast Gathering Energy
+            ScheduleSpell(spell4Id: 57157, initialDelay: 50.0, interval: 90.0); // MegaCast Channel
         }
     }
 

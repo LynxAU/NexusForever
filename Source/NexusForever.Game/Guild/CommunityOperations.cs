@@ -1,14 +1,17 @@
-﻿using NexusForever.Game.Abstract.Entity;
+using System;
+using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Housing;
 using NexusForever.Game.Abstract.Map.Lock;
 using NexusForever.Game.Housing;
 using NexusForever.Game.Map;
 using NexusForever.Game.Map.Lock;
+using NexusForever.Game.Configuration.Model;
 using NexusForever.Game.Static.Guild;
 using NexusForever.Game.Static.Housing;
 using NexusForever.Network;
 using NexusForever.Network.World.Message.Model.Guild;
+using NexusForever.Shared.Configuration;
 
 namespace NexusForever.Game.Guild
 {
@@ -96,6 +99,7 @@ namespace NexusForever.Game.Guild
                         throw new InvalidPacketValueException();
 
                     targetResidence.IsTemporary = false;
+                    targetResidence.RemovalTime = null;
                 }
             }
             else
@@ -106,6 +110,7 @@ namespace NexusForever.Game.Guild
 
                 // removing the reservation does not remove the plot only removes the permanent status
                 sourceResidence.IsTemporary = true;
+                sourceResidence.RemovalTime = DateTime.UtcNow.AddHours(Math.Max(1d, SharedConfiguration.Instance.Get<RealmConfig>()?.HousingTemporaryPlotExpiryHours ?? 72d));
             }
 
             member.CommunityPlotReservation = operation.Data.Int32Data;
@@ -131,6 +136,7 @@ namespace NexusForever.Game.Guild
 
             // removing the reservation does not remove the plot only removes the permanent status
             child.IsTemporary = true;
+            child.RemovalTime = DateTime.UtcNow.AddHours(Math.Max(1d, SharedConfiguration.Instance.Get<RealmConfig>()?.HousingTemporaryPlotExpiryHours ?? 72d));
 
             targetMember.CommunityPlotReservation = -1;
             AnnounceGuildMemberChange(targetMember);
@@ -139,3 +145,4 @@ namespace NexusForever.Game.Guild
         }
     }
 }
+

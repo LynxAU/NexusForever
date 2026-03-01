@@ -11,6 +11,16 @@ namespace NexusForever.Game.Abstract.Combat
         bool IsThreatened { get; }
 
         /// <summary>
+        /// Returns if entity is in PvP combat timeout (has player attacker, no current threats).
+        /// </summary>
+        bool IsInPvPCombatTimeout { get; }
+
+        /// <summary>
+        /// Update <see cref="IThreatManager"/> with delta time.
+        /// </summary>
+        void Update(double lastTick);
+
+        /// <summary>
         /// Returns <see cref="IHostileEntity"/> for supplied target if it exists in the threat list.
         /// </summary>
         IHostileEntity GetHostile(uint target);

@@ -10,6 +10,12 @@ namespace NexusForever.Game.Abstract.Challenge
         bool IsActivated { get; }
         bool IsCompleted { get; }
         bool IsOnCooldown { get; }
+        uint CurrentCount { get; }
+        uint CurrentTier { get; }
+        uint CompletionCount { get; }
+        double TimeRemainingSeconds { get; }
+        double CooldownRemainingSeconds { get; }
+        uint ActivatedDt { get; }
 
         /// <summary>
         /// Activate this challenge, starting the timer and progress tracking.
@@ -50,5 +56,20 @@ namespace NexusForever.Game.Abstract.Challenge
         /// Build a network packet representation of the current challenge state.
         /// </summary>
         ServerChallengeUpdate.Challenge Build();
+
+        /// <summary>
+        /// Restore challenge state from persisted storage.
+        /// </summary>
+        void RestoreState(
+            bool unlocked,
+            bool activated,
+            bool completed,
+            bool onCooldown,
+            uint currentCount,
+            uint currentTier,
+            uint completionCount,
+            double timeRemainingSeconds,
+            double cooldownRemainingSeconds,
+            uint activatedDt);
     }
 }

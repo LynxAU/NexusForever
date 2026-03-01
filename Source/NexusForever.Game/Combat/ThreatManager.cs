@@ -15,6 +15,11 @@ namespace NexusForever.Game.Combat
 
         private IUnitEntity owner;
 
+        // PvP combat timeout fields
+        private bool _lastAttackerWasPlayer = false;
+        private double _pvpCombatTimer = 0.0;
+        private const double PvPCombatTimeout = 10.0; // seconds
+
         /// <summary>
         /// Initialise <see cref="IThreatManager"/> for a <see cref="IUnitEntity"/>.
         /// </summary>
@@ -27,6 +32,11 @@ namespace NexusForever.Game.Combat
         /// Returns if any <see cref="IHostileEntity"/> exists in the threat list.
         /// </summary>
         public bool IsThreatened => hostiles.Count > 0;
+
+        /// <summary>
+        /// Returns if entity is in PvP combat timeout (has player attacker, no current threats).
+        /// </summary>
+        public bool IsInPvPCombatTimeout => _lastAttackerWasPlayer && !IsThreatened && _pvpCombatTimer > 0.0;
 
         /// <summary>
         /// Returns <see cref="IHostileEntity"/> for supplied target if it exists in the threat list.
@@ -63,6 +73,13 @@ namespace NexusForever.Game.Combat
             IHostileEntity hostile = new HostileEntity(target.Guid);
             hostile.UpdateThreat(threat);
             hostiles.Add(hostile.HatedUnitId, hostile);
+
+            // Check if target is a player for PvP combat timeout
+            if (target is IPlayer)
+            {
+                _lastAttackerWasPlayer = true;
+                _pvpCombatTimer = PvPCombatTimeout;
+            }
 
             owner.OnThreatAddTarget(hostile);
 
@@ -116,10 +133,27 @@ namespace NexusForever.Game.Combat
 
             owner.OnThreatRemoveTarget(hostileEntity);
 
-            // TODO: Handle the case of PvP where the only "end" would be death. Consider an "in-combat without threat" timer as a trigger, in PvP situations only.
             owner.GetVisible<IUnitEntity>(unitId)?.ThreatManager.RemoveHostile(owner.Guid);
 
             log.Trace($"Removed hostile {hostileEntity.HatedUnitId} from {owner.Guid}'s threat list.");
+        }
+
+        /// <summary>
+        /// Update PvP combat timeout timer.
+        /// </summary>
+        public void Update(double lastTick)
+        {
+            // Only tick timer if we have a player attacker and no current threats
+            if (_lastAttackerWasPlayer && !IsThreatened && _pvpCombatTimer > 0.0)
+            {
+                _pvpCombatTimer -= lastTick;
+                if (_pvpCombatTimer <= 0.0)
+                {
+                    // Timer expired, clear the PvP combat state
+                    _lastAttackerWasPlayer = false;
+                    _pvpCombatTimer = 0.0;
+                }
+            }
         }
 
         /// <summary>

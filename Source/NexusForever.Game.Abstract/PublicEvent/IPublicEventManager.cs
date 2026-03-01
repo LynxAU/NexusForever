@@ -74,5 +74,16 @@ namespace NexusForever.Game.Abstract.PublicEvent
         /// Respond to vote in a specific public event for the <see cref="IPlayer"/> with the supplied choice.
         /// </summary>
         void RespondVote(IPlayer player, uint eventId, uint choice);
+
+        /// <summary>
+        /// Distribute completion rewards for a finalised public event to participants.
+        /// </summary>
+        void DistributeCompletionRewards(uint eventId, IEnumerable<ulong> participantCharacterIds);
+
+        /// <summary>
+        /// Register an auto-restart delay for a public event.
+        /// When the event finalises it will be re-created after the supplied delay in seconds.
+        /// </summary>
+        void RegisterAutoRestart(uint eventId, double delaySeconds);
     }
 }

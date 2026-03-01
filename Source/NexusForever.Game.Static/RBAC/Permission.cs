@@ -193,6 +193,9 @@
         WarParty                    = 123,
         WarPartySeasonEnd           = 124,
 
+        // battleground
+        Battleground                = 125,
+
         // ban
         Ban                         = 117,
         BanAccount                  = 118,

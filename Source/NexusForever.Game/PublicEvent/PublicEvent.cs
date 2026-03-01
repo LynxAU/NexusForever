@@ -97,6 +97,13 @@ namespace NexusForever.Game.PublicEvent
 
             elapsedTimer += lastTick;
 
+            // If the event has a failure timeout, expire it once elapsed.
+            if (template.Entry.FailureTimeMs > 0u && elapsedTimer * 1000.0 >= template.Entry.FailureTimeMs)
+            {
+                Finish(null);
+                return;
+            }
+
             foreach (IPublicEventTeam publicEventTeam in teams.Values)
                 publicEventTeam.Update(lastTick);
         }
@@ -448,6 +455,8 @@ namespace NexusForever.Game.PublicEvent
                     toRemove.Add(publicEventTeamMember.CharacterId);
                 }
             }
+
+            publicEventManager.DistributeCompletionRewards(Id, toRemove);
 
             foreach (ulong characterId in toRemove)
                 RemoveCharacter(characterId);

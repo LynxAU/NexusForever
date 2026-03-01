@@ -31,5 +31,15 @@ namespace NexusForever.Game.Abstract.Challenge
         /// RewardTrack identifier for delivering rewards on completion.
         /// </summary>
         uint RewardTrackId { get; }
+
+        /// <summary>
+        /// Optional world-zone restriction (0 means unrestricted).
+        /// </summary>
+        uint RequiredWorldZoneId { get; }
+
+        /// <summary>
+        /// Optional creature category/faction filter used for combat challenges (0 means unrestricted).
+        /// </summary>
+        uint CreatureCategoryFilterId { get; }
     }
 }

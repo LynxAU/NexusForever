@@ -197,10 +197,7 @@ namespace NexusForever.Game.Housing
             plugFacing    = HousingPlugFacing.East;
 
             if (entry.HousingPlugItemIdDefault != 0u)
-            {
-                // TODO
-                // plugItemId = entry.HousingPlugItemIdDefault;
-            }
+                SetPlug((ushort)entry.HousingPlugItemIdDefault);
 
             saveMask = PlotSaveMask.Create;
         }

@@ -8,6 +8,7 @@ namespace NexusForever.Database.Character
     {
         public DbSet<CharacterModel> Character { get; set; }
         public DbSet<CharacterAchievementModel> CharacterAchievement { get; set; }
+        public DbSet<CharacterChallengeModel> CharacterChallenge { get; set; }
         public DbSet<CharacterActionSetAmpModel> CharacterActionSetAmp { get; set; }
         public DbSet<CharacterActionSetShortcutModel> CharacterActionSetShortcut { get; set; }
         public DbSet<CharacterAppearanceModel> CharacterAppearance { get; set; }
@@ -25,6 +26,8 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterMailModel> CharacterMail { get; set; }
         public DbSet<CharacterMailAttachmentModel> CharacterMailAttachment { get; set; }
         public DbSet<CharacterPathModel> CharacterPath { get; set; }
+        public DbSet<CharacterPathMissionModel> CharacterPathMission { get; set; }
+        public DbSet<CharacterPathExplorerNodeModel> CharacterPathExplorerNode { get; set; }
         public DbSet<CharacterPetCustomisationModel> CharacterPetCustomisation { get; set; }
         public DbSet<CharacterPetFlairModel> CharacterPetFlair { get; set; }
         public DbSet<CharacterQuestModel> CharacterQuest { get; set; }
@@ -285,6 +288,79 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.Achievement)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__character_achievement_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterChallengeModel>(entity =>
+            {
+                entity.ToTable("character_challenge");
+
+                entity.HasKey(e => new { e.Id, e.ChallengeId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0ul);
+
+                entity.Property(e => e.ChallengeId)
+                    .HasColumnName("challengeId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.Property(e => e.CurrentCount)
+                    .HasColumnName("currentCount")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.Property(e => e.CurrentTier)
+                    .HasColumnName("currentTier")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.Property(e => e.CompletionCount)
+                    .HasColumnName("completionCount")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.Property(e => e.IsUnlocked)
+                    .HasColumnName("isUnlocked")
+                    .HasColumnType("tinyint(1)")
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.IsActivated)
+                    .HasColumnName("isActivated")
+                    .HasColumnType("tinyint(1)")
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.IsCompleted)
+                    .HasColumnName("isCompleted")
+                    .HasColumnType("tinyint(1)")
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.IsOnCooldown)
+                    .HasColumnName("isOnCooldown")
+                    .HasColumnType("tinyint(1)")
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.TimeRemaining)
+                    .HasColumnName("timeRemaining")
+                    .HasColumnType("double")
+                    .HasDefaultValue(0d);
+
+                entity.Property(e => e.CooldownRemaining)
+                    .HasColumnName("cooldownRemaining")
+                    .HasColumnType("double")
+                    .HasDefaultValue(0d);
+
+                entity.Property(e => e.ActivatedDt)
+                    .HasColumnName("activatedDt")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.Challenge)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_challenge_id__character_id");
             });
 
             modelBuilder.Entity<CharacterActionSetAmpModel>(entity =>
@@ -1263,6 +1339,67 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.Path)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__character_path_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterPathMissionModel>(entity =>
+            {
+                entity.ToTable("character_path_mission");
+
+                entity.HasKey(e => new { e.Id, e.MissionId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0ul);
+
+                entity.Property(e => e.MissionId)
+                    .HasColumnName("missionId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.Property(e => e.IsCompleted)
+                    .HasColumnName("isCompleted")
+                    .HasColumnType("tinyint(1)")
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.Progress)
+                    .HasColumnName("progress")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.PathMission)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_path_mission_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterPathExplorerNodeModel>(entity =>
+            {
+                entity.ToTable("character_path_explorer_node");
+
+                entity.HasKey(e => new { e.Id, e.MissionId, e.NodeIndex })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0ul);
+
+                entity.Property(e => e.MissionId)
+                    .HasColumnName("missionId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.Property(e => e.NodeIndex)
+                    .HasColumnName("nodeIndex")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.PathExplorerNode)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_path_explorer_node_id__character_id");
             });
 
             modelBuilder.Entity<CharacterPetCustomisationModel>(entity =>

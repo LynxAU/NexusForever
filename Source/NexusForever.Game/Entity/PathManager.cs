@@ -10,6 +10,7 @@ using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Static;
 using Path = NexusForever.Game.Static.Entity.Path;
+using System.Linq;
 
 namespace NexusForever.Game.Entity
 {
@@ -23,6 +24,17 @@ namespace NexusForever.Game.Entity
         private readonly Dictionary<uint, uint> settlerMissionObjectiveFlags = new();
         private readonly HashSet<uint> completedSettlerMissions = new();
 
+        // Soldier kill-mission tracking (in-memory; resets on logout like settler missions)
+        private readonly Dictionary<uint, uint> soldierMissionKillCounts = new();
+        private readonly HashSet<uint> completedSoldierMissions = new();
+
+        // Explorer node-visit tracking
+        private readonly Dictionary<uint, HashSet<uint>> explorerMissionVisitedNodes = new();
+        private readonly HashSet<uint> completedExplorerMissions = new();
+
+        // Scientist experimentation tracking
+        private readonly HashSet<uint> completedScientistMissions = new();
+
         /// <summary>
         /// Create a new <see cref="IPathManager"/> from <see cref="IPlayer"/> database model.
         /// </summary>
@@ -31,6 +43,49 @@ namespace NexusForever.Game.Entity
             player = owner;
             foreach (CharacterPathModel pathModel in model.Path)
                 paths.Add((Path)pathModel.Path, new PathEntry(pathModel));
+
+            // Restore mission progress from DB
+            foreach (CharacterPathMissionModel missionModel in model.PathMission)
+            {
+                PathMissionEntry entry = GameTableManager.Instance.PathMission.GetEntry(missionModel.MissionId);
+                if (entry == null)
+                    continue;
+
+                switch ((Path)entry.PathTypeEnum)
+                {
+                    case Path.Settler:
+                        if (missionModel.IsCompleted)
+                            completedSettlerMissions.Add(missionModel.MissionId);
+                        if (missionModel.Progress != 0u)
+                            settlerMissionObjectiveFlags[missionModel.MissionId] = missionModel.Progress;
+                        break;
+                    case Path.Soldier:
+                        if (missionModel.IsCompleted)
+                            completedSoldierMissions.Add(missionModel.MissionId);
+                        if (missionModel.Progress != 0u)
+                            soldierMissionKillCounts[missionModel.MissionId] = missionModel.Progress;
+                        break;
+                    case Path.Explorer:
+                        if (missionModel.IsCompleted)
+                            completedExplorerMissions.Add(missionModel.MissionId);
+                        break;
+                    case Path.Scientist:
+                        if (missionModel.IsCompleted)
+                            completedScientistMissions.Add(missionModel.MissionId);
+                        break;
+                }
+            }
+
+            // Restore explorer visited nodes from DB
+            foreach (CharacterPathExplorerNodeModel nodeModel in model.PathExplorerNode)
+            {
+                if (!explorerMissionVisitedNodes.TryGetValue(nodeModel.MissionId, out HashSet<uint> visited))
+                {
+                    visited = new HashSet<uint>();
+                    explorerMissionVisitedNodes[nodeModel.MissionId] = visited;
+                }
+                visited.Add(nodeModel.NodeIndex);
+            }
 
             Validate();
         }
@@ -230,6 +285,150 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Handle a creature kill for Soldier Assassinate and SWAT path missions.
+        /// Called from <see cref="UnitEntity.RewardKiller"/> for every player kill.
+        /// </summary>
+        public void HandleSoldierKillEvent(uint creatureId, IEnumerable<uint> targetGroupIds)
+        {
+            if (player.Path != Path.Soldier)
+                return;
+
+            uint[] groupIds = targetGroupIds as uint[] ?? targetGroupIds.ToArray();
+
+            // Assassinate missions: kill specific creature or target group
+            foreach (PathSoldierAssassinateEntry entry in GameTableManager.Instance.PathSoldierAssassinate.Entries
+                .Where(e => e != null && (e.Creature2Id == creatureId || (e.TargetGroupId > 0u && groupIds.Contains(e.TargetGroupId)))))
+            {
+                foreach (PathMissionEntry mission in GameTableManager.Instance.PathMission.Entries
+                    .Where(e => e?.PathTypeEnum == (uint)Path.Soldier && e.ObjectId == entry.Id))
+                    UpdateSoldierKillMission(mission, entry.Count);
+            }
+
+            // SWAT missions: same structure as Assassinate
+            foreach (PathSoldierSWATEntry entry in GameTableManager.Instance.PathSoldierSWAT.Entries
+                .Where(e => e != null && (e.Creature2Id == creatureId || (e.TargetGroupId > 0u && groupIds.Contains(e.TargetGroupId)))))
+            {
+                foreach (PathMissionEntry mission in GameTableManager.Instance.PathMission.Entries
+                    .Where(e => e?.PathTypeEnum == (uint)Path.Soldier && e.ObjectId == entry.Id))
+                    UpdateSoldierKillMission(mission, entry.Count);
+            }
+        }
+
+        private void UpdateSoldierKillMission(PathMissionEntry mission, uint requiredCount)
+        {
+            if (mission.Id > ushort.MaxValue || completedSoldierMissions.Contains(mission.Id))
+                return;
+
+            soldierMissionKillCounts.TryGetValue(mission.Id, out uint current);
+            current++;
+            soldierMissionKillCounts[mission.Id] = current;
+
+            bool completed = current >= requiredCount;
+            if (completed)
+            {
+                completedSoldierMissions.Add(mission.Id);
+                AddXp(100u);
+            }
+            else
+                player.Session.EnqueueMessageEncrypted(new ServerPathMissionAdvanced { PathMissionId = (ushort)mission.Id });
+
+            player.Session.EnqueueMessageEncrypted(new ServerPathMissionUpdate
+            {
+                PathMissionId            = (ushort)mission.Id,
+                Completed                = completed,
+                ObjectiveCompletionFlags = current,
+                StateFlags               = 0u
+            });
+        }
+
+        /// <summary>
+        /// Handle an Explorer node visit reported by the client.
+        /// Tracks node indices per mission; completes when all nodes for the area are visited.
+        /// </summary>
+        public void HandleExplorerProgressReport(uint pathMissionId, uint nodeIndex)
+        {
+            if (player.Path != Path.Explorer || pathMissionId > ushort.MaxValue)
+                return;
+
+            if (completedExplorerMissions.Contains(pathMissionId))
+                return;
+
+            PathMissionEntry mission = GameTableManager.Instance.PathMission.GetEntry(pathMissionId);
+            if (mission == null || mission.PathTypeEnum != (uint)Path.Explorer)
+                return;
+
+            // Count total nodes in this mission's explorer area
+            uint areaId = mission.ObjectId;
+            uint totalNodes = (uint)GameTableManager.Instance.PathExplorerNode.Entries
+                .Count(e => e != null && e.PathExplorerAreaId == areaId);
+
+            if (totalNodes == 0)
+                return;
+
+            if (!explorerMissionVisitedNodes.TryGetValue(pathMissionId, out HashSet<uint> visited))
+            {
+                visited = new HashSet<uint>();
+                explorerMissionVisitedNodes[pathMissionId] = visited;
+            }
+
+            visited.Add(nodeIndex);
+            bool completed = (uint)visited.Count >= totalNodes;
+
+            if (completed)
+            {
+                completedExplorerMissions.Add(pathMissionId);
+                AddXp(100u);
+            }
+            else
+                player.Session.EnqueueMessageEncrypted(new ServerPathMissionAdvanced { PathMissionId = (ushort)pathMissionId });
+
+            player.Session.EnqueueMessageEncrypted(new ServerPathMissionUpdate
+            {
+                PathMissionId            = (ushort)pathMissionId,
+                Completed                = completed,
+                ObjectiveCompletionFlags = (uint)visited.Count,
+                StateFlags               = 0u
+            });
+        }
+
+        /// <summary>
+        /// Handle a Scientist experimentation attempt.
+        /// Resolves the mission from the pattern entry IDs sent by the client, then marks complete.
+        /// Pattern validation requires retail data; any valid attempt grants success.
+        /// </summary>
+        public void HandleScientistExperimentation(List<uint> choices)
+        {
+            if (player.Path != Path.Scientist || choices == null || choices.Count == 0)
+                return;
+
+            // Resolve mission from the first matching pattern entry
+            PathScientistExperimentationPatternEntry pattern = GameTableManager.Instance.PathScientistExperimentationPattern.Entries
+                .FirstOrDefault(e => e != null && choices.Contains(e.Id));
+
+            if (pattern == null || pattern.PathMissionId == 0 || pattern.PathMissionId > ushort.MaxValue)
+                return;
+
+            uint missionId = pattern.PathMissionId;
+            if (completedScientistMissions.Contains(missionId))
+                return;
+
+            PathMissionEntry mission = GameTableManager.Instance.PathMission.GetEntry(missionId);
+            if (mission == null || mission.PathTypeEnum != (uint)Path.Scientist)
+                return;
+
+            completedScientistMissions.Add(missionId);
+            AddXp(100u);
+
+            player.Session.EnqueueMessageEncrypted(new ServerPathMissionUpdate
+            {
+                PathMissionId            = (ushort)missionId,
+                Completed                = true,
+                ObjectiveCompletionFlags = 1u,
+                StateFlags               = 0u
+            });
+        }
+
+        /// <summary>
         /// Get the current <see cref="Path"/> level for the <see cref="IPlayer"/>.
         /// </summary>
         private uint GetCurrentLevel(Path path)
@@ -334,6 +533,92 @@ namespace NexusForever.Game.Entity
         {
             foreach (IPathEntry pathEntry in paths.Values)
                 pathEntry.Save(context);
+
+            SaveMissions(context);
+        }
+
+        private void SaveMissions(CharacterContext context)
+        {
+            Dictionary<uint, CharacterPathMissionModel> storedMissions = context.CharacterPathMission
+                .Where(m => m.Id == player.CharacterId)
+                .ToDictionary(m => m.MissionId);
+
+            // Collect all mission IDs we have any state for
+            var allMissionIds = new HashSet<uint>();
+            allMissionIds.UnionWith(completedSettlerMissions);
+            allMissionIds.UnionWith(settlerMissionObjectiveFlags.Keys);
+            allMissionIds.UnionWith(completedSoldierMissions);
+            allMissionIds.UnionWith(soldierMissionKillCounts.Keys);
+            allMissionIds.UnionWith(completedExplorerMissions);
+            allMissionIds.UnionWith(explorerMissionVisitedNodes.Keys);
+            allMissionIds.UnionWith(completedScientistMissions);
+
+            foreach (uint missionId in allMissionIds)
+            {
+                bool isCompleted = completedSettlerMissions.Contains(missionId)
+                                || completedSoldierMissions.Contains(missionId)
+                                || completedExplorerMissions.Contains(missionId)
+                                || completedScientistMissions.Contains(missionId);
+
+                uint progress = 0u;
+                if (settlerMissionObjectiveFlags.TryGetValue(missionId, out uint flags))
+                    progress = flags;
+                else if (soldierMissionKillCounts.TryGetValue(missionId, out uint kills))
+                    progress = kills;
+                else if (explorerMissionVisitedNodes.TryGetValue(missionId, out HashSet<uint> nodes))
+                    progress = (uint)nodes.Count;
+
+                if (storedMissions.TryGetValue(missionId, out CharacterPathMissionModel row))
+                {
+                    row.IsCompleted = isCompleted;
+                    row.Progress    = progress;
+                }
+                else
+                {
+                    context.CharacterPathMission.Add(new CharacterPathMissionModel
+                    {
+                        Id          = player.CharacterId,
+                        MissionId   = missionId,
+                        IsCompleted = isCompleted,
+                        Progress    = progress
+                    });
+                }
+            }
+
+            // Remove stale mission rows no longer tracked
+            foreach (CharacterPathMissionModel row in storedMissions.Values.Where(r => !allMissionIds.Contains(r.MissionId)))
+                context.CharacterPathMission.Remove(row);
+
+            // Save explorer node visits
+            Dictionary<(uint, uint), CharacterPathExplorerNodeModel> storedNodes = context.CharacterPathExplorerNode
+                .Where(n => n.Id == player.CharacterId)
+                .ToDictionary(n => (n.MissionId, n.NodeIndex));
+
+            foreach ((uint missionId, HashSet<uint> visitedNodes) in explorerMissionVisitedNodes)
+            {
+                foreach (uint nodeIndex in visitedNodes)
+                {
+                    if (!storedNodes.ContainsKey((missionId, nodeIndex)))
+                    {
+                        context.CharacterPathExplorerNode.Add(new CharacterPathExplorerNodeModel
+                        {
+                            Id        = player.CharacterId,
+                            MissionId = missionId,
+                            NodeIndex = nodeIndex
+                        });
+                    }
+                }
+            }
+
+            // Remove stale node rows
+            foreach (CharacterPathExplorerNodeModel node in storedNodes.Values)
+            {
+                if (!explorerMissionVisitedNodes.TryGetValue(node.MissionId, out HashSet<uint> visited)
+                    || !visited.Contains(node.NodeIndex))
+                {
+                    context.CharacterPathExplorerNode.Remove(node);
+                }
+            }
         }
 
         public void SendInitialPackets()

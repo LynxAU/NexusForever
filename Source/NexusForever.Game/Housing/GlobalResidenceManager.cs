@@ -1,4 +1,7 @@
-﻿using NexusForever.Database;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using NexusForever.Database;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Character;
@@ -6,11 +9,13 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Housing;
 using NexusForever.Game.Character;
+using NexusForever.Game.Configuration.Model;
 using NexusForever.Game.Guild;
 using NexusForever.Game.Static.Guild;
 using NexusForever.Game.Static.Housing;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
+using NexusForever.Shared.Configuration;
 using NexusForever.Shared;
 using NLog;
 
@@ -19,9 +24,6 @@ namespace NexusForever.Game.Housing
     public sealed class GlobalResidenceManager : Singleton<GlobalResidenceManager>, IGlobalResidenceManager
     {
         private static readonly Logger log = LogManager.GetCurrentClassLogger();
-
-        // TODO: move this to the config file
-        private const double SaveDuration = 60d;
 
         /// <summary>
         /// Id to be assigned to the next created residence.
@@ -44,13 +46,16 @@ namespace NexusForever.Game.Housing
         private readonly Dictionary<ulong, IPublicResidence> visitableResidences = new();
         private readonly Dictionary<ulong, IPublicCommunity> visitableCommunities = new();
 
-        private double timeToSave = SaveDuration;
+        private double timeToSave;
 
         /// <summary>
         /// Initialise <see cref="IGlobalResidenceManager"/> and any related resources.
         /// </summary>
         public void Initialise()
         {
+            RealmConfig realmConfig = SharedConfiguration.Instance.Get<RealmConfig>();
+            timeToSave = Math.Max(1d, realmConfig?.HousingSaveIntervalSeconds ?? 60d);
+
             nextResidenceId = DatabaseManager.Instance.GetDatabase<CharacterDatabase>().GetNextResidenceId() + 1ul;
             nextDecorId     = DatabaseManager.Instance.GetDatabase<CharacterDatabase>().GetNextDecorId() + 1ul;
 
@@ -119,11 +124,59 @@ namespace NexusForever.Game.Housing
 
         public void Update(double lastTick)
         {
+            ExpireTemporaryCommunityPlots();
+
             timeToSave -= lastTick;
             if (timeToSave <= 0d)
             {
                 SaveResidences();
-                timeToSave = SaveDuration;
+                RealmConfig realmConfig = SharedConfiguration.Instance.Get<RealmConfig>();
+                timeToSave = Math.Max(1d, realmConfig?.HousingSaveIntervalSeconds ?? 60d);
+            }
+        }
+
+        private void ExpireTemporaryCommunityPlots()
+        {
+            RealmConfig realmConfig = SharedConfiguration.Instance.Get<RealmConfig>();
+            double expiryHours = Math.Max(1d, realmConfig?.HousingTemporaryPlotExpiryHours ?? 72d);
+            DateTime now = DateTime.UtcNow;
+
+            foreach (IResidence communityResidence in residences.Values.Where(r => r.IsCommunityResidence))
+            {
+                List<IResidenceChild> expiredChildren = [];
+                foreach (IResidenceChild child in communityResidence.GetChildren())
+                {
+                    if (!child.IsTemporary)
+                    {
+                        child.RemovalTime = null;
+                        continue;
+                    }
+
+                    child.RemovalTime ??= now.AddHours(expiryHours);
+                    if (child.RemovalTime.Value <= now)
+                        expiredChildren.Add(child);
+                }
+
+                foreach (IResidenceChild child in expiredChildren)
+                {
+                    IResidence childResidence = child.Residence;
+                    if (childResidence.Map != null)
+                        childResidence.Map.RemoveChild(childResidence);
+                    else
+                        communityResidence.RemoveChild(childResidence);
+
+                    childResidence.PropertyInfoId = PropertyInfoId.Residence;
+
+                    if (communityResidence.GuildOwnerId.HasValue && childResidence.OwnerId.HasValue)
+                    {
+                        ICommunity community = GlobalGuildManager.Instance.GetGuild<ICommunity>(communityResidence.GuildOwnerId.Value);
+                        IGuildMember member = community?.GetMember(childResidence.OwnerId.Value);
+                        if (member != null)
+                            member.CommunityPlotReservation = -1;
+                    }
+
+                    log.Info($"Expired temporary community plot for character {childResidence.OwnerId} (residence {childResidence.Id}).");
+                }
             }
         }
 
@@ -337,3 +390,4 @@ namespace NexusForever.Game.Housing
         }
     }
 }
+

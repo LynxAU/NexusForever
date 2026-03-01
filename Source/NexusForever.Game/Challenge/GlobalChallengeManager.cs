@@ -17,6 +17,7 @@ namespace NexusForever.Game.Challenge
 
         // Combat-type challenges indexed by their Target (creature id)
         private ImmutableDictionary<uint, ImmutableList<IChallengeInfo>> combatTargetIndex;
+        private ImmutableDictionary<ChallengeType, ImmutableList<IChallengeInfo>> challengeTypeIndex;
 
         public void Initialise()
         {
@@ -24,6 +25,7 @@ namespace NexusForever.Game.Challenge
 
             var builder = ImmutableDictionary.CreateBuilder<uint, IChallengeInfo>();
             var combatIndex = new Dictionary<uint, List<IChallengeInfo>>();
+            var typeIndex = new Dictionary<ChallengeType, List<IChallengeInfo>>();
 
             foreach (ChallengeEntry entry in GameTableManager.Instance.Challenge.Entries)
             {
@@ -37,6 +39,12 @@ namespace NexusForever.Game.Challenge
 
                 var info = new ChallengeInfo(entry, tiers);
                 builder.Add(entry.Id, info);
+                if (!typeIndex.TryGetValue(info.Type, out List<IChallengeInfo> challengesByType))
+                {
+                    challengesByType = new List<IChallengeInfo>();
+                    typeIndex[info.Type] = challengesByType;
+                }
+                challengesByType.Add(info);
 
                 if (info.Type == ChallengeType.Combat && info.Target != 0)
                 {
@@ -53,6 +61,9 @@ namespace NexusForever.Game.Challenge
             combatTargetIndex = combatIndex.ToImmutableDictionary(
                 kvp => kvp.Key,
                 kvp => kvp.Value.ToImmutableList());
+            challengeTypeIndex = typeIndex.ToImmutableDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.ToImmutableList());
 
             log.Info($"Cached {challengeStore.Count} challenge entries ({combatTargetIndex.Count} unique combat targets) in {sw.ElapsedMilliseconds}ms.");
         }
@@ -65,6 +76,13 @@ namespace NexusForever.Game.Challenge
         public IEnumerable<IChallengeInfo> GetCombatChallengesForTarget(uint creatureId)
         {
             return combatTargetIndex.TryGetValue(creatureId, out ImmutableList<IChallengeInfo> list)
+                ? list
+                : Enumerable.Empty<IChallengeInfo>();
+        }
+
+        public IEnumerable<IChallengeInfo> GetChallengesByType(ChallengeType type)
+        {
+            return challengeTypeIndex.TryGetValue(type, out ImmutableList<IChallengeInfo> list)
                 ? list
                 : Enumerable.Empty<IChallengeInfo>();
         }

@@ -8,8 +8,8 @@ namespace NexusForever.Script.Main.Instance.Adventure
     /// Type: Assault — players push through Whitevale Detention Center taking down
     /// Dominion command staff in sequential encounters.
     ///
-    /// Creature IDs for this map are still being verified; until then this script uses
-    /// fallback completion after three unique boss deaths.
+    /// Boss creature IDs are wired via <c>FallbackAdventureBossScripts.cs</c>; completion
+    /// remains fallback-based until wave sequencing is fully scripted.
     /// </summary>
     [ScriptFilterOwnerId(1323)]
     public class WhitevaleOffensiveScript : AdventureScript

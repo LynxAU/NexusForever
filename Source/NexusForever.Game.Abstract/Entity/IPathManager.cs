@@ -31,6 +31,21 @@ namespace NexusForever.Game.Abstract.Entity
         void AddXp(uint xp);
         void HandleSettlerBuildEvent(uint pathSettlerImprovementGroupId, uint buildTier);
 
+        /// <summary>
+        /// Notify the path manager that a creature was killed (used by Soldier Assassinate/SWAT missions).
+        /// </summary>
+        void HandleSoldierKillEvent(uint creatureId, IEnumerable<uint> targetGroupIds);
+
+        /// <summary>
+        /// Notify the path manager that an Explorer node was reached (sent by client).
+        /// </summary>
+        void HandleExplorerProgressReport(uint pathMissionId, uint nodeIndex);
+
+        /// <summary>
+        /// Handle a Scientist experimentation attempt (sent by client with pattern choices).
+        /// </summary>
+        void HandleScientistExperimentation(List<uint> choices);
+
         void SendInitialPackets();
         void SendSetUnitPathTypePacket();
         void SendServerPathActivateResult(GenericError result = GenericError.Ok);

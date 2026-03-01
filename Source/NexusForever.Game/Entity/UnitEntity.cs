@@ -217,6 +217,7 @@ namespace NexusForever.Game.Entity
                 }
             }
 
+            ThreatManager.Update(lastTick);
             UpdateCrowdControlStates(lastTick);
             UpdateTimedAuras(lastTick);
             UpdateProcTriggers(lastTick);
@@ -1018,6 +1019,16 @@ namespace NexusForever.Game.Entity
 
             Shield = Shield > damageDescription.ShieldAbsorbAmount ? Shield - damageDescription.ShieldAbsorbAmount : 0u;
             ModifyHealth(damageDescription.AdjustedDamage, damageDescription.DamageType, attacker);
+
+            // Allow derived classes (e.g., CreatureEntity) to handle damage events (Call for Help, etc.)
+            OnDamaged(attacker, damageDescription);
+        }
+
+        /// <summary>
+        /// Invoked when this unit takes damage. Override in derived classes for custom behavior.
+        /// </summary>
+        protected virtual void OnDamaged(IUnitEntity attacker, IDamageDescription damageDescription)
+        {
         }
 
         public void AddDamageAbsorption(uint amount)
@@ -1339,6 +1350,7 @@ namespace NexusForever.Game.Entity
             }
 
             player.ChallengeManager.OnEntityKilled(CreatureId);
+            player.PathManager.HandleSoldierKillEvent(CreatureId, AssetManager.Instance.GetTargetGroupsForCreatureId(CreatureId) ?? Enumerable.Empty<uint>());
         }
 
         private void RewardKillLoot(IPlayer player)
@@ -1441,12 +1453,13 @@ namespace NexusForever.Game.Entity
         private void UpdateCombatState()
         {
             // ensure conditions for combat state change are met
-            if (ThreatManager.IsThreatened == InCombat)
+            // also stay in combat if in PvP combat timeout
+            if (ThreatManager.IsThreatened == InCombat || (!InCombat && ThreatManager.IsInPvPCombatTimeout))
                 return;
 
             bool wasInCombat = InCombat;
 
-            InCombat   = ThreatManager.IsThreatened;
+            InCombat   = ThreatManager.IsThreatened || ThreatManager.IsInPvPCombatTimeout;
             Sheathed   = !inCombat;
             StandState = inCombat ? StandState.Stand : StandState.State0;
 

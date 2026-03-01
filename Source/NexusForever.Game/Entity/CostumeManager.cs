@@ -1,12 +1,16 @@
-﻿using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System;
+using System.Linq;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Configuration.Model;
 using NexusForever.Game.Static.Entity;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Static;
+using NexusForever.Shared.Configuration;
 using NLog;
 
 namespace NexusForever.Game.Entity
@@ -30,7 +34,7 @@ namespace NexusForever.Game.Entity
 
         private bool isDirty;
 
-        // hard limit, array storing costumes at client is 12 in size 
+        // hard limit, array storing costumes at client is 12 in size
         private const byte MaxCostumes = 12;
         private const double CostumeSwapCooldown = 15d;
 
@@ -114,13 +118,6 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void SaveCostume(ClientCostumeSave costumeSave)
         {
-            // TODO: used for housing mannequins
-            if (costumeSave.MannequinIndex != 0)
-            {
-                log.Warn($"Received unhandled mannequin costume save (index {costumeSave.MannequinIndex}), ignoring.");
-                return;
-            }
-
             if (costumeSave.Index < 0 || costumeSave.Index >= MaxCostumes)
             {
                 SendCostumeSaveResult(CostumeSaveResult.InvalidCostumeIndex);
@@ -133,8 +130,9 @@ namespace NexusForever.Game.Entity
                 return;
             }
 
-            foreach (ClientCostumeSave.CostumeItem costumeItem in costumeSave.Items)
+            for (int i = 0; i < costumeSave.Items.Count; i++)
             {
+                ClientCostumeSave.CostumeItem costumeItem = costumeSave.Items[i];
                 if (costumeItem.ItemId == 0)
                     continue;
 
@@ -145,12 +143,11 @@ namespace NexusForever.Game.Entity
                     return;
                 }
 
-                // TODO: check item family
-                /*if ()
+                if (!IsValidCostumeItemForSlot(itemEntry, (CostumeItemSlot)i))
                 {
                     SendCostumeSaveResult(CostumeSaveResult.UnusableItem);
                     return;
-                }*/
+                }
 
                 if (!player.Account.CostumeManager.HasItemUnlock(costumeItem.ItemId))
                 {
@@ -159,9 +156,9 @@ namespace NexusForever.Game.Entity
                 }
 
                 ItemDisplayEntry itemDisplayEntry = GameTableManager.Instance.ItemDisplay.GetEntry(itemEntry.GetDisplayId());
-                for (int i = 0; i < costumeItem.Dyes.Length; i++)
+                for (int channel = 0; channel < costumeItem.Dyes.Length; channel++)
                 {
-                    if (costumeItem.Dyes[i] == 0u)
+                    if (costumeItem.Dyes[channel] == 0u)
                         continue;
 
                     if (itemDisplayEntry == null)
@@ -170,14 +167,14 @@ namespace NexusForever.Game.Entity
                         return;
                     }
 
-                    uint dyeChannelFlag = 1u << i;
+                    uint dyeChannelFlag = 1u << channel;
                     if ((itemDisplayEntry.DyeChannelFlags & dyeChannelFlag) == 0)
                     {
                         SendCostumeSaveResult(CostumeSaveResult.InvalidDye);
                         return;
                     }
 
-                    if (!player.Account.GenericUnlockManager.IsDyeUnlocked(costumeItem.Dyes[i]))
+                    if (!player.Account.GenericUnlockManager.IsDyeUnlocked(costumeItem.Dyes[channel]))
                     {
                         SendCostumeSaveResult(CostumeSaveResult.DyeNotUnlocked);
                         return;
@@ -185,7 +182,27 @@ namespace NexusForever.Game.Entity
                 }
             }
 
-            // TODO: charge player
+            if (costumeSave.MannequinIndex != 0)
+            {
+                IHousingMannequinEntity mannequin = player.ResidenceManager.GetMannequin(costumeSave.MannequinIndex);
+                if (mannequin == null)
+                {
+                    SendCostumeSaveResult(CostumeSaveResult.InvalidMannequinIndex, costumeSave.Index, costumeSave.MannequinIndex);
+                    return;
+                }
+
+                ICostume mannequinCostume = new Costume(player, costumeSave);
+                mannequin.ApplyCostume(mannequinCostume.GetItemVisuals(), mannequinCostume.Mask);
+
+                SendCostumeSaveResult(CostumeSaveResult.Saved, costumeSave.Index, costumeSave.MannequinIndex);
+                return;
+            }
+
+            if (!TryChargeCostumeSave(costumeSave, out CostumeSaveResult chargeFailureResult))
+            {
+                SendCostumeSaveResult(chargeFailureResult, costumeSave.Index, costumeSave.MannequinIndex);
+                return;
+            }
 
             if (costumes.TryGetValue((byte)costumeSave.Index, out ICostume costume))
                 costume.Update(costumeSave);
@@ -201,6 +218,68 @@ namespace NexusForever.Game.Entity
 
             SendCostume(costume);
             SendCostumeSaveResult(CostumeSaveResult.Saved, costumeSave.Index, costumeSave.MannequinIndex);
+        }
+
+        private bool TryChargeCostumeSave(ClientCostumeSave costumeSave, out CostumeSaveResult failureResult)
+        {
+            failureResult = CostumeSaveResult.UnknownError;
+
+            CurrencyType currencyType = CurrencyType.Credits;
+            ulong cost = GetConfiguredFlatFeeCredits();
+
+            // Prefer AccountItem metadata when available; fall back to configured flat fee.
+            foreach (ClientCostumeSave.CostumeItem item in costumeSave.Items.Where(i => i.ItemId != 0u))
+            {
+                AccountItemEntry accountItem = GameTableManager.Instance.AccountItem.Entries
+                    .FirstOrDefault(e => e != null && e.Item2Id == item.ItemId && e.AccountCurrencyAmount > 0ul);
+                if (accountItem == null)
+                    continue;
+
+                if (Enum.IsDefined(typeof(CurrencyType), (int)accountItem.AccountCurrencyEnum))
+                    currencyType = (CurrencyType)accountItem.AccountCurrencyEnum;
+
+                cost = accountItem.AccountCurrencyAmount;
+                break;
+            }
+
+            if (cost == 0ul)
+                return true;
+
+            if (!player.CurrencyManager.CanAfford(currencyType, cost))
+            {
+                failureResult = CostumeSaveResult.InsufficientFunds;
+                return false;
+            }
+
+            player.CurrencyManager.CurrencySubtractAmount(currencyType, cost);
+            return true;
+        }
+
+        private ulong GetConfiguredFlatFeeCredits()
+        {
+            RealmConfig realmConfig = SharedConfiguration.Instance.Get<RealmConfig>();
+            return realmConfig?.CostumeSaveFlatFeeCredits ?? 1000ul;
+        }
+
+        private static bool IsValidCostumeItemForSlot(IItemInfo itemInfo, CostumeItemSlot costumeSlot)
+        {
+            if (itemInfo == null || !itemInfo.IsEquippable())
+                return false;
+
+            ItemSlot requiredSlot = costumeSlot switch
+            {
+                CostumeItemSlot.Chest    => ItemSlot.ArmorChest,
+                CostumeItemSlot.Legs     => ItemSlot.ArmorLegs,
+                CostumeItemSlot.Head     => ItemSlot.ArmorHead,
+                CostumeItemSlot.Shoulder => ItemSlot.ArmorShoulder,
+                CostumeItemSlot.Feet     => ItemSlot.ArmorFeet,
+                CostumeItemSlot.Hands    => ItemSlot.ArmorHands,
+                CostumeItemSlot.Weapon   => ItemSlot.WeaponPrimary,
+                _                        => throw new ArgumentOutOfRangeException(nameof(costumeSlot))
+            };
+
+            IEnumerable<EquippedItem> equippedSlots = ItemManager.Instance.GetEquippedBagIndexes(requiredSlot);
+            return equippedSlots.Any(itemInfo.IsEquippableIntoSlot);
         }
 
         /// <summary>

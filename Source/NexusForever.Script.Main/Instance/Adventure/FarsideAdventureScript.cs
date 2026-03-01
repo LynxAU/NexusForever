@@ -8,8 +8,8 @@ namespace NexusForever.Script.Main.Instance.Adventure
     /// Type: Combat — players fight through the Farside moon base against
     /// Eldan-constructed threats in sequential encounter rooms.
     ///
-    /// Creature IDs for this map are still being verified; until then this script uses
-    /// fallback completion after three unique boss deaths.
+    /// Boss creature IDs are wired via <c>FallbackAdventureBossScripts.cs</c>; completion
+    /// remains fallback-based until wave sequencing is fully scripted.
     /// </summary>
     [ScriptFilterOwnerId(3010)]
     public class FarsideAdventureScript : AdventureScript

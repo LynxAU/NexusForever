@@ -1,6 +1,9 @@
 using System;
+using System.Numerics;
+using System.Linq;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Housing;
+using NexusForever.Game.Map.Search;
 using NexusForever.Game.Static.Housing;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model;
@@ -95,6 +98,27 @@ namespace NexusForever.Game.Housing
         public void Update(double lastTick)
         {
             Residence?.UpdateUpkeep(lastTick);
+        }
+
+        public IHousingMannequinEntity GetMannequin(byte mannequinIndex)
+        {
+            if (mannequinIndex == 0 || owner.Map == null)
+                return null;
+
+            // Prefer a direct world-socket mapping when available.
+            IEnumerable<IHousingMannequinEntity> mannequins = owner.Map
+                .Search(Vector3.Zero, null, new SearchCheckRange<IHousingMannequinEntity>(Vector3.Zero, null))
+                .Where(m => m != null);
+
+            IHousingMannequinEntity bySocket = mannequins.FirstOrDefault(m => m.WorldSocketId == mannequinIndex);
+            if (bySocket != null)
+                return bySocket;
+
+            // Fallback: deterministic ordering to map 1-based mannequin index.
+            return mannequins
+                .OrderBy(m => m.Guid)
+                .Skip(mannequinIndex - 1)
+                .FirstOrDefault();
         }
     }
 }

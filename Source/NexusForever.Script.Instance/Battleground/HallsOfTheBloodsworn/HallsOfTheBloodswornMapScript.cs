@@ -4,20 +4,20 @@ using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Static.Matching;
 using NexusForever.Script.Template.Filter;
 
-namespace NexusForever.Script.Instance.Battleground.WalatikiTemple
+namespace NexusForever.Script.Instance.Battleground.HallsOfTheBloodsworn
 {
-    [ScriptFilterOwnerId(797)]
-    public class WalatikiTempleMapScript : EventBasePvpContentMapScript
+    [ScriptFilterOwnerId(3449)]
+    public class HallsOfTheBloodswornMapScript : EventBasePvpContentMapScript
     {
-        public override uint PublicEventId    => 217u;
-        public override uint PublicSubEventId => 366u;
+        public override uint PublicEventId    => 877u;
+        public override uint PublicSubEventId => 876u;
 
         #region Dependency Injection
 
         private readonly IMatchingDataManager matchingDataManager;
         private readonly IPlayerManager playerManager;
 
-        public WalatikiTempleMapScript(
+        public HallsOfTheBloodswornMapScript(
             IMatchingDataManager matchingDataManager,
             IPlayerManager playerManager)
         {
@@ -27,11 +27,6 @@ namespace NexusForever.Script.Instance.Battleground.WalatikiTemple
 
         #endregion
 
-        /// <summary>
-        /// Invoked when the <see cref="IPvpMatch"/> for the map finishes.
-        /// Calls the base class to handle public event cleanup, then teleports all players
-        /// back to their team's entrance position.
-        /// </summary>
         public override void OnPvpMatchFinish(MatchWinner matchWinner, MatchEndReason matchEndReason)
         {
             base.OnPvpMatchFinish(matchWinner, matchEndReason);

@@ -54,6 +54,7 @@ namespace NexusForever.Game.Chat.Format
             RegisterInternalFormatter<ChatFormatItemGuid>(ChatFormatType.ItemGuid);
             RegisterInternalFormatter<ChatFormatNavPoint>(ChatFormatType.NavPoint);
             RegisterInternalFormatter<ChatFormatLoot>(ChatFormatType.Loot);
+            RegisterInternalFormatter<ChatFormatSpell4Id>(ChatFormatType.Spell4Id);
         }
 
         private void InitialiseNetwork()
@@ -69,6 +70,7 @@ namespace NexusForever.Game.Chat.Format
             RegisterNetworkFormatter<ChatChannelTextItemFullFormat>(ChatFormatType.ItemFull);
             RegisterNetworkFormatter<ChatChannelTextNavPointFormat>(ChatFormatType.NavPoint);
             RegisterNetworkFormatter<ChatChannelTextLootFormat>(ChatFormatType.Loot);
+            RegisterNetworkFormatter<ChatChannelTextSpell4IdFormat>(ChatFormatType.Spell4Id);
         }
 
         private void InitialiseLocal()

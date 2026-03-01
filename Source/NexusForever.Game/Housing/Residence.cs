@@ -5,6 +5,7 @@ using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Housing;
+using NexusForever.Game.Configuration.Model;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Game.Static.Entity;
@@ -13,6 +14,7 @@ using NexusForever.Game.Static.Housing;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Shared.Configuration;
 
 namespace NexusForever.Game.Housing
 {
@@ -285,6 +287,11 @@ namespace NexusForever.Game.Housing
         private readonly Dictionary<ulong, IDecor> decors = new();
         private readonly List<IPlot> plots = new();
         private const ulong MinimumUpkeepCost = 100ul;
+        private const uint DefaultCrateCapacity = 100u;
+        private const uint DefaultCrateCapacityPerUpgrade = 10u;
+        private const byte ResidenceUpgradePlotIndex = 0;
+        private const ushort ResidenceConstructionYardBasePlugId = 531;
+        private const ushort CommunityConstructionYardBasePlugId = 573;
 
         /// <summary>
         /// Create a new <see cref="IResidence"/> from an existing database model.
@@ -355,8 +362,7 @@ namespace NexusForever.Game.Housing
 
             InitialiseDefaultPlots();
 
-            // TODO: find a better way to do this, this adds the construction yard plug
-            plots[0].SetPlug(531);
+            plots[0].SetPlug(ResidenceConstructionYardBasePlugId);
         }
 
         /// <summary>
@@ -378,8 +384,7 @@ namespace NexusForever.Game.Housing
 
             InitialiseDefaultPlots();
 
-            // TODO: find a better way to do this
-            plots[0].SetPlug(573);
+            plots[0].SetPlug(CommunityConstructionYardBasePlugId);
         }
 
         private void InitialiseDefaultPlots()
@@ -642,7 +647,8 @@ namespace NexusForever.Game.Housing
             children.Add(residence.Id, new ResidenceChild
             {
                 Residence   = residence,
-                IsTemporary = temporary
+                IsTemporary = temporary,
+                RemovalTime = temporary ? DateTime.UtcNow.AddHours(Math.Max(1d, SharedConfiguration.Instance.Get<RealmConfig>()?.HousingTemporaryPlotExpiryHours ?? 72d)) : null
             });
 
             residence.Parent       = this;
@@ -693,8 +699,19 @@ namespace NexusForever.Game.Housing
                 }
                 case ResidenceType.Residence:
                 {
-                    // TODO: roommates can also update decor
-                    return player.CharacterId == OwnerId;
+                    if (player.CharacterId == OwnerId)
+                        return true;
+
+                    // Roommates share a parent community; allow modify when this residence belongs to that community.
+                    IResidence parent = Parent;
+                    if (parent == null && GuildOwnerId.HasValue)
+                    {
+                        ICommunity community = player.GuildManager.GetGuild<ICommunity>(GuildType.Community);
+                        if (community?.Residence?.GuildOwnerId == GuildOwnerId)
+                            parent = community.Residence;
+                    }
+
+                    return parent?.GetChild(player.CharacterId) != null;
                 }
                 default:
                     return false;
@@ -750,9 +767,13 @@ namespace NexusForever.Game.Housing
         /// </summary>
         public uint GetCrateCapacity()
         {
-            // Base capacity + any upgrades
-            // TODO: Add residence upgrades for crate capacity
-            return 100u;
+            RealmConfig realmConfig = SharedConfiguration.Instance.Get<RealmConfig>();
+            uint baseCapacity = realmConfig?.HousingCrateBaseCapacity ?? DefaultCrateCapacity;
+            uint perUpgradeBonus = realmConfig?.HousingCrateCapacityPerUpgrade ?? DefaultCrateCapacityPerUpgrade;
+            uint upgradeLevel = GetResidenceUpgradeLevel();
+
+            ulong totalCapacity = (ulong)baseCapacity + ((ulong)upgradeLevel * perUpgradeBonus);
+            return (uint)Math.Min(totalCapacity, uint.MaxValue);
         }
 
         /// <summary>
@@ -761,6 +782,41 @@ namespace NexusForever.Game.Housing
         public bool CanAddToCrate()
         {
             return GetCrateCount() < GetCrateCapacity();
+        }
+
+        private uint GetResidenceUpgradeLevel()
+        {
+            IPlot constructionPlot = GetPlot(ResidenceUpgradePlotIndex);
+            if (constructionPlot?.PlugItemEntry == null)
+                return 0u;
+
+            uint currentPlugItemId = constructionPlot.PlugItemEntry.Id;
+            ushort basePlugId = Type == ResidenceType.Community
+                ? CommunityConstructionYardBasePlugId
+                : ResidenceConstructionYardBasePlugId;
+
+            if (currentPlugItemId == basePlugId)
+                return 0u;
+
+            // HousingResidenceUpgrade.tbl is not available in this extracted table set,
+            // so derive an upgrade level from the construction-yard plug upgrade chain.
+            uint level = 0u;
+            var visited = new HashSet<uint> { basePlugId };
+            HousingPlugItemEntry plug = GameTableManager.Instance.HousingPlugItem.GetEntry(basePlugId);
+            while (plug?.HousingPlugItemIdNextUpgrade > 0u)
+            {
+                uint nextPlugId = plug.HousingPlugItemIdNextUpgrade;
+                if (!visited.Add(nextPlugId))
+                    break;
+
+                level++;
+                if (nextPlugId == currentPlugItemId)
+                    return level;
+
+                plug = GameTableManager.Instance.HousingPlugItem.GetEntry(nextPlugId);
+            }
+
+            return 0u;
         }
 
         /// <summary>
@@ -841,13 +897,11 @@ namespace NexusForever.Game.Housing
             if (neighbors.ContainsKey(neighborResidenceId))
                 return;
 
-            var neighbor = new Neighbor
-            {
-                ResidenceId = neighborResidenceId,
-                IsPending = true
-            };
+            AddOrUpdateNeighborEntry(neighborResidenceId, true);
 
-            neighbors[neighborResidenceId] = neighbor;
+            IResidence otherResidence = GlobalResidenceManager.Instance.GetResidence(neighborResidenceId);
+            if (otherResidence is Residence other && other.Id != Id)
+                other.AddOrUpdateNeighborEntry(Id, true);
         }
 
         /// <summary>
@@ -856,6 +910,10 @@ namespace NexusForever.Game.Housing
         public void RemoveNeighbor(ulong neighborResidenceId)
         {
             neighbors.Remove(neighborResidenceId);
+
+            IResidence otherResidence = GlobalResidenceManager.Instance.GetResidence(neighborResidenceId);
+            if (otherResidence is Residence other && other.Id != Id)
+                other.neighbors.Remove(Id);
         }
 
         /// <summary>
@@ -864,9 +922,26 @@ namespace NexusForever.Game.Housing
         public void AcceptNeighbor(ulong neighborResidenceId)
         {
             if (neighbors.TryGetValue(neighborResidenceId, out var neighbor))
-            {
                 neighbor.IsPending = false;
+
+            IResidence otherResidence = GlobalResidenceManager.Instance.GetResidence(neighborResidenceId);
+            if (otherResidence is Residence other && other.Id != Id)
+                other.AddOrUpdateNeighborEntry(Id, false);
+        }
+
+        private void AddOrUpdateNeighborEntry(ulong neighborResidenceId, bool pending)
+        {
+            if (!neighbors.TryGetValue(neighborResidenceId, out Neighbor neighbor))
+            {
+                neighbors[neighborResidenceId] = new Neighbor
+                {
+                    ResidenceId = neighborResidenceId,
+                    IsPending = pending
+                };
+                return;
             }
+
+            neighbor.IsPending = pending;
         }
 
         /// <summary>
@@ -874,6 +949,10 @@ namespace NexusForever.Game.Housing
         /// </summary>
         public void UpdateUpkeep(double deltaTime)
         {
+            // Community residences have no character owner currency wallet; skip upkeep charging.
+            if (!OwnerId.HasValue)
+                return;
+
             bool paidAny = false;
             bool unpaidAny = false;
 
@@ -943,7 +1022,21 @@ namespace NexusForever.Game.Housing
 
             IPlayer ownerPlayer = PlayerManager.Instance.GetPlayer(OwnerId.Value);
             if (ownerPlayer == null)
-                return false;
+            {
+                bool deducted = false;
+                DatabaseManager.Instance.GetDatabase<CharacterDatabase>().Save(context =>
+                {
+                    CharacterCurrencyModel currency = context.CharacterCurrency
+                        .SingleOrDefault(c => c.Id == OwnerId.Value && c.CurrencyId == (byte)CurrencyType.Credits);
+                    if (currency == null || currency.Amount < upkeepCost)
+                        return;
+
+                    currency.Amount -= upkeepCost;
+                    deducted = true;
+                }).GetAwaiter().GetResult();
+
+                return deducted;
+            }
 
             if (!ownerPlayer.CurrencyManager.CanAfford(CurrencyType.Credits, upkeepCost))
                 return false;

@@ -37,5 +37,10 @@ namespace NexusForever.Game.Abstract.Housing
         /// Update upkeep state from world tick while the owning player is online.
         /// </summary>
         void Update(double lastTick);
+
+        /// <summary>
+        /// Resolve a housing mannequin by mannequin index for costume save operations.
+        /// </summary>
+        IHousingMannequinEntity GetMannequin(byte mannequinIndex);
     }
 }

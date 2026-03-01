@@ -6,6 +6,7 @@ using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Map.Search;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Entity.Movement.Generator;
 using NexusForever.Game.Spell;
@@ -96,7 +97,8 @@ namespace NexusForever.Game.Entity
         private const double DefaultSpellCooldown = 10.0;
 
         // Health percentage threshold at which the NPC will attempt to flee from combat.
-        private const float FleeHealthThreshold = 0.25f;
+        // Protected so LoadFamilyBehavior() can tune it per-family.
+        protected float fleeHealthThreshold = 0.25f;
 
         // Maximum distance the NPC will flee from their current position.
         private const float FleeMaxDistance = 15f;
@@ -123,6 +125,7 @@ namespace NexusForever.Game.Entity
             LoadSpellActions();
             DetermineLeashBehavior();
             LoadRespawnDelay();
+            LoadFamilyBehavior();
         }
 
         /// <summary>
@@ -177,6 +180,66 @@ namespace NexusForever.Game.Entity
             }
 
             LeashBehavior = LeashBehavior.Standard;
+        }
+
+        /// <summary>
+        /// Call for Help - when NPC takes damage, alert nearby allies to attack the attacker.
+        /// </summary>
+        private DateTime lastCallForHelpTime = DateTime.MinValue;
+        private const double CallForHelpCooldown = 10.0; // seconds
+        private const float CallForHelpRadius = 30f; // range to alert allies
+
+        protected override void OnDamaged(IUnitEntity attacker, IDamageDescription damageDescription)
+        {
+            base.OnDamaged(attacker, damageDescription);
+
+            // Don't call for help if dead, not in world, or attacker is null
+            if (!IsAlive || Map == null || attacker == null)
+                return;
+
+            // Break crowd control on damage
+            BreakCrowdControlOnDamage();
+
+            // Threat proportional to damage dealt — keeps target switching accurate when multiple attackers are present.
+            if (damageDescription?.AdjustedDamage > 0u)
+                ThreatManager.UpdateThreat(attacker, (int)Math.Min(damageDescription.AdjustedDamage, (uint)int.MaxValue));
+
+            // Cooldown check - don't spam call for help
+            if ((DateTime.UtcNow - lastCallForHelpTime).TotalSeconds < CallForHelpCooldown)
+                return;
+
+            lastCallForHelpTime = DateTime.UtcNow;
+
+            // Scan for nearby allies within CallForHelpRadius
+            foreach (ICreatureEntity ally in Map.Search(Position, CallForHelpRadius, new SearchCheckRange<ICreatureEntity>(Position, CallForHelpRadius)))
+            {
+                if (ally == this)
+                    continue;
+
+                // Skip if ally is dead, already in combat, or is the attacker
+                if (!ally.IsAlive || ally.TargetGuid != 0 || ally == attacker)
+                    continue;
+
+                // Check if ally shares the same faction or is friendly
+                if (!ally.CanAttack(attacker))
+                {
+                    // Ally found - add attacker to their threat list
+                    ally.ThreatManager.UpdateThreat(attacker, 1);
+                    log.Trace($"Creature {ally.Guid} answered call for help against {attacker.Guid}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Break all crowd control effects when taking damage.
+        /// </summary>
+        private void BreakCrowdControlOnDamage()
+        {
+            uint removedCount = RemoveAllCrowdControlStates(0);
+            if (removedCount > 0)
+            {
+                log.Trace($"Creature {Guid} broke {removedCount} CC state(s) from damage.");
+            }
         }
 
         /// <summary>
@@ -355,6 +418,16 @@ namespace NexusForever.Game.Entity
 
                 ChaseTarget(target);
             }
+            else if (IsRangedCreature())
+            {
+                // Ranged-only creature: back away to maintain safe attack distance.
+                KiteFromTarget(target);
+                if (spellActionTimer.HasElapsed)
+                {
+                    TryCastSpellAction(target);
+                    spellActionTimer.Reset();
+                }
+            }
             else
                 EngageTarget(target, lastTick);
         }
@@ -474,7 +547,7 @@ namespace NexusForever.Game.Entity
 
             // Check if health is below the flee threshold.
             float healthPercent = (float)Health / MaxHealth;
-            return healthPercent <= FleeHealthThreshold;
+            return healthPercent <= fleeHealthThreshold;
         }
 
         /// <summary>
@@ -561,7 +634,19 @@ namespace NexusForever.Game.Entity
             if (GetActiveSpell(s => s.IsCasting) != null)
                 return false;
 
-            foreach (Creature2ActionEntry action in spellActions)
+            // When the target is actively casting, prefer instant spells to apply combat pressure.
+            bool targetIsCasting = target.GetActiveSpell(s => s.IsCasting) != null;
+            IEnumerable<Creature2ActionEntry> orderedActions = targetIsCasting
+                ? spellActions
+                    .OrderBy(a =>
+                    {
+                        Spell4Entry s = GameTableManager.Instance.Spell4.GetEntry(a.ActionData00);
+                        return s?.CastTime == 0u ? 0 : 1; // instant spells first
+                    })
+                    .ThenBy(a => a.OrderIndex)
+                : (IEnumerable<Creature2ActionEntry>)spellActions;
+
+            foreach (Creature2ActionEntry action in orderedActions)
             {
                 if (spellCooldowns.ContainsKey(action.Id))
                     continue;
@@ -571,6 +656,11 @@ namespace NexusForever.Game.Entity
                     continue;
 
                 if (!IsSpellInRange(target, spellEntry))
+                    continue;
+
+                // Terrain LOS check for ranged spells — skip if terrain blocks the path.
+                bool isRangedSpell = spellEntry.TargetMaxRange > HitRadius + 1f + MeleeAttackBuffer;
+                if (isRangedSpell && !HasLineOfSight(target))
                     continue;
 
                 bool hadActiveBefore = GetActiveSpell(s => !s.IsFinished && s.Parameters.SpellInfo.Entry.Id == spellEntry.Id) != null;
@@ -605,6 +695,105 @@ namespace NexusForever.Game.Entity
             return horizontalDistance >= minRange
                 && horizontalDistance <= maxRange
                 && verticalDistance <= maxVerticalRange;
+        }
+
+        /// <summary>
+        /// Terrain-based line-of-sight check. Samples the terrain height at the midpoint between
+        /// this entity and <paramref name="target"/>. If the terrain rises significantly above both
+        /// endpoints the path is considered blocked.
+        /// Note: this catches cliffs and ledges but cannot detect static world objects.
+        /// </summary>
+        private bool HasLineOfSight(IUnitEntity target)
+        {
+            if (Map == null)
+                return true;
+
+            float midX = (Position.X + target.Position.X) * 0.5f;
+            float midZ = (Position.Z + target.Position.Z) * 0.5f;
+
+            float? midHeight = Map.GetTerrainHeight(midX, midZ);
+            if (!midHeight.HasValue)
+                return true; // No terrain data — assume clear
+
+            // LOS is blocked when the midpoint terrain is higher than both endpoints (plus tolerance).
+            float highestEndpoint = Math.Max(Position.Y, target.Position.Y);
+            return midHeight.Value <= highestEndpoint + 2.5f;
+        }
+
+        /// <summary>
+        /// Returns true if every spell in this creature's action set is a ranged spell —
+        /// i.e., its max range exceeds typical melee engagement range.
+        /// Ranged creatures will kite rather than engage in melee.
+        /// </summary>
+        private bool IsRangedCreature()
+        {
+            if (spellActions == null || spellActions.Count == 0)
+                return false;
+
+            float meleeRange = HitRadius + 1f + MeleeAttackBuffer;
+            return spellActions.All(a =>
+            {
+                Spell4Entry spell = GameTableManager.Instance.Spell4.GetEntry(a.ActionData00);
+                return spell != null && spell.TargetMaxRange > meleeRange;
+            });
+        }
+
+        /// <summary>
+        /// Moves this creature away from <paramref name="target"/> to maintain optimal ranged
+        /// attack distance. Called each AI tick when a ranged creature is within melee range.
+        /// </summary>
+        private void KiteFromTarget(IUnitEntity target)
+        {
+            // Determine the optimal kite distance: 75% of the best available spell's max range.
+            float optimalRange = spellActions
+                .Select(a => GameTableManager.Instance.Spell4.GetEntry(a.ActionData00))
+                .Where(s => s != null && s.TargetMaxRange > 0f)
+                .Select(s => s.TargetMaxRange * 0.75f)
+                .DefaultIfEmpty(12f)
+                .Max();
+
+            float currentDistance = Vector3.Distance(Position, target.Position);
+            float gap = optimalRange - currentDistance;
+            if (gap <= 0.5f)
+                return; // Already at comfortable range — don't micro-reposition.
+
+            Vector3 awayDir  = Vector3.Normalize(Position - target.Position);
+            Vector3 kitePos  = Position + awayDir * Math.Min(gap, 5f); // at most 5 units per tick
+
+            // Don't kite outside the leash boundary.
+            if (Vector3.Distance(kitePos, LeashPosition) > LeashRange)
+                kitePos = Position + awayDir * 1f;
+
+            MovementManager.SetRotationFaceUnit(target.Guid);
+            MovementManager.LaunchGenerator(new DirectMovementGenerator
+            {
+                Begin = Position,
+                Final = kitePos,
+                Map   = Map
+            }, FleeSpeed * 0.7f, SplineMode.OneShot);
+
+            log.Trace($"Creature {Guid} kiting from {target.Guid}, moving {gap:0.0}u back.");
+        }
+
+        /// <summary>
+        /// Called once during <see cref="Initialise"/> to apply family-specific AI tuning.
+        /// Override in derived classes or scripts to customise aggro radius, flee threshold,
+        /// or other parameters based on <see cref="Creature2Entry.Creature2FamilyId"/>.
+        /// </summary>
+        protected virtual void LoadFamilyBehavior()
+        {
+            if (CreatureEntry == null || CreatureEntry.Creature2FamilyId == 0u)
+                return;
+
+            // Derive a broad behavioral class from the family ID.
+            // Values without verified game-table data use conservative defaults.
+            // Subclasses should override this method with family-specific logic.
+            switch (CreatureEntry.Creature2FamilyId)
+            {
+                // Unknown / no special tuning for unrecognised families.
+                default:
+                    break;
+            }
         }
 
         /// <summary>

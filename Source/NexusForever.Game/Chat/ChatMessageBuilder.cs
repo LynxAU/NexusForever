@@ -83,6 +83,27 @@ namespace NexusForever.Game.Chat
         }
 
         /// <summary>
+        /// Append a spell chat link to the end of the message.
+        /// </summary>
+        public void AppendSpell(uint spell4Id)
+        {
+            if (GameTableManager.Instance.Spell4.GetEntry(spell4Id) == null)
+                throw new ArgumentException($"Invalid spell entry id {spell4Id}!");
+
+            builder.Append("[S]");
+            Formats.Add(new ChatFormat
+            {
+                Type        = ChatFormatType.Spell4Id,
+                StartIndex  = (ushort)(builder.Length - 3),
+                StopIndex   = (ushort)builder.Length,
+                Model       = new ChatFormatSpell4Id
+                {
+                    Spell4Id = spell4Id
+                }
+            });
+        }
+
+        /// <summary>
         /// Build message and <see cref="ChatFormat"/>'s into a <see cref="ServerChat"/>.
         /// </summary>
         public ServerChat Build()

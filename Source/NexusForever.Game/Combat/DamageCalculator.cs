@@ -112,7 +112,45 @@ namespace NexusForever.Game.Combat
 
             info.AddDamage(damageDescription);
 
-            // TODO: Queue Proc Events*/
+            // Proc events (DamageDone/DamageTaken) are fired from SpellEffectHandler
+            // after TakeDamage() — no additional work needed here.
+
+            // Lifesteal: attacker heals for a percentage of the final damage dealt.
+            if (!isHealLike && damageDescription.AdjustedDamage > 0u)
+            {
+                float lifestealPct = GetRatingPercentMod(Property.RatingLifesteal, attacker);
+                if (lifestealPct > 0f)
+                {
+                    uint lifestealHeal = Math.Max(1u, (uint)(damageDescription.AdjustedDamage * lifestealPct));
+                    attacker.ModifyHealth(lifestealHeal, DamageType.Heal, attacker);
+                    info.AddCombatLog(new CombatLogLifesteal
+                    {
+                        UnitId       = attacker.Guid,
+                        HealthStolen = lifestealHeal,
+                        Absorption   = 0u
+                    });
+                }
+            }
+
+            // Damage reflection: victim reflects a portion of the incoming damage back to the attacker.
+            if (!isHealLike && damageDescription.AdjustedDamage > 0u)
+            {
+                float reflectChance = GetRatingPercentMod(Property.RatingDamageReflectChance, victim);
+                if (reflectChance > 0f && IsSuccessfulChance(reflectChance))
+                {
+                    float reflectPct = GetRatingPercentMod(Property.RatingDamageReflectAmount, victim);
+                    uint reflectedDamage = Math.Max(1u, (uint)(damageDescription.AdjustedDamage * reflectPct));
+                    var reflectDesc = new SpellTargetInfo.SpellTargetEffectInfo.DamageDescription
+                    {
+                        DamageType      = damageDescription.DamageType,
+                        CombatResult    = CombatResult.Hit,
+                        RawDamage       = reflectedDamage,
+                        RawScaledDamage = reflectedDamage,
+                        AdjustedDamage  = reflectedDamage
+                    };
+                    attacker.TakeDamage(victim, reflectDesc);
+                }
+            }
         }
 
         /// <summary>
@@ -192,7 +230,11 @@ namespace NexusForever.Game.Combat
 
             if (caster.Type is not EntityType.Player and not EntityType.Ghost)
             {
-                // TODO: some client code specific to non player entities
+                // Non-player entity (creature/NPC) base damage is driven entirely by AssaultRating
+                // set via the CreatureLevel table, scaled by Creature2ArcheType, Creature2Difficulty,
+                // and Creature2Tier multipliers in NonPlayerEntity.CalculateDefaultProperty.
+                // The typeBaseDamage (DataBits01) flat constant is used as-is; it is authored
+                // per-spell by level and does not require additional scaling here.
             }
 
             float baseDamage = basePropertyDamage + ((typeBaseDamage + baseEntityDamage) * typeMultiplier);

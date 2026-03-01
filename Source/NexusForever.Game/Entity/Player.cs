@@ -264,6 +264,7 @@ namespace NexusForever.Game.Entity
         private PlayerSaveMask saveMask;
 
         private Dictionary<Property, Dictionary<ItemSlot, /*value*/float>> itemProperties = new();
+        private readonly Dictionary<Property, float> primalMatrixProperties = new();
         private readonly HashSet<TradeskillType> learnedTradeskills = [];
         private readonly HashSet<uint> learnedSchematicIds = [];
 
@@ -1492,6 +1493,19 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Set the absolute Primal Matrix contribution for a <see cref="Property"/>.
+        /// </summary>
+        public void SetPrimalMatrixProperty(Property property, float value)
+        {
+            if (Math.Abs(value) < 0.0001f)
+                primalMatrixProperties.Remove(property);
+            else
+                primalMatrixProperties[property] = value;
+
+            CalculateProperty(property);
+        }
+
+        /// <summary>
         /// Calculate the primary value for <see cref="Property"/>.
         /// </summary>
         protected override void CalculatePropertyValue(IPropertyValue propertyValue)
@@ -1501,6 +1515,9 @@ namespace NexusForever.Game.Entity
             if (itemProperties.TryGetValue(propertyValue.Property, out Dictionary<ItemSlot, float> properties))
                 foreach (float values in properties.Values)
                     propertyValue.Value += values;
+
+            if (primalMatrixProperties.TryGetValue(propertyValue.Property, out float matrixValue))
+                propertyValue.Value += matrixValue;
         }
 
         /// <summary>

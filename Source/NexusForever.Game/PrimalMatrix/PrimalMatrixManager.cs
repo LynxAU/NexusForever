@@ -5,6 +5,7 @@ using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model.Entity;
@@ -14,44 +15,66 @@ using NLog;
 namespace NexusForever.Game.PrimalMatrix
 {
     /// <summary>
-    /// Manages the player's Primal Matrix — a hex-grid progression system for spending
-    /// coloured essence crystals to unlock stat/spell rewards.
+    /// Manages the player's Primal Matrix progression and reward dispatch.
     /// </summary>
     public class PrimalMatrixManager : IPrimalMatrixManager
     {
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
 
-        // Essence type IDs as used in SpellEffect.DataBits00 / QuestReward.ObjectId.
-        // TODO: verify these against retail spell data once a packet dump is available.
-        private const uint EssenceIdRed    = 1u;
-        private const uint EssenceIdBlue   = 2u;
-        private const uint EssenceIdGreen  = 3u;
+        private const uint EssenceIdRed = 1u;
+        private const uint EssenceIdBlue = 2u;
+        private const uint EssenceIdGreen = 3u;
         private const uint EssenceIdPurple = 4u;
+
+        private const uint RewardTypeNone = 0u;
+        private const uint RewardTypeSpecialA = 2u;
+        private const uint RewardTypeSpecialB = 3u;
+        private const uint RewardTypeSpellUnlock = 4u;
+        private const uint RewardTypeProperty = 5u;
+
+        // Data-backed root/start nodes have this bit set in PrimalMatrixNode.Flags.
+        private const uint NodeFlagStarter = 0x1u;
+
+        private static readonly (int X, int Y)[] HexNeighbors =
+        {
+            (0, -1),
+            (1, -1),
+            (1, 0),
+            (0, 1),
+            (-1, 1),
+            (-1, 0)
+        };
 
         private readonly IPlayer player;
 
-        // essence accumulation: essenceId → amount
-        private readonly Dictionary<uint, uint> essences    = new();
-        private readonly HashSet<uint> loadedEssenceIds     = new(); // know which rows exist in DB
-        private readonly HashSet<uint> modifiedEssences     = new(); // dirty flag for save
+        // essence accumulation: essenceId -> amount
+        private readonly Dictionary<uint, uint> essences = new();
+        private readonly HashSet<uint> loadedEssenceIds = new();
+        private readonly HashSet<uint> modifiedEssences = new();
 
-        // node allocations: nodeId → allocation count (capped at PrimalMatrixNodeEntry.MaxAllocations)
+        // node allocations: nodeId -> allocation count
         private readonly Dictionary<uint, uint> nodeAllocations = new();
-        private readonly HashSet<uint> loadedNodeIds        = new(); // know which rows exist in DB
-        private readonly HashSet<uint> modifiedNodes        = new(); // dirty flag for save
+        private readonly HashSet<uint> loadedNodeIds = new();
+        private readonly HashSet<uint> modifiedNodes = new();
 
-        private bool loaded = false;
+        // absolute primal-matrix property contribution currently applied to player
+        private readonly Dictionary<Property, float> appliedPropertyBonuses = new();
 
-        /// <summary>
-        /// Create a new <see cref="IPrimalMatrixManager"/>.
-        /// </summary>
+        // coordinate lookup for adjacency checks
+        private readonly Dictionary<(int X, int Y), uint> nodeByPosition = new();
+        private bool nodeByPositionBuilt;
+
+        private readonly HashSet<uint> loggedUnsupportedRewardTypes = new();
+
+        private bool loaded;
+
         public PrimalMatrixManager(IPlayer player)
         {
             this.player = player;
         }
 
         /// <summary>
-        /// Load Primal Matrix data from the character database model.
+        /// Load Primal Matrix data from character model and rebuild persistent property rewards.
         /// </summary>
         public void Load(CharacterModel model)
         {
@@ -71,6 +94,9 @@ namespace NexusForever.Game.PrimalMatrix
             }
 
             loaded = true;
+
+            // Property rewards are derived from node allocations, so rebuild them on login.
+            RebuildPropertyBonusesFromAllocations();
         }
 
         /// <summary>
@@ -78,7 +104,7 @@ namespace NexusForever.Game.PrimalMatrix
         /// </summary>
         public void AddEssence(uint essenceId, uint amount)
         {
-            if (essenceId == 0 || amount == 0)
+            if (essenceId == 0u || amount == 0u)
                 return;
 
             essences.TryGetValue(essenceId, out uint current);
@@ -100,9 +126,7 @@ namespace NexusForever.Game.PrimalMatrix
         }
 
         /// <summary>
-        /// Attempt to activate (or add an allocation to) a Primal Matrix node.
-        /// Returns <c>false</c> if the node is fully allocated, does not exist,
-        /// or if the player lacks sufficient essence.
+        /// Attempt to activate (or allocate) a Primal Matrix node.
         /// </summary>
         public bool ActivateNode(uint nodeId)
         {
@@ -113,8 +137,7 @@ namespace NexusForever.Game.PrimalMatrix
                 return false;
             }
 
-            // MaxAllocations == 0 means the field is unset in game data; treat as 1.
-            uint maxAlloc = nodeEntry.MaxAllocations > 0 ? nodeEntry.MaxAllocations : 1u;
+            uint maxAlloc = nodeEntry.MaxAllocations > 0u ? nodeEntry.MaxAllocations : 1u;
 
             nodeAllocations.TryGetValue(nodeId, out uint currentAlloc);
             if (currentAlloc >= maxAlloc)
@@ -123,50 +146,57 @@ namespace NexusForever.Game.PrimalMatrix
                 return false;
             }
 
-            // Verify player holds enough of each essence colour.
+            if (!CanActivateNode(nodeEntry, currentAlloc))
+            {
+                log.Warn($"Player {player.CharacterId} cannot activate non-adjacent node {nodeId}");
+                return false;
+            }
+
             if (!HasEnoughEssence(nodeEntry))
             {
                 log.Warn($"Player {player.CharacterId} lacks essence to activate node {nodeId}");
                 return false;
             }
 
-            // Deduct all four essence colours.
-            DeductEssence(EssenceIdRed,    nodeEntry.CostRedEssence);
-            DeductEssence(EssenceIdBlue,   nodeEntry.CostBlueEssence);
-            DeductEssence(EssenceIdGreen,  nodeEntry.CostGreenEssence);
+            DeductEssence(EssenceIdRed, nodeEntry.CostRedEssence);
+            DeductEssence(EssenceIdBlue, nodeEntry.CostBlueEssence);
+            DeductEssence(EssenceIdGreen, nodeEntry.CostGreenEssence);
             DeductEssence(EssenceIdPurple, nodeEntry.CostPurpleEssence);
 
-            nodeAllocations[nodeId] = currentAlloc + 1;
+            nodeAllocations[nodeId] = currentAlloc + 1u;
             modifiedNodes.Add(nodeId);
 
-            log.Trace($"Player {player.CharacterId} activated node {nodeId} ({currentAlloc + 1}/{maxAlloc})");
+            log.Trace($"Player {player.CharacterId} activated node {nodeId} ({currentAlloc + 1u}/{maxAlloc})");
 
-            // Notify client of updated essence amounts for each colour that had a cost.
-            if (nodeEntry.CostRedEssence    > 0) SendEssenceUpdate(EssenceIdRed,    GetEssenceAmount(EssenceIdRed));
-            if (nodeEntry.CostBlueEssence   > 0) SendEssenceUpdate(EssenceIdBlue,   GetEssenceAmount(EssenceIdBlue));
-            if (nodeEntry.CostGreenEssence  > 0) SendEssenceUpdate(EssenceIdGreen,  GetEssenceAmount(EssenceIdGreen));
-            if (nodeEntry.CostPurpleEssence > 0) SendEssenceUpdate(EssenceIdPurple, GetEssenceAmount(EssenceIdPurple));
+            if (nodeEntry.CostRedEssence > 0u)
+                SendEssenceUpdate(EssenceIdRed, GetEssenceAmount(EssenceIdRed));
+            if (nodeEntry.CostBlueEssence > 0u)
+                SendEssenceUpdate(EssenceIdBlue, GetEssenceAmount(EssenceIdBlue));
+            if (nodeEntry.CostGreenEssence > 0u)
+                SendEssenceUpdate(EssenceIdGreen, GetEssenceAmount(EssenceIdGreen));
+            if (nodeEntry.CostPurpleEssence > 0u)
+                SendEssenceUpdate(EssenceIdPurple, GetEssenceAmount(EssenceIdPurple));
 
-            // Notify client of the node allocation.
             SendNodeUpdate(nodeId, nodeAllocations[nodeId]);
 
-            GrantNodeReward(nodeEntry, player.Class);
+            GrantNodeNonPersistentRewards(nodeEntry, player.Class);
+            RebuildPropertyBonusesFromAllocations();
+
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.BeginMatrix, 0u, 1u);
             return true;
         }
 
-        // ── Private helpers ────────────────────────────────────────────────────────
-
         private bool HasEnoughEssence(PrimalMatrixNodeEntry entry)
         {
-            return GetEssenceAmount(EssenceIdRed)    >= entry.CostRedEssence
-                && GetEssenceAmount(EssenceIdBlue)   >= entry.CostBlueEssence
-                && GetEssenceAmount(EssenceIdGreen)  >= entry.CostGreenEssence
+            return GetEssenceAmount(EssenceIdRed) >= entry.CostRedEssence
+                && GetEssenceAmount(EssenceIdBlue) >= entry.CostBlueEssence
+                && GetEssenceAmount(EssenceIdGreen) >= entry.CostGreenEssence
                 && GetEssenceAmount(EssenceIdPurple) >= entry.CostPurpleEssence;
         }
 
         private void DeductEssence(uint essenceId, uint cost)
         {
-            if (cost == 0)
+            if (cost == 0u)
                 return;
 
             uint current = GetEssenceAmount(essenceId);
@@ -174,20 +204,57 @@ namespace NexusForever.Game.PrimalMatrix
             modifiedEssences.Add(essenceId);
         }
 
-        private void GrantNodeReward(PrimalMatrixNodeEntry nodeEntry, Class playerClass)
+        private bool CanActivateNode(PrimalMatrixNodeEntry nodeEntry, uint currentAlloc)
         {
-            uint rewardId = playerClass switch
-            {
-                Class.Warrior      => nodeEntry.PrimalMatrixRewardIdWarrior,
-                Class.Engineer     => nodeEntry.PrimalMatrixRewardIdEngineer,
-                Class.Esper        => nodeEntry.PrimalMatrixRewardIdEsper,
-                Class.Medic        => nodeEntry.PrimalMatrixRewardIdMedic,
-                Class.Stalker      => nodeEntry.PrimalMatrixRewardIdStalker,
-                Class.Spellslinger => nodeEntry.PrimalMatrixRewardIdSpellslinger,
-                _                  => 0u
-            };
+            // Additional allocations on an already-unlocked node do not require adjacency checks.
+            if (currentAlloc > 0u)
+                return true;
 
-            if (rewardId == 0)
+            if ((nodeEntry.Flags & NodeFlagStarter) != 0u)
+                return true;
+
+            return HasAllocatedAdjacentNode(nodeEntry);
+        }
+
+        private bool HasAllocatedAdjacentNode(PrimalMatrixNodeEntry nodeEntry)
+        {
+            EnsureNodeLookup();
+
+            int x = unchecked((int)nodeEntry.PositionX);
+            int y = unchecked((int)nodeEntry.PositionY);
+
+            foreach ((int offsetX, int offsetY) in HexNeighbors)
+            {
+                (int X, int Y) neighborPos = (x + offsetX, y + offsetY);
+                if (!nodeByPosition.TryGetValue(neighborPos, out uint neighborNodeId))
+                    continue;
+
+                if (nodeAllocations.TryGetValue(neighborNodeId, out uint alloc) && alloc > 0u)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void EnsureNodeLookup()
+        {
+            if (nodeByPositionBuilt)
+                return;
+
+            foreach (PrimalMatrixNodeEntry entry in GameTableManager.Instance.PrimalMatrixNode.Entries)
+            {
+                (int X, int Y) pos = (unchecked((int)entry.PositionX), unchecked((int)entry.PositionY));
+                if (!nodeByPosition.ContainsKey(pos))
+                    nodeByPosition[pos] = entry.Id;
+            }
+
+            nodeByPositionBuilt = true;
+        }
+
+        private void GrantNodeNonPersistentRewards(PrimalMatrixNodeEntry nodeEntry, Class playerClass)
+        {
+            uint rewardId = GetRewardIdForClass(nodeEntry, playerClass);
+            if (rewardId == 0u)
                 return;
 
             PrimalMatrixRewardEntry reward = GameTableManager.Instance.PrimalMatrixReward.GetEntry(rewardId);
@@ -197,110 +264,169 @@ namespace NexusForever.Game.PrimalMatrix
                 return;
             }
 
-            DispatchRewardSlot(reward.PrimalMatrixRewardTypeEnum0, reward.ObjectId0, reward.SubObjectId0, reward.Value0, nodeEntry.Id, 0);
-            DispatchRewardSlot(reward.PrimalMatrixRewardTypeEnum1, reward.ObjectId1, reward.SubObjectId1, reward.Value1, nodeEntry.Id, 1);
-            DispatchRewardSlot(reward.PrimalMatrixRewardTypeEnum2, reward.ObjectId2, reward.SubObjectId2, reward.Value2, nodeEntry.Id, 2);
-            DispatchRewardSlot(reward.PrimalMatrixRewardTypeEnum3, reward.ObjectId3, reward.SubObjectId3, reward.Value3, nodeEntry.Id, 3);
+            DispatchNonPersistentRewardSlot(reward.PrimalMatrixRewardTypeEnum0, reward.ObjectId0, reward.SubObjectId0, reward.Value0, nodeEntry.Id, 0);
+            DispatchNonPersistentRewardSlot(reward.PrimalMatrixRewardTypeEnum1, reward.ObjectId1, reward.SubObjectId1, reward.Value1, nodeEntry.Id, 1);
+            DispatchNonPersistentRewardSlot(reward.PrimalMatrixRewardTypeEnum2, reward.ObjectId2, reward.SubObjectId2, reward.Value2, nodeEntry.Id, 2);
+            DispatchNonPersistentRewardSlot(reward.PrimalMatrixRewardTypeEnum3, reward.ObjectId3, reward.SubObjectId3, reward.Value3, nodeEntry.Id, 3);
         }
 
-        private void DispatchRewardSlot(uint rewardType, uint objectId, uint subObjectId, float value, uint nodeId, int slotIndex)
+        private uint GetRewardIdForClass(PrimalMatrixNodeEntry nodeEntry, Class playerClass)
+        {
+            return playerClass switch
+            {
+                Class.Warrior => nodeEntry.PrimalMatrixRewardIdWarrior,
+                Class.Engineer => nodeEntry.PrimalMatrixRewardIdEngineer,
+                Class.Esper => nodeEntry.PrimalMatrixRewardIdEsper,
+                Class.Medic => nodeEntry.PrimalMatrixRewardIdMedic,
+                Class.Stalker => nodeEntry.PrimalMatrixRewardIdStalker,
+                Class.Spellslinger => nodeEntry.PrimalMatrixRewardIdSpellslinger,
+                _ => 0u
+            };
+        }
+
+        private void DispatchNonPersistentRewardSlot(uint rewardType, uint objectId, uint subObjectId, float value, uint nodeId, int slotIndex)
+        {
+            switch (rewardType)
+            {
+                case RewardTypeNone:
+                    return;
+                case RewardTypeSpellUnlock:
+                    DispatchSpellUnlock(objectId, nodeId, slotIndex);
+                    return;
+                case RewardTypeProperty:
+                    // Property rewards are rebuilt from allocations as persistent state.
+                    return;
+                case RewardTypeSpecialA:
+                case RewardTypeSpecialB:
+                    // TODO: implement special matrix reward payloads once enum semantics are confirmed.
+                    LogUnsupportedSpecialReward(rewardType, objectId, subObjectId, value, nodeId, slotIndex);
+                    return;
+                default:
+                    LogUnsupportedSpecialReward(rewardType, objectId, subObjectId, value, nodeId, slotIndex);
+                    return;
+            }
+        }
+
+        private void DispatchSpellUnlock(uint objectId, uint nodeId, int slotIndex)
         {
             if (objectId == 0u)
                 return;
 
-            uint amount = ResolveRewardAmount(subObjectId, value);
-
-            bool handled = rewardType switch
-            {
-                0u => TryDispatchByHeuristic(objectId, amount),
-                1u => DispatchItem(objectId, amount),
-                2u => DispatchSpell(objectId),
-                3u => DispatchCurrency(objectId, amount),
-                4u => DispatchTitle(objectId),
-                _  => false
-            };
-
-            if (handled)
-                return;
-
-            if (TryDispatchByHeuristic(objectId, amount))
-                return;
-
-            log.Warn($"Unhandled primal matrix reward slot: node={nodeId}, slot={slotIndex}, type={rewardType}, objectId={objectId}, subObjectId={subObjectId}, value={value}.");
-        }
-
-        private static uint ResolveRewardAmount(uint subObjectId, float value)
-        {
-            if (subObjectId > 0u)
-                return subObjectId;
-
-            if (value > 0f)
-                return Math.Max(1u, (uint)MathF.Round(value));
-
-            return 1u;
-        }
-
-        private bool TryDispatchByHeuristic(uint objectId, uint amount)
-        {
-            if (DispatchSpell(objectId))
-                return true;
-
-            if (DispatchItem(objectId, amount))
-                return true;
-
-            if (DispatchCurrency(objectId, amount))
-                return true;
-
-            if (DispatchTitle(objectId))
-                return true;
-
-            return false;
-        }
-
-        private bool DispatchSpell(uint objectId)
-        {
             Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(objectId);
             if (spell4Entry != null)
             {
-                player.SpellManager.AddSpell(spell4Entry.Spell4BaseIdBaseSpell);
-                return true;
+                AddSpellIfMissing(spell4Entry.Spell4BaseIdBaseSpell);
+                return;
             }
 
             Spell4BaseEntry baseEntry = GameTableManager.Instance.Spell4Base.GetEntry(objectId);
             if (baseEntry != null)
             {
-                player.SpellManager.AddSpell(baseEntry.Id);
-                return true;
+                AddSpellIfMissing(baseEntry.Id);
+                return;
             }
 
-            return false;
+            log.Warn($"Primal Matrix spell reward could not resolve spell objectId={objectId} (node={nodeId}, slot={slotIndex}).");
         }
 
-        private bool DispatchItem(uint objectId, uint amount)
+        private void AddSpellIfMissing(uint spell4BaseId)
         {
-            if (GameTableManager.Instance.Item.GetEntry(objectId) == null)
-                return false;
+            if (spell4BaseId == 0u)
+                return;
 
-            player.Inventory.ItemCreate(InventoryLocation.Inventory, objectId, amount, ItemUpdateReason.PrimalMatrix);
-            return true;
+            if (player.SpellManager.GetSpell(spell4BaseId) != null)
+                return;
+
+            player.SpellManager.AddSpell(spell4BaseId);
         }
 
-        private bool DispatchCurrency(uint objectId, uint amount)
+        private void LogUnsupportedSpecialReward(uint rewardType, uint objectId, uint subObjectId, float value, uint nodeId, int slotIndex)
         {
-            if (GameTableManager.Instance.CurrencyType.GetEntry(objectId) == null)
-                return false;
+            if (loggedUnsupportedRewardTypes.Add(rewardType))
+            {
+                log.Warn($"Unsupported Primal Matrix reward type {rewardType} encountered. First occurrence: node={nodeId}, slot={slotIndex}, objectId={objectId}, subObjectId={subObjectId}, value={value}.");
+                return;
+            }
 
-            player.CurrencyManager.CurrencyAddAmount((CurrencyType)objectId, amount);
-            return true;
+            log.Trace($"Skipped unsupported Primal Matrix reward: type={rewardType}, node={nodeId}, slot={slotIndex}, objectId={objectId}, subObjectId={subObjectId}, value={value}.");
         }
 
-        private bool DispatchTitle(uint objectId)
+        private void RebuildPropertyBonusesFromAllocations()
         {
-            if (GameTableManager.Instance.CharacterTitle.GetEntry(objectId) == null)
-                return false;
+            var rebuilt = new Dictionary<Property, float>();
 
-            player.TitleManager.AddTitle((ushort)objectId);
-            return true;
+            foreach ((uint nodeId, uint allocations) in nodeAllocations)
+            {
+                if (allocations == 0u)
+                    continue;
+
+                PrimalMatrixNodeEntry nodeEntry = GameTableManager.Instance.PrimalMatrixNode.GetEntry(nodeId);
+                if (nodeEntry == null)
+                    continue;
+
+                uint rewardId = GetRewardIdForClass(nodeEntry, player.Class);
+                if (rewardId == 0u)
+                    continue;
+
+                PrimalMatrixRewardEntry reward = GameTableManager.Instance.PrimalMatrixReward.GetEntry(rewardId);
+                if (reward == null)
+                    continue;
+
+                AccumulatePropertyRewardSlot(reward.PrimalMatrixRewardTypeEnum0, reward.ObjectId0, reward.SubObjectId0, reward.Value0, allocations, rebuilt);
+                AccumulatePropertyRewardSlot(reward.PrimalMatrixRewardTypeEnum1, reward.ObjectId1, reward.SubObjectId1, reward.Value1, allocations, rebuilt);
+                AccumulatePropertyRewardSlot(reward.PrimalMatrixRewardTypeEnum2, reward.ObjectId2, reward.SubObjectId2, reward.Value2, allocations, rebuilt);
+                AccumulatePropertyRewardSlot(reward.PrimalMatrixRewardTypeEnum3, reward.ObjectId3, reward.SubObjectId3, reward.Value3, allocations, rebuilt);
+            }
+
+            ApplyPropertyBonuses(rebuilt);
+        }
+
+        private static void AccumulatePropertyRewardSlot(uint rewardType, uint objectId, uint subObjectId, float value, uint allocations, Dictionary<Property, float> rebuilt)
+        {
+            if (rewardType != RewardTypeProperty || objectId == 0u || allocations == 0u)
+                return;
+
+            if (!Enum.IsDefined(typeof(Property), (int)objectId))
+                return;
+
+            float amount = ResolvePropertyRewardAmount(subObjectId, value);
+            if (Math.Abs(amount) < 0.0001f)
+                return;
+
+            Property property = (Property)objectId;
+            rebuilt.TryGetValue(property, out float current);
+            rebuilt[property] = current + (amount * allocations);
+        }
+
+        private static float ResolvePropertyRewardAmount(uint subObjectId, float value)
+        {
+            if (Math.Abs(value) > 0.0001f)
+                return value;
+
+            if (subObjectId > 0u)
+                return subObjectId;
+
+            return 0f;
+        }
+
+        private void ApplyPropertyBonuses(Dictionary<Property, float> rebuilt)
+        {
+            var toClear = new List<Property>();
+            foreach (Property property in appliedPropertyBonuses.Keys)
+            {
+                if (!rebuilt.ContainsKey(property))
+                    toClear.Add(property);
+            }
+
+            foreach (Property property in toClear)
+                player.SetPrimalMatrixProperty(property, 0f);
+
+            foreach ((Property property, float amount) in rebuilt)
+                player.SetPrimalMatrixProperty(property, amount);
+
+            appliedPropertyBonuses.Clear();
+            foreach ((Property property, float amount) in rebuilt)
+                appliedPropertyBonuses[property] = amount;
         }
 
         private void CheckUnlockThresholds()
@@ -313,7 +439,7 @@ namespace NexusForever.Game.PrimalMatrix
             player.Session.EnqueueMessageEncrypted(new ServerPrimalMatrixEssence
             {
                 EssenceId = essenceId,
-                Amount    = amount
+                Amount = amount
             });
         }
 
@@ -321,14 +447,12 @@ namespace NexusForever.Game.PrimalMatrix
         {
             player.Session.EnqueueMessageEncrypted(new ServerPrimalMatrixNode
             {
-                EntityId  = player.Guid,
-                NodeId    = nodeId,
+                EntityId = player.Guid,
+                NodeId = nodeId,
                 EssenceId = 0u,
-                Amount    = allocations
+                Amount = allocations
             });
         }
-
-        // ── Save ──────────────────────────────────────────────────────────────────
 
         public void Save(CharacterContext context)
         {
@@ -345,25 +469,25 @@ namespace NexusForever.Game.PrimalMatrix
 
                 if (loadedEssenceIds.Contains(essenceId))
                 {
-                    // Row existed at load time — update via attach.
                     var model = new CharacterPrimalMatrixModel
                     {
-                        Id        = player.CharacterId,
+                        Id = player.CharacterId,
                         EssenceId = essenceId,
-                        Amount    = amount
+                        Amount = amount
                     };
+
                     EntityEntry<CharacterPrimalMatrixModel> entry = context.Attach(model);
                     entry.Property(p => p.Amount).IsModified = true;
                 }
                 else
                 {
-                    // New essence type for this player — insert.
                     context.Add(new CharacterPrimalMatrixModel
                     {
-                        Id        = player.CharacterId,
+                        Id = player.CharacterId,
                         EssenceId = essenceId,
-                        Amount    = amount
+                        Amount = amount
                     });
+
                     loadedEssenceIds.Add(essenceId);
                 }
             }
@@ -375,30 +499,30 @@ namespace NexusForever.Game.PrimalMatrix
         {
             foreach (uint nodeId in modifiedNodes)
             {
-                if (!nodeAllocations.TryGetValue(nodeId, out uint alloc))
+                if (!nodeAllocations.TryGetValue(nodeId, out uint allocations))
                     continue;
 
                 if (loadedNodeIds.Contains(nodeId))
                 {
-                    // Row existed at load time — update via attach.
                     var model = new CharacterPrimalMatrixNodeModel
                     {
-                        Id          = player.CharacterId,
-                        NodeId      = nodeId,
-                        Allocations = alloc
+                        Id = player.CharacterId,
+                        NodeId = nodeId,
+                        Allocations = allocations
                     };
+
                     EntityEntry<CharacterPrimalMatrixNodeModel> entry = context.Attach(model);
                     entry.Property(p => p.Allocations).IsModified = true;
                 }
                 else
                 {
-                    // First activation of this node — insert.
                     context.Add(new CharacterPrimalMatrixNodeModel
                     {
-                        Id          = player.CharacterId,
-                        NodeId      = nodeId,
-                        Allocations = alloc
+                        Id = player.CharacterId,
+                        NodeId = nodeId,
+                        Allocations = allocations
                     });
+
                     loadedNodeIds.Add(nodeId);
                 }
             }
@@ -408,15 +532,16 @@ namespace NexusForever.Game.PrimalMatrix
 
         public void SendInitialPackets()
         {
-            // Send current essence amounts for all four colours (even if zero).
-            SendEssenceUpdate(EssenceIdRed,    GetEssenceAmount(EssenceIdRed));
-            SendEssenceUpdate(EssenceIdBlue,   GetEssenceAmount(EssenceIdBlue));
-            SendEssenceUpdate(EssenceIdGreen,  GetEssenceAmount(EssenceIdGreen));
+            SendEssenceUpdate(EssenceIdRed, GetEssenceAmount(EssenceIdRed));
+            SendEssenceUpdate(EssenceIdBlue, GetEssenceAmount(EssenceIdBlue));
+            SendEssenceUpdate(EssenceIdGreen, GetEssenceAmount(EssenceIdGreen));
             SendEssenceUpdate(EssenceIdPurple, GetEssenceAmount(EssenceIdPurple));
 
-            // Send all activated node allocations.
             foreach ((uint nodeId, uint alloc) in nodeAllocations)
                 SendNodeUpdate(nodeId, alloc);
+
+            // Keep property rewards in sync on login packet send path.
+            RebuildPropertyBonusesFromAllocations();
         }
     }
 }

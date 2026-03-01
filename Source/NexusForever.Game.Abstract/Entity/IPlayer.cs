@@ -218,5 +218,11 @@ namespace NexusForever.Game.Abstract.Entity
         /// Remove a <see cref="Property"/> modifier by a item that is currently affecting this <see cref="IPlayer"/>.
         /// </summary>
         void RemoveItemProperty(Property property, ItemSlot itemSlot);
+
+        /// <summary>
+        /// Set the absolute Primal Matrix contribution for a <see cref="Property"/>.
+        /// A value of 0 removes the Primal Matrix contribution for that property.
+        /// </summary>
+        void SetPrimalMatrixProperty(Property property, float value);
     }
 }

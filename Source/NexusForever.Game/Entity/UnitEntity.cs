@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Linq;
+using System.Numerics;
 using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
@@ -1351,7 +1352,27 @@ namespace NexusForever.Game.Entity
                 _                   => LootContext.OpenWorld
             };
 
-            IEnumerable<LootDrop> drops = DatabaseLootSourceProvider.Instance.RollCreatureLoot(CreatureId, context);
+            List<LootDrop> drops = DatabaseLootSourceProvider.Instance.RollCreatureLoot(CreatureId, context).ToList();
+            if (drops.Count == 0)
+                return;
+
+            // When the killer is in a group, create a need/greed/pass roll session so all
+            // group members on the same map can compete for each drop.
+            if (player.GroupAssociation != 0 && Map != null)
+            {
+                List<ulong> groupMembers = PlayerManager.Instance
+                    .Where(p => p.GroupAssociation == player.GroupAssociation && p.Map == Map)
+                    .Select(p => p.CharacterId)
+                    .ToList();
+
+                if (groupMembers.Count > 1)
+                {
+                    LootRollManager.Instance.CreateSession(Guid, groupMembers, drops);
+                    return;
+                }
+            }
+
+            // Solo kill or all group members are elsewhere — grant directly.
             foreach (LootDrop drop in drops)
                 player.Inventory.ItemCreate(InventoryLocation.Inventory, drop.ItemId, drop.Count, ItemUpdateReason.Loot);
         }

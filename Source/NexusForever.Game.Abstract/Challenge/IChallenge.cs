@@ -5,6 +5,7 @@ namespace NexusForever.Game.Abstract.Challenge
     public interface IChallenge
     {
         uint Id { get; }
+        uint RewardTrackId { get; }
         bool IsUnlocked { get; }
         bool IsActivated { get; }
         bool IsCompleted { get; }

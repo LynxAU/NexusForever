@@ -7,6 +7,7 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Quest;
 using NexusForever.Game.Static.Quest;
 using NexusForever.Network.World.Message.Model;
+using NexusForever.Network.World.Message.Static;
 using NexusForever.Script;
 using NexusForever.Script.Template;
 using NexusForever.Script.Template.Collection;
@@ -17,6 +18,8 @@ namespace NexusForever.Game.Quest
 {
     public class Quest : IQuest
     {
+        private const float OptionalObjectiveBonusXpRate = 0.10f;
+
         [Flags]
         private enum QuestSaveMask
         {
@@ -307,7 +310,7 @@ namespace NexusForever.Game.Quest
             if (PendingDelete)
                 return;
 
-            if (State == QuestState.Achieved)
+            if (State == QuestState.Completed)
                 return;
 
             // Order in reverse Index so that sequential steps don't completed by the same action
@@ -321,6 +324,10 @@ namespace NexusForever.Game.Quest
                 if (!CanUpdateObjective(objective))
                     continue;
 
+                if (State == QuestState.Achieved && !objective.ObjectiveInfo.IsOptional())
+                    continue;
+
+                bool wasComplete = objective.IsComplete();
                 uint oldProgress = objective.Progress;
                 objective.ObjectiveUpdate(progress);
 
@@ -328,13 +335,12 @@ namespace NexusForever.Game.Quest
                     SendQuestObjectiveUpdate(objective);
 
                 scriptCollection?.Invoke<IQuestScript>(s => s.OnObjectiveUpdate(objective));
+
+                if (!wasComplete && objective.IsComplete() && objective.ObjectiveInfo.IsOptional())
+                    RewardOptionalObjectiveBonusXp();
             }
 
-            // TODO: Should you be able to complete optional objectives after required are completed?
-            if (RequiredObjectivesComplete())
-                CompleteOptionalObjectives();
-
-            if (objectives.All(o => o.IsComplete()))
+            if (State == QuestState.Accepted && RequiredObjectivesComplete())
                 State = QuestState.Achieved;
         }
 
@@ -346,7 +352,7 @@ namespace NexusForever.Game.Quest
             if (PendingDelete)
                 return;
 
-            if (State == QuestState.Achieved)
+            if (State == QuestState.Completed)
                 return;
 
             IQuestObjective objective = objectives.SingleOrDefault(o => o.ObjectiveInfo.Id == id);
@@ -359,6 +365,10 @@ namespace NexusForever.Game.Quest
             if (!CanUpdateObjective(objective))
                 return;
 
+            if (State == QuestState.Achieved && !objective.ObjectiveInfo.IsOptional())
+                return;
+
+            bool wasComplete = objective.IsComplete();
             uint oldProgress = objective.Progress;
             objective.ObjectiveUpdate(progress);
 
@@ -367,11 +377,10 @@ namespace NexusForever.Game.Quest
 
             scriptCollection?.Invoke<IQuestScript>(s => s.OnObjectiveUpdate(objective));
 
-            // TODO: Should you be able to complete optional objectives after required are completed?
-            if (RequiredObjectivesComplete())
-                CompleteOptionalObjectives();
+            if (!wasComplete && objective.IsComplete() && objective.ObjectiveInfo.IsOptional())
+                RewardOptionalObjectiveBonusXp();
 
-            if (objectives.All(o => o.IsComplete()))
+            if (State == QuestState.Accepted && RequiredObjectivesComplete())
                 State = QuestState.Achieved;
         }
 
@@ -395,14 +404,18 @@ namespace NexusForever.Game.Quest
                 .All(o => o.IsComplete());
         }
 
-        private void CompleteOptionalObjectives()
+        private void RewardOptionalObjectiveBonusXp()
         {
-            foreach (IQuestObjective objective in objectives
-                .Where(o => o.ObjectiveInfo.IsOptional() && !o.IsComplete()))
-            {
-                objective.Complete();
-                SendQuestObjectiveUpdate(objective);
-            }
+            uint baseQuestXp = Info.GetRewardExperience();
+            if (baseQuestXp == 0u)
+                return;
+
+            int optionalObjectiveCount = objectives.Count(o => o.ObjectiveInfo.IsOptional());
+            if (optionalObjectiveCount <= 0)
+                return;
+
+            uint bonusXp = Math.Max(1u, (uint)MathF.Round((baseQuestXp * OptionalObjectiveBonusXpRate) / optionalObjectiveCount));
+            player.XpManager.GrantXp(bonusXp, ExpReason.Quest);
         }
 
         private void SendQuestObjectiveUpdate(IQuestObjective objective)

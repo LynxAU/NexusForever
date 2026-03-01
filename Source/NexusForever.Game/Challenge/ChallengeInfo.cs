@@ -12,14 +12,16 @@ namespace NexusForever.Game.Challenge
         public uint CompletionCount { get; }
         public uint TargetGroupId { get; }
         public uint[] TierGoalCounts { get; }
+        public uint RewardTrackId { get; }
 
         public ChallengeInfo(ChallengeEntry entry, ChallengeTierEntry[] tiers)
         {
-            Id             = entry.Id;
-            Type           = (ChallengeType)entry.ChallengeTypeEnum;
-            Target         = entry.Target;
+            Id              = entry.Id;
+            Type            = (ChallengeType)entry.ChallengeTypeEnum;
+            Target          = entry.Target;
             CompletionCount = entry.CompletionCount;
-            TargetGroupId  = entry.TargetGroupIdRewardPane;
+            TargetGroupId   = entry.TargetGroupIdRewardPane;
+            RewardTrackId   = entry.RewardTrackId;
 
             TierGoalCounts = new uint[3];
             if (tiers[0] != null) TierGoalCounts[0] = tiers[0].Count;

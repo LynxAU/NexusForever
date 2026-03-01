@@ -10,6 +10,7 @@ namespace NexusForever.Game.Challenge
         private const double CooldownDuration = 1800.0;  // 30 minutes
 
         public uint Id            => info.Id;
+        public uint RewardTrackId => info.RewardTrackId;
         public bool IsUnlocked    { get; private set; } = true;
         public bool IsActivated   { get; private set; }
         public bool IsCompleted   { get; private set; }

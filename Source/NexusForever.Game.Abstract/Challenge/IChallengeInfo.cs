@@ -26,5 +26,10 @@ namespace NexusForever.Game.Abstract.Challenge
         /// Kill goals for each tier (3 tiers max). Zero means the tier is unused.
         /// </summary>
         uint[] TierGoalCounts { get; }
+
+        /// <summary>
+        /// RewardTrack identifier for delivering rewards on completion.
+        /// </summary>
+        uint RewardTrackId { get; }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Collections;
+using System;
+using System.Collections;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
@@ -18,6 +19,9 @@ namespace NexusForever.Game.Guild
 {
     public class GuildManager : IGuildManager
     {
+        private const string GuildInviteTimeoutEnv = "NF_GUILD_INVITE_TIMEOUT_SECONDS";
+        private static readonly double GuildInviteTimeoutSeconds = ResolveGuildInviteTimeoutSeconds();
+
         [Flags]
         public enum SaveMask
         {
@@ -140,6 +144,12 @@ namespace NexusForever.Game.Guild
             }
 
             saveMask = SaveMask.None;
+        }
+
+        public void Update(double lastTick)
+        {
+            if (pendingInvite != null && IsPendingInviteExpired())
+                ExpirePendingInvite(notifyInvitee: true);
         }
 
         /// <summary>
@@ -282,6 +292,9 @@ namespace NexusForever.Game.Guild
         /// </summary>
         public IGuildResultInfo CanInviteToGuild(ulong id)
         {
+            if (pendingInvite != null && IsPendingInviteExpired())
+                ExpirePendingInvite(notifyInvitee: true);
+
             IGuildBase guild = GlobalGuildManager.Instance.GetGuild(id);
             if (guild == null)
                 return new GuildResultInfo(GuildResult.NotAGuild);
@@ -309,8 +322,10 @@ namespace NexusForever.Game.Guild
 
             pendingInvite = new GuildInvite
             {
-                GuildId   = id,
-                InviteeId = invitee.CharacterId
+                GuildId    = id,
+                InviterId  = inviter?.CharacterId ?? invitee.CharacterId,
+                InviteeId  = owner.CharacterId,
+                Created    = DateTime.UtcNow
             };
 
             owner.Session.EnqueueMessageEncrypted(new ServerGuildInvite
@@ -332,7 +347,11 @@ namespace NexusForever.Game.Guild
             if (pendingInvite == null)
                 return new GuildResultInfo(GuildResult.NoPendingInvites);
 
-            // TODO: check for expiry
+            if (IsPendingInviteExpired())
+            {
+                ExpirePendingInvite(notifyInvitee: false);
+                return new GuildResultInfo(GuildResult.PendingInviteExpired);
+            }
 
             IGuildBase guild = GlobalGuildManager.Instance.GetGuild(pendingInvite.GuildId);
             if (guild == null)
@@ -354,20 +373,56 @@ namespace NexusForever.Game.Guild
 
             Abstract.Identity GuildIdentity = new Abstract.Identity { Id = pendingInvite.GuildId , RealmId = RealmContext.Instance.RealmId};
 
-            IPlayer invitee = PlayerManager.Instance.GetPlayer(pendingInvite.InviteeId);
+            IPlayer inviter = PlayerManager.Instance.GetPlayer(pendingInvite.InviterId);
             if (accepted)
             {
-                if (invitee?.Session != null)
-                    GuildBase.SendGuildResult(invitee.Session, GuildResult.InviteAccepted, GuildIdentity, referenceText: owner.Name);
+                if (inviter?.Session != null)
+                    GuildBase.SendGuildResult(inviter.Session, GuildResult.InviteAccepted, GuildIdentity, referenceText: owner.Name);
                 JoinGuild(pendingInvite.GuildId);
             }
             else
             {
-                if (invitee?.Session != null)
-                    GuildBase.SendGuildResult(invitee.Session, GuildResult.InviteDeclined, GuildIdentity, referenceText: owner.Name);
+                if (inviter?.Session != null)
+                    GuildBase.SendGuildResult(inviter.Session, GuildResult.InviteDeclined, GuildIdentity, referenceText: owner.Name);
             }
 
             pendingInvite = null;
+        }
+
+        private bool IsPendingInviteExpired()
+        {
+            return pendingInvite != null
+                && DateTime.UtcNow.Subtract(pendingInvite.Created).TotalSeconds >= GuildInviteTimeoutSeconds;
+        }
+
+        private void ExpirePendingInvite(bool notifyInvitee)
+        {
+            if (pendingInvite == null)
+                return;
+
+            var guildIdentity = new Abstract.Identity
+            {
+                Id      = pendingInvite.GuildId,
+                RealmId = RealmContext.Instance.RealmId
+            };
+
+            IPlayer inviter = PlayerManager.Instance.GetPlayer(pendingInvite.InviterId);
+            if (inviter?.Session != null)
+                GuildBase.SendGuildResult(inviter.Session, GuildResult.InviteDeclined, guildIdentity, referenceText: owner.Name);
+
+            if (notifyInvitee)
+                GuildBase.SendGuildResult(owner.Session, GuildResult.PendingInviteExpired, guildIdentity, referenceText: owner.Name);
+
+            pendingInvite = null;
+        }
+
+        private static double ResolveGuildInviteTimeoutSeconds()
+        {
+            string raw = Environment.GetEnvironmentVariable(GuildInviteTimeoutEnv);
+            if (!double.TryParse(raw, out double configured))
+                return 300d;
+
+            return Math.Clamp(configured, 15d, 86400d);
         }
 
         /// <summary>
@@ -606,3 +661,4 @@ namespace NexusForever.Game.Guild
         }
     }
 }
+

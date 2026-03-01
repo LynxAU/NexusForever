@@ -1,6 +1,10 @@
 using NexusForever.Game.Abstract.Challenge;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Challenges;
+using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Quest;
+using NexusForever.GameTable;
+using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model.Challenges;
 using NLog;
 
@@ -120,9 +124,54 @@ namespace NexusForever.Game.Entity
                 SendTierAchieved(challenge.Id, tier.Value);
 
             if (challenge.IsCompleted)
+            {
+                DeliverChallengeRewards(challenge.RewardTrackId);
                 SendResult(challenge.Id, ChallengeResult.Completed);
+            }
             else
                 SendUpdate(challenge);
+        }
+
+        private void DeliverChallengeRewards(uint rewardTrackId)
+        {
+            if (rewardTrackId == 0)
+                return;
+
+            foreach (RewardTrackRewardsEntry entry in GameTableManager.Instance.RewardTrackRewards.Entries
+                .Where(e => e != null && e.RewardTrackId == rewardTrackId))
+            {
+                if (entry.CurrencyTypeId != 0 && entry.CurrencyAmount != 0)
+                    player.CurrencyManager.CurrencyAddAmount((CurrencyType)entry.CurrencyTypeId, entry.CurrencyAmount);
+
+                DeliverRewardSlot(entry.RewardTrackRewardTypeEnum00, entry.RewardChoiceId00, entry.RewardChoiceCount00);
+                DeliverRewardSlot(entry.RewardTrackRewardTypeEnum01, entry.RewardChoiceId01, entry.RewardChoiceCount01);
+                DeliverRewardSlot(entry.RewardTrackRewardTypeEnum02, entry.RewardChoiceId02, entry.RewardChoiceCount02);
+            }
+        }
+
+        private void DeliverRewardSlot(uint typeEnum, uint id, uint count)
+        {
+            if (typeEnum == 0 || id == 0)
+                return;
+
+            switch ((QuestRewardType)typeEnum)
+            {
+                case QuestRewardType.Item:
+                case QuestRewardType.AccountItem:
+                    player.Inventory.ItemCreate(InventoryLocation.Inventory, id, count);
+                    break;
+                case QuestRewardType.Money:
+                case QuestRewardType.AccountCurrency:
+                    player.CurrencyManager.CurrencyAddAmount((CurrencyType)id, count);
+                    break;
+                case QuestRewardType.GenericUnlock:
+                case QuestRewardType.AccountGenericUnlock:
+                    log.Trace($"Challenge reward: generic unlock {id} (not yet implemented)");
+                    break;
+                default:
+                    log.Warn($"Unhandled challenge reward slot type {typeEnum}!");
+                    break;
+            }
         }
 
         private void SendResult(uint challengeId, ChallengeResult result)

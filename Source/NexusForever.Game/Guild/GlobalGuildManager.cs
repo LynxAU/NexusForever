@@ -10,10 +10,8 @@ using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Static.Guild;
-using NexusForever.Game.Static.Chat;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Model.Guild;
-using NexusForever.Network.World.Message.Model.Chat;
 using NexusForever.Shared;
 using NexusForever.Shared.Game;
 using NLog;
@@ -320,6 +318,15 @@ namespace NexusForever.Game.Guild
             return baseGuild;
         }
 
+        public void UpdateGuildNameCache(IGuildBase guild, string oldName)
+        {
+            if (guild == null || string.IsNullOrWhiteSpace(oldName))
+                return;
+
+            guildNameCache.Remove((guild.Type, oldName));
+            guildNameCache[(guild.Type, guild.Name)] = guild.Id;
+        }
+
         /// <summary>
         /// Invoke operation delegate to handle <see cref="GuildOperation"/>.
         /// </summary>
@@ -328,22 +335,7 @@ namespace NexusForever.Game.Guild
             if (!guildOperationHandlers.TryGetValue(operation.Operation, out (GuildOperationHandlerDelegate, GuildOperationHandlerResultDelegate) handlers))
             {
                 log.Warn($"Received unhandled GuildOperation {operation.Operation}.");
-
-                player.Session.EnqueueMessageEncrypted(new ServerChat
-                {
-                    Channel  = new Channel
-                    {
-                        ChatChannelId = ChatChannelType.Debug
-                    },
-                    From = new Network.World.Message.Model.Shared.Identity
-                    {
-                        Id = 0,
-                        RealmId = 0,
-                    },
-                    FromName = "GlobalGuildManager",
-                    Text     = $"{operation.Operation} not implemented!",
-                });
-
+                GuildBase.SendGuildResult(player.Session, GuildResult.UnableToProcess, operation.GuildIdentity.ToGameIdentity());
                 return;
             }
 

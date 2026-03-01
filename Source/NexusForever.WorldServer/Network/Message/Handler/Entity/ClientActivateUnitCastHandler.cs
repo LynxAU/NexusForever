@@ -31,8 +31,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
             // TODO: sanity check for range etc.
 
             session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, entity.CreatureId, 1u);
+            session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity2, entity.CreatureId, 1u);
             foreach (uint targetGroupId in assetManager.GetTargetGroupsForCreatureId(entity.CreatureId) ?? Enumerable.Empty<uint>())
+            {
                 session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroup, targetGroupId, 1u); // Updates the objective, but seems to disable all the other targets. TODO: Investigate
+                session.Player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroupChecklist, targetGroupId, 1u);
+            }
 
             entity.OnActivateCast(session.Player);
         }

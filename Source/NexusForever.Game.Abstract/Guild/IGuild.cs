@@ -1,4 +1,5 @@
-﻿using NexusForever.Game.Abstract.Achievement;
+using NexusForever.Game.Abstract.Achievement;
+using NexusForever.Game.Static.Guild;
 
 namespace NexusForever.Game.Abstract.Guild
 {
@@ -8,6 +9,10 @@ namespace NexusForever.Game.Abstract.Guild
         IGuildAchievementManager AchievementManager { get; }
         string MessageOfTheDay { get; set; }
         string AdditionalInfo { get; set; }
+        string RecruitmentDescription { get; set; }
+        uint RecruitmentDemand { get; set; }
+        uint RecruitmentMinLevel { get; set; }
+        GuildClassification Classification { get; set; }
 
         /// <summary>
         /// Create a new <see cref="IGuild"/> using the supplied parameters.

@@ -15,6 +15,7 @@ namespace NexusForever.Game.Configuration.Model
         public uint HousingCrateCapacityPerUpgrade { get; set; } = 10u;
         public double HousingSaveIntervalSeconds { get; set; } = 60d;
         public double HousingTemporaryPlotExpiryHours { get; set; } = 72d;
+        public ulong AmpRespecCostPerAmpCredits { get; set; } = 0ul;
         public bool CrossFactionChat { get; set; } = true;
         public uint MaxPlayers { get; set; } = 50u;
         public Role? DefaultRole { get; set; } = Role.Player;

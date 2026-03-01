@@ -22,7 +22,8 @@ namespace NexusForever.Game.Guild
             Delete                   = 0x0002,
             Rank                     = 0x0004,
             Note                     = 0x0008,
-            CommunityPlotReservation = 0x0010
+            CommunityPlotReservation = 0x0010,
+            RecruitmentAvailability  = 0x0020
         }
 
         public IGuildBase Guild { get; }
@@ -50,6 +51,17 @@ namespace NexusForever.Game.Guild
             }
         }
         private string note;
+
+        public uint RecruitmentAvailability
+        {
+            get => recruitmentAvailability;
+            set
+            {
+                recruitmentAvailability = value;
+                saveMask |= GuildMemberSaveMask.RecruitmentAvailability;
+            }
+        }
+        private uint recruitmentAvailability;
 
         public int CommunityPlotReservation
         {
@@ -83,6 +95,7 @@ namespace NexusForever.Game.Guild
             PlayerIdentity           = new Identity{ Id = model.CharacterId, RealmId = RealmContext.Instance.RealmId };
             rank                     = guildRank;
             note                     = model.Note;
+            recruitmentAvailability  = model.RecruitmentAvailability;
             communityPlotReservation = model.CommunityPlotReservation;
 
             saveMask = GuildMemberSaveMask.None;
@@ -97,6 +110,7 @@ namespace NexusForever.Game.Guild
             PlayerIdentity           = new Identity { Id = characterId, RealmId = RealmContext.Instance.RealmId };
             rank                     = guildRank;
             this.note                = note;
+            recruitmentAvailability  = 0u;
             communityPlotReservation = -1;
 
             saveMask = GuildMemberSaveMask.Create;
@@ -111,6 +125,7 @@ namespace NexusForever.Game.Guild
             PlayerIdentity           = playerIdentity;
             rank                     = guildRank;
             this.note                = note;
+            recruitmentAvailability  = 0u;
             communityPlotReservation = -1;
 
             saveMask = GuildMemberSaveMask.Create;
@@ -132,8 +147,10 @@ namespace NexusForever.Game.Guild
 
             if ((saveMask & GuildMemberSaveMask.Create) != 0)
             {
-                model.Rank = rank.Index;
-                model.Note = note;
+                model.Rank                    = rank.Index;
+                model.Note                    = note;
+                model.RecruitmentAvailability = recruitmentAvailability;
+                model.CommunityPlotReservation = communityPlotReservation;
                 context.Add(model);
             }
             else if ((saveMask & GuildMemberSaveMask.Delete) != 0)
@@ -150,6 +167,11 @@ namespace NexusForever.Game.Guild
                 {
                     model.Note = note;
                     entity.Property(p => p.Note).IsModified = true;
+                }
+                if ((saveMask & GuildMemberSaveMask.RecruitmentAvailability) != 0)
+                {
+                    model.RecruitmentAvailability = recruitmentAvailability;
+                    entity.Property(p => p.RecruitmentAvailability).IsModified = true;
                 }
                 if ((saveMask & GuildMemberSaveMask.CommunityPlotReservation) != 0)
                 {
@@ -178,6 +200,7 @@ namespace NexusForever.Game.Guild
                 Path                     = characterInfo.Path,
                 Level                    = characterInfo.Level,
                 Note                     = Note,
+                RecruitmentAvailability  = recruitmentAvailability,
                 LastLogoutTimeDays       = characterInfo.GetOnlineStatus() ?? 0f,
                 CommunityReservedPlotIndex = communityPlotReservation
             };

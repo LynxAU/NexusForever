@@ -287,7 +287,8 @@ namespace NexusForever.Game.Entity
         /// </summary>
         public void SetCostume(int index)
         {
-            // TODO: some packet to respond? client starts timer and sets index before sending packet so maybe not?
+            // Retail client applies the swap immediately and drives the cooldown timer client-side.
+            // Server only needs to validate and apply visuals.
             if (index < -1 || index >= MaxCostumes)
                 throw new ArgumentOutOfRangeException();
 

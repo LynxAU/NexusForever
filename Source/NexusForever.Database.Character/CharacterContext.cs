@@ -140,6 +140,11 @@ namespace NexusForever.Database.Character
                     .HasColumnName("flags")
                     .HasDefaultValue(0);
 
+                entity.Property(e => e.ItemProficiencies)
+                    .HasColumnName("itemProficiencies")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
                 entity.Property(e => e.InnateIndex)
                     .HasColumnName("innateIndex")
                     .HasColumnType("tinyint(3) unsigned")
@@ -1986,6 +1991,26 @@ namespace NexusForever.Database.Character
                     .HasColumnType("varchar(400)")
                     .HasDefaultValue("");
 
+                entity.Property(e => e.RecruitmentDescription)
+                    .HasColumnName("recruitmentDescription")
+                    .HasColumnType("varchar(500)")
+                    .HasDefaultValue("");
+
+                entity.Property(e => e.RecruitmentDemand)
+                    .HasColumnName("recruitmentDemand")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
+                entity.Property(e => e.RecruitmentMinLevel)
+                    .HasColumnName("recruitmentMinLevel")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(1u);
+
+                entity.Property(e => e.Classification)
+                    .HasColumnName("classification")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
+
                 entity.Property(e => e.BackgroundIconPartId)
                     .HasColumnName("backgroundIconPartId")
                     .HasColumnType("smallint(5) unsigned")
@@ -2147,6 +2172,11 @@ namespace NexusForever.Database.Character
                     .HasColumnName("note")
                     .HasColumnType("varchar(32)")
                     .HasDefaultValue("");
+
+                entity.Property(e => e.RecruitmentAvailability)
+                    .HasColumnName("recruitmentAvailability")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0u);
 
                 entity.Property(e => e.CommunityPlotReservation)
                     .HasColumnName("communityPlotReservation")

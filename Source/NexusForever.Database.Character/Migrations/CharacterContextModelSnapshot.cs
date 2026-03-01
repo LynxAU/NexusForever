@@ -2007,6 +2007,12 @@ namespace NexusForever.Database.Character.Migrations
                         .HasDefaultValue("")
                         .HasColumnName("additionalInfo");
 
+                    b.Property<uint>("Classification")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("classification");
+
                     b.Property<ushort>("BackgroundIconPartId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("smallint(5) unsigned")
@@ -2024,6 +2030,24 @@ namespace NexusForever.Database.Character.Migrations
                         .HasColumnType("varchar(200)")
                         .HasDefaultValue("")
                         .HasColumnName("motd");
+
+                    b.Property<uint>("RecruitmentDemand")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("recruitmentDemand");
+
+                    b.Property<string>("RecruitmentDescription")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("varchar(500)")
+                        .HasDefaultValue("")
+                        .HasColumnName("recruitmentDescription");
+
+                    b.Property<uint>("RecruitmentMinLevel")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(1u)
+                        .HasColumnName("recruitmentMinLevel");
 
                     b.Property<ushort>("ScanLinesPartId")
                         .ValueGeneratedOnAdd()
@@ -2062,6 +2086,12 @@ namespace NexusForever.Database.Character.Migrations
                         .HasColumnType("varchar(32)")
                         .HasDefaultValue("")
                         .HasColumnName("note");
+
+                    b.Property<uint>("RecruitmentAvailability")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int(10) unsigned")
+                        .HasDefaultValue(0u)
+                        .HasColumnName("recruitmentAvailability");
 
                     b.Property<byte>("Rank")
                         .ValueGeneratedOnAdd()

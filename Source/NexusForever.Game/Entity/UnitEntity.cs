@@ -12,6 +12,7 @@ using NexusForever.Game.Static;
 using NexusForever.Game.Static.Achievement;
 using NexusForever.Game.Static.Loot;
 using NexusForever.Game.Static.Map;
+using NexusForever.Game.Static.Combat;
 using NexusForever.Game.Static.Combat.CrowdControl;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.PublicEvent;
@@ -1334,25 +1335,14 @@ namespace NexusForever.Game.Entity
                 Map?.PublicEventManager.UpdateObjective(player, PublicEventObjectiveType.KillClusterTargetGroup, targetGroupId, 1);
             }
 
-            // Trigger PvPKills quest objectives when a player kills another player
-            // This is separate from regular creature kills
-            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.PvPKills, 0, 1u);
-
-            // Trigger Unknown10 objectives - appears to be related to difficulty-based kills
-            // ObjectiveTexts mention completing challenges or dungeons on certain difficulty
-            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown10, CreatureId, 1u);
-
-            // Trigger Unknown15 objectives - appears to be for named/specific creature kills
-            // Similar to KillCreature but for specific named creatures
+            // Unknown15: named/specific creature kill objectives (data = CreatureId)
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.Unknown15, CreatureId, 1u);
 
-            // Trigger CombatMomentum objectives - completing combat momentum actions
-            // These are combat-based objectives that track specific combat actions
-            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CombatMomentum, 0, 1u);
-
-            // Trigger BeginMatrix objectives - using the Primal Matrix
-            // Data is 0, triggers when player engages with matrix/combat system
-            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.BeginMatrix, 0, 1u);
+            // CombatMomentum: fire all stat types on kill so any quest objective (data = specific CombatMomentumStat ID) advances.
+            // Impulse/KillingPerformance/KillChain are correct on kills; Evade/Interrupt/CCBreak also fire
+            // here to ensure all 7 CombatMomentum quest objectives are reachable.
+            foreach (CombatMomentumStat momentumStat in Enum.GetValues<CombatMomentumStat>())
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CombatMomentum, (uint)momentumStat, 1u);
 
             // Grant kill XP. Use 10% of the level's BaseQuestXpPerLevel as a baseline
             // approximation — pending research into the exact WildStar formula.

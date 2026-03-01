@@ -361,7 +361,7 @@ namespace NexusForever.Game.Entity
             FriendManager            = new FriendManager(this, model);
             ZoneMapManager          = new ZoneMapManager(this, model);
             QuestManager            = new QuestManager(this, model);
-            ChallengeManager        = new ChallengeManager(this);
+            ChallengeManager        = new ChallengeManager(this, model);
             AchievementManager      = new CharacterAchievementManager(this, model);
             SupplySatchelManager    = new SupplySatchelManager(this, model);
             XpManager               = new XpManager(this, model);
@@ -635,6 +635,7 @@ namespace NexusForever.Game.Entity
             MailManager.Save(context);
             ZoneMapManager.Save(context);
             QuestManager.Save(context);
+            ChallengeManager.Save(context);
             AchievementManager.Save(context);
             SupplySatchelManager.Save(context);
             XpManager.Save(context);

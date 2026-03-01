@@ -6,6 +6,7 @@ using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Combat;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Entity.Movement;
+using NexusForever.Game.Map.Search;
 using NexusForever.Game.Abstract.Spell;
 using NexusForever.Game.Entity.Movement.Generator;
 using NexusForever.Game.Spell;
@@ -177,6 +178,62 @@ namespace NexusForever.Game.Entity
             }
 
             LeashBehavior = LeashBehavior.Standard;
+        }
+
+        /// <summary>
+        /// Call for Help - when NPC takes damage, alert nearby allies to attack the attacker.
+        /// </summary>
+        private DateTime lastCallForHelpTime = DateTime.MinValue;
+        private const double CallForHelpCooldown = 10.0; // seconds
+        private const float CallForHelpRadius = 30f; // range to alert allies
+
+        protected override void OnDamaged(IUnitEntity attacker, IDamageDescription damageDescription)
+        {
+            base.OnDamaged(attacker, damageDescription);
+
+            // Don't call for help if dead, not in world, or attacker is null
+            if (!IsAlive || Map == null || attacker == null)
+                return;
+
+            // Break crowd control on damage
+            BreakCrowdControlOnDamage();
+
+            // Cooldown check - don't spam call for help
+            if ((DateTime.UtcNow - lastCallForHelpTime).TotalSeconds < CallForHelpCooldown)
+                return;
+
+            lastCallForHelpTime = DateTime.UtcNow;
+
+            // Scan for nearby allies within CallForHelpRadius
+            foreach (ICreatureEntity ally in Map.Search(Position, CallForHelpRadius, new SearchCheckRange<ICreatureEntity>(Position, CallForHelpRadius)))
+            {
+                if (ally == this)
+                    continue;
+
+                // Skip if ally is dead, already in combat, or is the attacker
+                if (!ally.IsAlive || ally.TargetGuid != 0 || ally == attacker)
+                    continue;
+
+                // Check if ally shares the same faction or is friendly
+                if (!ally.CanAttack(attacker))
+                {
+                    // Ally found - add attacker to their threat list
+                    ally.ThreatManager.UpdateThreat(attacker, 1);
+                    log.Trace($"Creature {ally.Guid} answered call for help against {attacker.Guid}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Break all crowd control effects when taking damage.
+        /// </summary>
+        private void BreakCrowdControlOnDamage()
+        {
+            uint removedCount = RemoveAllCrowdControlStates(0);
+            if (removedCount > 0)
+            {
+                log.Trace($"Creature {Guid} broke {removedCount} CC state(s) from damage.");
+            }
         }
 
         /// <summary>

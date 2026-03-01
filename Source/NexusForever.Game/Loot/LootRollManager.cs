@@ -1,9 +1,18 @@
+using System;
 using System.Linq;
+using NexusForever.Database;
+using NexusForever.Database.Character;
+using NexusForever.Database.Character.Model;
+using NexusForever.Game;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Loot;
 using NexusForever.Game.Entity;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Item;
 using NexusForever.Game.Static.Loot;
+using NexusForever.Game.Static.Mail;
+using NexusForever.GameTable;
+using NexusForever.GameTable.Static;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Static;
 using NexusForever.Network.World.Message.Model.Loot;
@@ -146,6 +155,20 @@ namespace NexusForever.Game.Loot
                 if (item.Rolls[player.CharacterId] != null)
                     return; // Player already rolled for this item.
 
+                // Downgrade Need to Greed for BoP items the player's class cannot use.
+                if (action == LootRollAction.Need)
+                {
+                    const uint BindOnPickup = 0x01u;
+                    var itemEntry = GameTableManager.Instance.Item.GetEntry(item.ItemId);
+                    if (itemEntry != null
+                        && (itemEntry.BindFlags & BindOnPickup) != 0
+                        && itemEntry.ClassRequired != 0
+                        && itemEntry.ClassRequired != (uint)player.Class)
+                    {
+                        action = LootRollAction.Greed;
+                    }
+                }
+
                 item.Rolls[player.CharacterId] = action;
 
                 // Broadcast roll to all participants.
@@ -233,7 +256,7 @@ namespace NexusForever.Game.Loot
                 if (winner != null)
                     winner.Inventory.ItemCreate(InventoryLocation.Inventory, item.ItemId, item.Count, ItemUpdateReason.Loot);
                 else
-                    log.Warn($"Loot roll winner {winnerId} is offline — item {item.ItemId} was lost.");
+                    MailItemToOfflineWinner(winnerId, item.ItemId, item.Count);
             }
         }
 
@@ -258,6 +281,61 @@ namespace NexusForever.Game.Loot
         {
             foreach (ulong charId in participantIds)
                 PlayerManager.Instance.GetPlayer(charId)?.Session.EnqueueMessageEncrypted(message);
+        }
+
+        /// <summary>
+        /// Mail loot item to an offline winner.
+        /// </summary>
+        private void MailItemToOfflineWinner(ulong winnerId, uint itemId, uint count)
+        {
+            log.Info($"Mailing loot item {itemId} (x{count}) to offline winner {winnerId}.");
+
+            IItemInfo itemInfo = ItemManager.Instance.GetItemInfo(itemId);
+            if (itemInfo == null)
+            {
+                log.Warn($"Cannot mail item {itemId}: item not found in game tables.");
+                return;
+            }
+
+            ulong itemGuid = ItemManager.Instance.NextItemId;
+            ulong mailId = AssetManager.Instance.NextMailId;
+
+            var itemModel = new ItemModel
+            {
+                Id         = itemGuid,
+                OwnerId    = null,
+                ItemId     = itemId,
+                Location   = 0,
+                BagIndex   = 0,
+                StackCount = count,
+                Charges    = 0,
+                Durability = 1f
+            };
+
+            var mail = new CharacterMailModel
+            {
+                Id          = mailId,
+                RecipientId = winnerId,
+                SenderType  = (byte)SenderType.GM,
+                Subject    = "Loot Won",
+                Message    = $"Congratulations! You won item {itemId} x{count} in a loot roll.",
+                DeliveryTime = (byte)DeliverySpeed.Instant,
+                CreateTime  = DateTime.UtcNow
+            };
+
+            mail.Attachment.Add(new CharacterMailAttachmentModel
+            {
+                Id       = mailId,
+                Index    = 0,
+                ItemGuid = itemGuid
+            });
+
+            // Save to database
+            DatabaseManager.Instance.GetDatabase<CharacterDatabase>().Save(ctx =>
+            {
+                ctx.Item.Add(itemModel);
+                ctx.CharacterMail.Add(mail);
+            }).GetAwaiter().GetResult();
         }
     }
 }

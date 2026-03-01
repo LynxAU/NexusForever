@@ -13,6 +13,7 @@
         ItemFull = 8,
         ItemGuid = 9,
         NavPoint = 10,
-        Loot     = 11
+        Loot     = 11,
+        Spell4Id = 12
     }
 }

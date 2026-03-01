@@ -1,8 +1,9 @@
 using NexusForever.Shared;
+using NexusForever.Database.Character;
 
 namespace NexusForever.Game.Abstract.Entity
 {
-    public interface IChallengeManager : IUpdate, IDisposable
+    public interface IChallengeManager : IUpdate, IDisposable, IDatabaseCharacter
     {
         /// <summary>
         /// Send initial challenge state packets to the client on login.

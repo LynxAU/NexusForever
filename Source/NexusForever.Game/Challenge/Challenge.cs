@@ -1,3 +1,4 @@
+using System;
 using NexusForever.Game.Abstract.Challenge;
 using NexusForever.Game.Static.Challenges;
 using NexusForever.Network.World.Message.Model.Challenges;
@@ -15,6 +16,12 @@ namespace NexusForever.Game.Challenge
         public bool IsActivated   { get; private set; }
         public bool IsCompleted   { get; private set; }
         public bool IsOnCooldown  { get; private set; }
+        public uint CurrentCount => currentCount;
+        public uint CurrentTier => currentTier;
+        public uint CompletionCount => completionCount;
+        public double TimeRemainingSeconds => timeRemaining;
+        public double CooldownRemainingSeconds => cooldownRemaining;
+        public uint ActivatedDt => activatedDt;
 
         private readonly IChallengeInfo info;
         private uint   currentCount;
@@ -32,10 +39,11 @@ namespace NexusForever.Game.Challenge
 
         public void Activate()
         {
-            if (IsActivated || IsCompleted || IsOnCooldown)
+            if (IsActivated || IsOnCooldown)
                 return;
 
             IsActivated   = true;
+            IsCompleted   = false;
             currentCount  = 0;
             currentTier   = 0;
             timeRemaining = ActiveDuration;
@@ -184,6 +192,10 @@ namespace NexusForever.Game.Challenge
         public ServerChallengeUpdate.Challenge Build()
         {
             uint completionGoal = GetCompletionGoal();
+            uint cooldownEndDt = IsOnCooldown
+                ? (uint)DateTimeOffset.UtcNow.AddSeconds(Math.Max(0d, cooldownRemaining)).ToUnixTimeSeconds()
+                : 0u;
+
             return new ServerChallengeUpdate.Challenge
             {
                 ChallengeId       = Id,
@@ -197,11 +209,36 @@ namespace NexusForever.Game.Challenge
                 Unlocked          = IsUnlocked,
                 Activated         = IsActivated,
                 OnCooldown        = IsOnCooldown,
-                TimeActivatedDt   = activatedDt,
+                TimeActivatedDt   = IsActivated ? activatedDt : 0u,
                 TimeTotalActive   = (uint)ActiveDuration,
-                TimeCooldownDt    = IsOnCooldown ? (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds() : 0u,
+                TimeCooldownDt    = cooldownEndDt,
                 TimeTotalCooldown = (uint)CooldownDuration,
             };
+        }
+
+        public void RestoreState(
+            bool unlocked,
+            bool activated,
+            bool completed,
+            bool onCooldown,
+            uint currentCount,
+            uint currentTier,
+            uint completionCount,
+            double timeRemainingSeconds,
+            double cooldownRemainingSeconds,
+            uint activatedDt)
+        {
+            IsUnlocked        = unlocked;
+            IsActivated       = activated;
+            IsCompleted       = completed;
+            IsOnCooldown      = onCooldown;
+            this.currentCount = currentCount;
+            this.currentTier  = currentTier;
+            this.completionCount = completionCount;
+            timeRemaining     = Math.Max(0d, timeRemainingSeconds);
+            cooldownRemaining = Math.Max(0d, cooldownRemainingSeconds);
+            this.activatedDt  = activatedDt;
+            pendingTier       = null;
         }
     }
 }

@@ -1,8 +1,18 @@
-﻿using Microsoft.Extensions.Logging;
+using System;
+using System.Linq;
+using Microsoft.Extensions.Logging;
+using NexusForever.Database;
+using NexusForever.Database.Character;
+using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
-using NexusForever.Game.Abstract.PublicEvent;
 using NexusForever.Game.Abstract.Map;
+using NexusForever.Game.Abstract.PublicEvent;
+using NexusForever.Game.Entity;
+using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Mail;
 using NexusForever.Game.Static.PublicEvent;
+using NexusForever.GameTable;
+using NexusForever.GameTable.Model;
 using NexusForever.Script.Template;
 using NexusForever.Shared;
 
@@ -234,6 +244,174 @@ namespace NexusForever.Game.PublicEvent
                 return;
 
             character.RespondVote(player, eventId, choice);
+        }
+
+        public void DistributeCompletionRewards(uint eventId, IEnumerable<ulong> participantCharacterIds)
+        {
+            IPublicEventTemplate template = publicEventTemplateManager.GetTemplate(eventId);
+            if (template == null)
+                return;
+
+            uint rewardRotationContentId = template.Entry.RewardRotationContentId;
+            if (rewardRotationContentId == 0u)
+                return;
+
+            List<RewardRotationItemEntry> rewardItems = GameTableManager.Instance.RewardRotationItem.Entries
+                .Where(e => e != null && e.Id == rewardRotationContentId)
+                .ToList();
+
+            List<RewardRotationEssenceEntry> rewardEssence = GameTableManager.Instance.RewardRotationEssence.Entries
+                .Where(e => e != null && e.Id == rewardRotationContentId)
+                .ToList();
+
+            if (rewardItems.Count == 0 && rewardEssence.Count == 0)
+                return;
+
+            HashSet<ulong> recipients = participantCharacterIds
+                .Where(id => id != 0ul)
+                .ToHashSet();
+
+            if (recipients.Count == 0)
+                return;
+
+            var offlineRewards = new List<Action<CharacterContext>>();
+
+            foreach (ulong characterId in recipients)
+            {
+                IPlayer onlinePlayer = PlayerManager.Instance.GetPlayer(characterId);
+                if (onlinePlayer != null)
+                {
+                    ApplyOnlineRewards(onlinePlayer, rewardItems, rewardEssence);
+                    continue;
+                }
+
+                QueueOfflineRewards(characterId, rewardItems, rewardEssence, offlineRewards);
+            }
+
+            if (offlineRewards.Count == 0)
+                return;
+
+            DatabaseManager.Instance.GetDatabase<CharacterDatabase>().Save(context =>
+            {
+                foreach (Action<CharacterContext> rewardAction in offlineRewards)
+                    rewardAction(context);
+            }).GetAwaiter().GetResult();
+        }
+
+        private static void ApplyOnlineRewards(IPlayer player, IEnumerable<RewardRotationItemEntry> rewardItems, IEnumerable<RewardRotationEssenceEntry> rewardEssence)
+        {
+            foreach (RewardRotationItemEntry reward in rewardItems)
+            {
+                if (reward.MinPlayerLevel > 0u && player.Level < reward.MinPlayerLevel)
+                    continue;
+
+                if (ItemManager.Instance.GetItemInfo(reward.RewardItemObject) != null)
+                {
+                    uint count = Math.Max(1u, reward.Count);
+                    player.Inventory.ItemCreate(InventoryLocation.Inventory, reward.RewardItemObject, count);
+                    continue;
+                }
+
+                if (Enum.IsDefined(typeof(CurrencyType), (int)reward.RewardItemObject))
+                {
+                    uint amount = Math.Max(1u, reward.Count);
+                    player.CurrencyManager.CurrencyAddAmount((CurrencyType)reward.RewardItemObject, amount);
+                }
+            }
+
+            foreach (RewardRotationEssenceEntry essenceReward in rewardEssence)
+            {
+                if (essenceReward.MinPlayerLevel > 0u && player.Level < essenceReward.MinPlayerLevel)
+                    continue;
+
+                if (!Enum.IsDefined(typeof(CurrencyType), (int)essenceReward.AccountCurrencyTypeId))
+                    continue;
+
+                player.CurrencyManager.CurrencyAddAmount((CurrencyType)essenceReward.AccountCurrencyTypeId, 1u);
+            }
+        }
+
+        private static void QueueOfflineRewards(
+            ulong characterId,
+            IEnumerable<RewardRotationItemEntry> rewardItems,
+            IEnumerable<RewardRotationEssenceEntry> rewardEssence,
+            List<Action<CharacterContext>> queue)
+        {
+            foreach (RewardRotationItemEntry reward in rewardItems)
+            {
+                if (ItemManager.Instance.GetItemInfo(reward.RewardItemObject) != null)
+                {
+                    queue.Add(context => QueueOfflineItemReward(context, characterId, reward.RewardItemObject, Math.Max(1u, reward.Count)));
+                    continue;
+                }
+
+                if (Enum.IsDefined(typeof(CurrencyType), (int)reward.RewardItemObject))
+                {
+                    queue.Add(context => QueueOfflineCurrencyReward(context, characterId, (CurrencyType)reward.RewardItemObject, Math.Max(1u, reward.Count)));
+                }
+            }
+
+            foreach (RewardRotationEssenceEntry essenceReward in rewardEssence)
+            {
+                if (!Enum.IsDefined(typeof(CurrencyType), (int)essenceReward.AccountCurrencyTypeId))
+                    continue;
+
+                queue.Add(context => QueueOfflineCurrencyReward(context, characterId, (CurrencyType)essenceReward.AccountCurrencyTypeId, 1u));
+            }
+        }
+
+        private static void QueueOfflineCurrencyReward(CharacterContext db, ulong recipientId, CurrencyType currencyType, ulong amount)
+        {
+            db.CharacterMail.Add(new CharacterMailModel
+            {
+                Id             = AssetManager.Instance.NextMailId,
+                RecipientId    = recipientId,
+                SenderType     = (byte)SenderType.GM,
+                Subject        = "Public Event Reward",
+                Message        = $"You received {amount} {currencyType} from a completed public event.",
+                CurrencyType   = (byte)currencyType,
+                CurrencyAmount = amount,
+                DeliveryTime   = (byte)DeliverySpeed.Instant,
+                CreateTime     = DateTime.UtcNow
+            });
+        }
+
+        private static void QueueOfflineItemReward(CharacterContext db, ulong recipientId, uint itemId, uint count)
+        {
+            ulong itemGuid = ItemManager.Instance.NextItemId;
+            ulong mailId = AssetManager.Instance.NextMailId;
+
+            db.Item.Add(new ItemModel
+            {
+                Id         = itemGuid,
+                OwnerId    = null,
+                ItemId     = itemId,
+                Location   = 0,
+                BagIndex   = 0,
+                StackCount = count,
+                Charges    = 0,
+                Durability = 1f
+            });
+
+            var mail = new CharacterMailModel
+            {
+                Id           = mailId,
+                RecipientId  = recipientId,
+                SenderType   = (byte)SenderType.GM,
+                Subject      = "Public Event Reward",
+                Message      = $"You received item reward {itemId} x{count} from a completed public event.",
+                DeliveryTime = (byte)DeliverySpeed.Instant,
+                CreateTime   = DateTime.UtcNow
+            };
+
+            mail.Attachment.Add(new CharacterMailAttachmentModel
+            {
+                Id       = mailId,
+                Index    = 0,
+                ItemGuid = itemGuid
+            });
+
+            db.CharacterMail.Add(mail);
         }
 
         private void InvokeScriptCollection<T>(Action<T> action)

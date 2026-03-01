@@ -24,6 +24,7 @@ namespace NexusForever.Network.World.Chat
             sc.AddKeyedTransient<IChatFormatModel, ChatFormatItemGuid>(ChatFormatType.ItemGuid);
             sc.AddKeyedTransient<IChatFormatModel, ChatFormatNavPoint>(ChatFormatType.NavPoint);
             sc.AddKeyedTransient<IChatFormatModel, ChatFormatLoot>(ChatFormatType.Loot);
+            sc.AddKeyedTransient<IChatFormatModel, ChatFormatSpell4Id>(ChatFormatType.Spell4Id);
         }
     }
 }

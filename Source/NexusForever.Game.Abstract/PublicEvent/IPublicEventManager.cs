@@ -74,5 +74,10 @@ namespace NexusForever.Game.Abstract.PublicEvent
         /// Respond to vote in a specific public event for the <see cref="IPlayer"/> with the supplied choice.
         /// </summary>
         void RespondVote(IPlayer player, uint eventId, uint choice);
+
+        /// <summary>
+        /// Distribute completion rewards for a finalised public event to participants.
+        /// </summary>
+        void DistributeCompletionRewards(uint eventId, IEnumerable<ulong> participantCharacterIds);
     }
 }

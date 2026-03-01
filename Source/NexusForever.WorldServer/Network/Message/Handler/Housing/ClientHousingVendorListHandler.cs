@@ -1,4 +1,5 @@
-﻿using NexusForever.GameTable;
+using System.Linq;
+using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model;
@@ -26,12 +27,23 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Housing
                 ListType = 0
             };
 
-            // TODO: this isn't entirely correct
-            foreach (HousingPlugItemEntry entry in gameTableManager.HousingPlugItem.Entries)
+            foreach (HousingPlugItemEntry entry in gameTableManager.HousingPlugItem.Entries
+                .Where(e => e != null && e.Id != 0u))
             {
+                uint cost = 0u;
+                if (entry.HousingContributionInfoId00 != 0u)
+                {
+                    HousingContributionInfoEntry contribution = gameTableManager.HousingContributionInfo.GetEntry(entry.HousingContributionInfoId00);
+                    if (contribution != null)
+                        cost = contribution.ContributionPointRequirement;
+                }
+
                 serverHousingVendorList.PlugItems.Add(new ServerHousingVendorList.PlugItem
                 {
-                    PlugItemId = entry.Id
+                    SourceId = 0ul,
+                    PlugItemId = entry.Id,
+                    Cost = cost,
+                    PlugItemFlags = entry.Flags
                 });
             }
 

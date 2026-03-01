@@ -23,6 +23,12 @@ namespace NexusForever.Game.Spell
                 public uint OverkillAmount { get; set; }
                 public bool KilledTarget { get; set; }
                 public CombatResult CombatResult { get; set; }
+
+                /// <inheritdoc />
+                public uint ReflectedDamage { get; set; }
+
+                /// <inheritdoc />
+                public uint MultiHitDamage { get; set; }
             }
 
             public uint EffectId { get; }
@@ -41,17 +47,19 @@ namespace NexusForever.Game.Spell
             {
                 Damage = new DamageDescription
                 {
-                    DamageType        = damageType,
-                    RawDamage         = damage,
-                    RawScaledDamage   = damage,
-                    AbsorbedAmount    = 0u,
+                    DamageType         = damageType,
+                    RawDamage          = damage,
+                    RawScaledDamage    = damage,
+                    AbsorbedAmount     = 0u,
                     ShieldAbsorbAmount = 0u,
-                    AdjustedDamage    = damage,
-                    GlanceAmount      = 0u,
-                    MultiHitAmount    = 0u,
-                    OverkillAmount    = 0u,
-                    KilledTarget      = false,
-                    CombatResult      = CombatResult.Hit
+                    AdjustedDamage     = damage,
+                    GlanceAmount       = 0u,
+                    MultiHitAmount     = 0u,
+                    OverkillAmount     = 0u,
+                    KilledTarget       = false,
+                    CombatResult       = CombatResult.Hit,
+                    ReflectedDamage    = 0u,
+                    MultiHitDamage     = 0u
                 };
             }
 

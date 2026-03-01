@@ -30,10 +30,9 @@ namespace NexusForever.Game.Combat
 
         /// <summary>
         /// Returns the calculated damage and updates the referenced <see cref="SpellTargetInfo.SpellTargetEffectInfo"/> appropriately.
+        /// Reflected damage is stored in <see cref="IDamageDescription.ReflectedDamage"/> and applied to the attacker.
+        /// Multi-hit bonus damage is stored separately in <see cref="IDamageDescription.MultiHitDamage"/> for dedicated combat log emission.
         /// </summary>
-        /// <remarks>
-        /// TODO: This should probably return an instance of a Class which describes all the damage done to both entities. Attackers can have reflected damage from this, etc.
-        /// </remarks>
         public void CalculateDamage(IUnitEntity attacker, IUnitEntity victim, ISpell spell, ISpellTargetEffectInfo info)
         {
             SpellEffectType effectType = (SpellEffectType)info.Entry.EffectType;
@@ -149,6 +148,29 @@ namespace NexusForever.Game.Combat
                         AdjustedDamage  = reflectedDamage
                     };
                     attacker.TakeDamage(victim, reflectDesc);
+                    damageDescription.ReflectedDamage = reflectedDamage;
+
+                    // Emit CombatLogReflect so the attacker sees the reflected damage in their combat log.
+                    info.AddCombatLog(new CombatLogReflect
+                    {
+                        DamageAmount      = reflectedDamage,
+                        RawDamage         = reflectedDamage,
+                        Shield            = 0u,
+                        Overkill          = 0u,
+                        Glance            = 0u,
+                        BTargetVulnerable = IsVulnerable(attacker),
+                        BKilled           = !attacker.IsAlive,
+                        BPeriodic         = false,
+                        DamageType        = damageDescription.DamageType,
+                        EffectType        = (SpellEffectType)info.Entry.EffectType,
+                        CastData          = new CombatLogCastData
+                        {
+                            CasterId     = victim.Guid,
+                            TargetId     = attacker.Guid,
+                            SpellId      = spell.Parameters.SpellInfo.Entry.Id,
+                            CombatResult = CombatResult.Hit
+                        }
+                    });
                 }
             }
         }
@@ -515,13 +537,14 @@ namespace NexusForever.Game.Combat
             if (multiHitAmount <= 0f)
                 return;
 
-            // Approximation: apply Multi-Hit as a scalar bonus to the current hit result.
-            // TODO: Implement as a separate additional hit with dedicated combat logs once semantics are validated.
             uint bonusDamage = (uint)Math.Round(damage * multiHitAmount);
             if (bonusDamage == 0u)
                 return;
 
+            // Store the multi-hit bonus separately so the caller can emit a dedicated CombatLogMultiHit.
+            // The base hit damage (`damage`) is NOT inflated; the bonus is applied to the target independently.
             damageDescription.MultiHitAmount = bonusDamage;
+            damageDescription.MultiHitDamage = bonusDamage;
             damage = (uint)Math.Min((ulong)uint.MaxValue, (ulong)damage + bonusDamage);
         }
 
@@ -618,6 +641,18 @@ namespace NexusForever.Game.Combat
             // Return a decimal representing the % applied by this rating.
             float ratingMod = ((gameFormula.Datafloat0 / entityLevel) * gameFormula.Datafloat01) * entity.GetPropertyValue(property);
             return Math.Min((GetBasePercentMod(property, entity) + ratingMod) * 100f, gameFormula.Dataint01) / 100f;
+        }
+
+        /// <summary>
+        /// Returns whether the supplied <see cref="IUnitEntity"/> is currently in the Moment of Opportunity
+        /// (Vulnerable) state. This is true when the entity has an active Vulnerability or
+        /// VulnerabilityWithAct crowd-control state.
+        /// </summary>
+        private static bool IsVulnerable(IUnitEntity entity)
+        {
+            const uint vulnerabilityBit        = 1u << (int)Static.Combat.CrowdControl.CCState.Vulnerability;
+            const uint vulnerabilityWithActBit = 1u << (int)Static.Combat.CrowdControl.CCState.VulnerabilityWithAct;
+            return (entity.CrowdControlStateMask & (vulnerabilityBit | vulnerabilityWithActBit)) != 0u;
         }
 
         private float GetBasePercentMod(Property property, IUnitEntity entity)

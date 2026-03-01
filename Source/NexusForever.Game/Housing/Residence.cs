@@ -719,6 +719,62 @@ namespace NexusForever.Game.Housing
         }
 
         /// <summary>
+        /// Returns the <see cref="ResidenceSharingLevel"/> relationship of <see cref="IPlayer"/> to this <see cref="IResidence"/>.
+        /// </summary>
+        private ResidenceSharingLevel GetPlayerRelationship(IPlayer player)
+        {
+            if (player.CharacterId == OwnerId)
+                return ResidenceSharingLevel.OwnerOnly;
+
+            switch (Type)
+            {
+                case ResidenceType.Residence:
+                {
+                    IResidence parent = Parent;
+                    if (parent == null && GuildOwnerId.HasValue)
+                    {
+                        ICommunity community = player.GuildManager.GetGuild<ICommunity>(GuildType.Community);
+                        if (community?.Residence?.GuildOwnerId == GuildOwnerId)
+                            parent = community.Residence;
+                    }
+
+                    if (parent?.GetChild(player.CharacterId) != null)
+                        return ResidenceSharingLevel.Roommates;
+                    break;
+                }
+                case ResidenceType.Community:
+                {
+                    ICommunity community = player.GuildManager.GetGuild<ICommunity>(GuildType.Community);
+                    if (community != null && community.GetMember(player.CharacterId) != null)
+                        return ResidenceSharingLevel.Roommates;
+                    break;
+                }
+            }
+
+            IResidence playerResidence = GlobalResidenceManager.Instance.GetResidenceByOwner(player.CharacterId);
+            if (playerResidence != null && GetNeighbors().Any(n => n.ResidenceId == playerResidence.Id))
+                return ResidenceSharingLevel.Neighbors;
+
+            return ResidenceSharingLevel.Public;
+        }
+
+        /// <summary>
+        /// Returns true if <see cref="IPlayer"/> can access resource nodes on this <see cref="IResidence"/>.
+        /// </summary>
+        public bool CanAccessResources(IPlayer player)
+        {
+            return (byte)GetPlayerRelationship(player) <= ResourceSharing;
+        }
+
+        /// <summary>
+        /// Returns true if <see cref="IPlayer"/> can access garden plots on this <see cref="IResidence"/>.
+        /// </summary>
+        public bool CanAccessGarden(IPlayer player)
+        {
+            return (byte)GetPlayerRelationship(player) <= GardenSharing;
+        }
+
+        /// <summary>
         /// Return all <see cref="IPlot"/>'s for the <see cref="IResidence"/>.
         /// </summary>
         public IEnumerable<IPlot> GetPlots()

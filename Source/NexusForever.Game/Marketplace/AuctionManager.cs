@@ -423,8 +423,8 @@ namespace NexusForever.Game.Marketplace
             }
             else
             {
-                // Offline winner: item delivery via mail requires item DB creation — log for now.
-                log.Warn($"Auction {auction.AuctionId} winner {auction.TopBidderCharacterId} is offline; item {auction.ItemId} cannot be mailed (offline item mail not implemented).");
+                MailItemToCharacter(db, auction.TopBidderCharacterId, auction.ItemGuid,
+                    "Auction Won", "You won an auction. The item is attached.");
             }
 
             // Give seller their credits (minus 5% tax)
@@ -463,7 +463,8 @@ namespace NexusForever.Game.Marketplace
             }
             else
             {
-                log.Warn($"Auction {auction.AuctionId} owner {auction.OwnerCharacterId} is offline; item {auction.ItemId} cannot be returned via mail (offline item mail not implemented).");
+                MailItemToCharacter(db, auction.OwnerCharacterId, auction.ItemGuid,
+                    "Auction Expired", "Your auction expired with no bids. The item is attached.");
             }
 
             db.CharacterAuction.Remove(auction);
@@ -491,6 +492,31 @@ namespace NexusForever.Game.Marketplace
                 DeliveryTime   = (byte)DeliverySpeed.Instant,
                 CreateTime     = DateTime.UtcNow
             });
+        }
+
+        private static void MailItemToCharacter(CharacterContext db, ulong recipientId, ulong itemGuid, string subject, string body)
+        {
+            ulong mailId = AssetManager.Instance.NextMailId;
+
+            var mail = new CharacterMailModel
+            {
+                Id          = mailId,
+                RecipientId = recipientId,
+                SenderType  = (byte)SenderType.ItemAuction,
+                Subject     = subject,
+                Message     = body,
+                DeliveryTime = (byte)DeliverySpeed.Instant,
+                CreateTime  = DateTime.UtcNow
+            };
+
+            mail.Attachment.Add(new CharacterMailAttachmentModel
+            {
+                Id       = mailId,
+                Index    = 0,
+                ItemGuid = itemGuid
+            });
+
+            db.CharacterMail.Add(mail);
         }
 
         private uint GetItemFamilyId(uint itemId)

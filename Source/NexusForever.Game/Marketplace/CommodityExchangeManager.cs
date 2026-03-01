@@ -354,7 +354,8 @@ namespace NexusForever.Game.Marketplace
             }
             else
             {
-                log.Warn($"Buyer {buyerOrder.CharacterId} is offline; item delivery via mail not implemented");
+                await MailNewItemToCharacterAsync(db, buyerOrder.CharacterId, buyerOrder.ItemId, quantity,
+                    "Commodity Purchase", "Your commodity buy order was filled. The item is attached.");
             }
 
             // Give credits to seller (minus fee)
@@ -421,7 +422,8 @@ namespace NexusForever.Game.Marketplace
                 }
                 else
                 {
-                    log.Warn($"Seller {order.CharacterId} is offline; item return via mail not implemented for expired commodity order {order.OrderId}");
+                    await MailNewItemToCharacterAsync(db, order.CharacterId, order.ItemId, remainingQuantity,
+                        "Commodity Order Expired", "Your commodity sell order expired. The item is returned.");
                 }
             }
 
@@ -478,23 +480,65 @@ namespace NexusForever.Game.Marketplace
         /// </summary>
         private async Task MailCreditsToCharacterAsync(CharacterContext db, ulong recipientId, ulong amount, string subject, string body)
         {
+            db.CharacterMail.Add(new CharacterMailModel
+            {
+                Id             = AssetManager.Instance.NextMailId,
+                RecipientId    = recipientId,
+                SenderType     = (byte)SenderType.ItemAuction,
+                Subject        = subject,
+                Message        = body,
+                CurrencyAmount = amount,
+                DeliveryTime   = (byte)DeliverySpeed.Instant,
+                CreateTime     = DateTime.UtcNow
+            });
+
+            await db.SaveChangesAsync();
+
+            log.Trace($"Mailed {amount} credits to character {recipientId}");
+        }
+
+        /// <summary>
+        /// Create a new item and mail it to an offline character.
+        /// </summary>
+        private async Task MailNewItemToCharacterAsync(CharacterContext db, ulong recipientId, uint itemId, uint quantity, string subject, string body)
+        {
+            ulong itemGuid = ItemManager.Instance.NextItemId;
+            ulong mailId   = AssetManager.Instance.NextMailId;
+
+            db.Item.Add(new ItemModel
+            {
+                Id         = itemGuid,
+                OwnerId    = null,
+                ItemId     = itemId,
+                Location   = 0,
+                BagIndex   = 0,
+                StackCount = quantity,
+                Charges    = 0,
+                Durability = 1.0f
+            });
+
             var mail = new CharacterMailModel
             {
-                Id = recipientId,
-                RecipientId = recipientId,
-                SenderType = (byte)SenderType.ItemAuction,
-                Subject = subject,
-                Message = body,
-                CurrencyAmount = amount,
-                IsCashOnDelivery = 0,
-                Flags = 0,
-                CreateTime = DateTime.UtcNow
+                Id           = mailId,
+                RecipientId  = recipientId,
+                SenderType   = (byte)SenderType.ItemAuction,
+                Subject      = subject,
+                Message      = body,
+                DeliveryTime = (byte)DeliverySpeed.Instant,
+                CreateTime   = DateTime.UtcNow
             };
+
+            mail.Attachment.Add(new CharacterMailAttachmentModel
+            {
+                Id       = mailId,
+                Index    = 0,
+                ItemGuid = itemGuid
+            });
 
             db.CharacterMail.Add(mail);
             await db.SaveChangesAsync();
 
-            log.Trace($"Mailed {amount} credits to character {recipientId}");
+            log.Trace($"Mailed item {itemId}x{quantity} to character {recipientId}");
         }
 
         /// <summary>

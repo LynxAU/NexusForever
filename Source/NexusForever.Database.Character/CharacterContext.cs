@@ -33,6 +33,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterSpellModel> CharacterSpell { get; set; }
         public DbSet<CharacterStatModel> CharacterStat { get; set; }
         public DbSet<CharacterTitleModel> CharacterTitle { get; set; }
+        public DbSet<CharacterTradeskillModel> CharacterTradeskill { get; set; }
         public DbSet<CharacterTradeskillMaterialModel> CharacterTradeskillMaterial { get; set; }
         public DbSet<CharacterVirtualItemModel> CharacterVirtualItem { get; set; }
         public DbSet<CharacterPrimalMatrixModel> CharacterPrimalMatrix { get; set; }
@@ -1551,6 +1552,39 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.TradeskillMaterials)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__character_tradeskill_material_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterTradeskillModel>(entity =>
+            {
+                entity.ToTable("character_tradeskill");
+
+                entity.HasKey(e => new { e.Id, e.TradeskillId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.TradeskillId)
+                    .HasColumnName("tradeskillId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CurrentXp)
+                    .HasColumnName("currentXp")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CurrentTier)
+                    .HasColumnName("currentTier")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.Tradeskill)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_tradeskill_id__character_id");
             });
 
             modelBuilder.Entity<CharacterZonemapHexgroupModel>(entity =>

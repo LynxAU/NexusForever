@@ -367,6 +367,7 @@ namespace NexusForever.Game.Entity
             ResidenceManager        = new ResidenceManager(this);
             CinematicManager        = new CinematicManager(this);
             PrimalMatrixManager.Load(model);
+            TradeskillManager.Load(model.Tradeskill);
 
             LogoutManager           = new LogoutManager(this);
             LogoutManager.OnTimerFinished += Logout;
@@ -635,6 +636,7 @@ namespace NexusForever.Game.Entity
             XpManager.Save(context);
             ReputationManager.Save(context);
             GuildManager.Save(context);
+            TradeskillManager.Save(context);
             EntitlementManager.Save(context);
             AppearanceManager.Save(context);
             InstanceManager.Save(context);
@@ -831,7 +833,8 @@ namespace NexusForever.Game.Entity
                     .Select(t => new TradeskillInfo
                     {
                         TradeskillId = t,
-                        IsActive     = 1u
+                        IsActive     = 1u,
+                        TradeskillXp = TradeskillManager.GetTradeskillXp((uint)t)
                     })
                     .ToList(),
                 LearnedSchematics = learnedSchematicIds.ToList()
@@ -883,12 +886,18 @@ namespace NexusForever.Game.Entity
 
         public bool TryLearnTradeskill(TradeskillType tradeskillId)
         {
-            return learnedTradeskills.Add(tradeskillId);
+            if (!learnedTradeskills.Add(tradeskillId))
+                return false;
+            TradeskillManager.InitializeTradeskill((uint)tradeskillId);
+            return true;
         }
 
         public bool TryDropTradeskill(TradeskillType tradeskillId)
         {
-            return learnedTradeskills.Remove(tradeskillId);
+            if (!learnedTradeskills.Remove(tradeskillId))
+                return false;
+            TradeskillManager.RemoveTradeskill((uint)tradeskillId);
+            return true;
         }
 
         public bool TryLearnSchematic(uint schematicId)

@@ -1,4 +1,4 @@
-﻿namespace NexusForever.Database.Character.Model
+namespace NexusForever.Database.Character.Model
 {
     public class GuildDataModel
     {

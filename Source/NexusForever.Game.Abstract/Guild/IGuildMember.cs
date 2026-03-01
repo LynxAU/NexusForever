@@ -12,6 +12,7 @@ namespace NexusForever.Game.Abstract.Guild
         public ulong CharacterId { get => PlayerIdentity.Id; }
         IGuildRank Rank { get; set; }
         string Note { get; set; }
+        uint RecruitmentAvailability { get; set; }
         int CommunityPlotReservation { get; set; }
     }
 }

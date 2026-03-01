@@ -21,7 +21,11 @@ namespace NexusForever.Game.Guild
         {
             None            = 0x0000,
             MessageOfTheDay = 0x0001,
-            AdditionalInfo  = 0x0002
+            AdditionalInfo  = 0x0002,
+            RecruitmentDescription = 0x0004,
+            RecruitmentDemand      = 0x0008,
+            RecruitmentMinLevel    = 0x0010,
+            Classification         = 0x0020
         }
 
         public override GuildType Type => GuildType.Guild;
@@ -52,6 +56,50 @@ namespace NexusForever.Game.Guild
         }
         private string additionalInfo;
 
+        public string RecruitmentDescription
+        {
+            get => recruitmentDescription;
+            set
+            {
+                recruitmentDescription = value;
+                saveMask |= GuildSaveMask.RecruitmentDescription;
+            }
+        }
+        private string recruitmentDescription;
+
+        public uint RecruitmentDemand
+        {
+            get => recruitmentDemand;
+            set
+            {
+                recruitmentDemand = value;
+                saveMask |= GuildSaveMask.RecruitmentDemand;
+            }
+        }
+        private uint recruitmentDemand;
+
+        public uint RecruitmentMinLevel
+        {
+            get => recruitmentMinLevel;
+            set
+            {
+                recruitmentMinLevel = value;
+                saveMask |= GuildSaveMask.RecruitmentMinLevel;
+            }
+        }
+        private uint recruitmentMinLevel;
+
+        public GuildClassification Classification
+        {
+            get => classification;
+            set
+            {
+                classification = value;
+                saveMask |= GuildSaveMask.Classification;
+            }
+        }
+        private GuildClassification classification;
+
         private GuildSaveMask saveMask;
 
         #region Dependency Injection
@@ -74,6 +122,10 @@ namespace NexusForever.Game.Guild
             AchievementManager = new GuildAchievementManager(this, model);
             messageOfTheDay    = model.GuildData.MessageOfTheDay;
             additionalInfo     = model.GuildData.AdditionalInfo;
+            recruitmentDescription = model.GuildData.RecruitmentDescription ?? string.Empty;
+            recruitmentDemand      = model.GuildData.RecruitmentDemand;
+            recruitmentMinLevel    = model.GuildData.RecruitmentMinLevel == 0u ? 1u : model.GuildData.RecruitmentMinLevel;
+            classification         = (GuildClassification)model.GuildData.Classification;
 
             base.Initialise(model);
         }
@@ -87,6 +139,10 @@ namespace NexusForever.Game.Guild
             AchievementManager = new GuildAchievementManager(this);
             messageOfTheDay    = "";
             additionalInfo     = "";
+            recruitmentDescription = "";
+            recruitmentDemand      = 0u;
+            recruitmentMinLevel    = 1u;
+            classification         = GuildClassification.Leveling;
 
             Initialise(name, leaderRankName, councilRankName, memberRankName);
         }
@@ -100,6 +156,10 @@ namespace NexusForever.Game.Guild
                     Id                   = Id,
                     AdditionalInfo       = AdditionalInfo,
                     MessageOfTheDay      = MessageOfTheDay,
+                    RecruitmentDescription = RecruitmentDescription,
+                    RecruitmentDemand      = RecruitmentDemand,
+                    RecruitmentMinLevel    = RecruitmentMinLevel,
+                    Classification         = (uint)Classification,
                     BackgroundIconPartId = (ushort)Standard.BackgroundIcon.GuildStandardPartEntry.Id,
                     ForegroundIconPartId = (ushort)Standard.ForegroundIcon.GuildStandardPartEntry.Id,
                     ScanLinesPartId      = (ushort)Standard.ScanLines.GuildStandardPartEntry.Id
@@ -124,6 +184,30 @@ namespace NexusForever.Game.Guild
                 {
                     model.AdditionalInfo = AdditionalInfo;
                     entity.Property(p => p.AdditionalInfo).IsModified = true;
+                }
+
+                if ((saveMask & GuildSaveMask.RecruitmentDescription) != 0)
+                {
+                    model.RecruitmentDescription = RecruitmentDescription;
+                    entity.Property(p => p.RecruitmentDescription).IsModified = true;
+                }
+
+                if ((saveMask & GuildSaveMask.RecruitmentDemand) != 0)
+                {
+                    model.RecruitmentDemand = RecruitmentDemand;
+                    entity.Property(p => p.RecruitmentDemand).IsModified = true;
+                }
+
+                if ((saveMask & GuildSaveMask.RecruitmentMinLevel) != 0)
+                {
+                    model.RecruitmentMinLevel = RecruitmentMinLevel;
+                    entity.Property(p => p.RecruitmentMinLevel).IsModified = true;
+                }
+
+                if ((saveMask & GuildSaveMask.Classification) != 0)
+                {
+                    model.Classification = (uint)Classification;
+                    entity.Property(p => p.Classification).IsModified = true;
                 }
 
                 saveMask = GuildSaveMask.None;

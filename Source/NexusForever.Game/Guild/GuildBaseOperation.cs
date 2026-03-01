@@ -1,4 +1,5 @@
-﻿using NexusForever.Game.Abstract.Character;
+using System.Collections.Generic;
+using NexusForever.Game.Abstract.Character;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Character;
@@ -351,6 +352,198 @@ namespace NexusForever.Game.Guild
         private void GuildOperationSetNameplateAffiliation(IGuildMember member, IPlayer player, ClientGuildOperation operation)
         {
             player.GuildManager.UpdateGuildAffiliation(Id);
+        }
+
+        [GuildOperationHandler(GuildOperation.MakeLeader)]
+        private IGuildResultInfo GuildOperationMakeLeader(IGuildMember member, IPlayer player, ClientGuildOperation operation)
+        {
+            IGuildMember targetMember = null;
+            IGuildRank demotedLeaderRank = null;
+
+            IGuildResultInfo GetResult()
+            {
+                if (member.Rank.Index != 0)
+                    return new GuildResultInfo(GuildResult.RankLacksSufficientPermissions);
+
+                targetMember = GetMember(operation.TextValue);
+                if (targetMember == null)
+                    return new GuildResultInfo(GuildResult.CharacterNotInYourGuild, referenceString: operation.TextValue);
+
+                if (targetMember.Rank.Index == 0)
+                    return new GuildResultInfo(GuildResult.MemberAlreadyGuildMaster, referenceString: operation.TextValue);
+
+                demotedLeaderRank = GetDemotedRank(0);
+                if (demotedLeaderRank == null)
+                    return new GuildResultInfo(GuildResult.UnableToProcess);
+
+                return new GuildResultInfo(GuildResult.Success);
+            }
+
+            IGuildResultInfo info = GetResult();
+            if (info.Result == GuildResult.Success)
+            {
+                MemberChangeRank(member, demotedLeaderRank);
+
+                IGuildRank leaderRank = GetRank(0);
+                MemberChangeRank(targetMember, leaderRank);
+                LeaderId = targetMember.CharacterId;
+
+                AnnounceGuildMemberChange(member);
+                AnnounceGuildMemberChange(targetMember);
+                AnnounceGuildResult(GuildResult.PromotedToGuildMaster, referenceText: operation.TextValue);
+            }
+
+            return info;
+        }
+
+        [GuildOperationHandler(GuildOperation.GuildRename)]
+        private IGuildResultInfo GuildOperationGuildRename(IGuildMember member, IPlayer player, ClientGuildOperation operation)
+        {
+            IGuildResultInfo GetResult()
+            {
+                if (member.Rank.Index != 0)
+                    return new GuildResultInfo(GuildResult.RankLacksSufficientPermissions);
+
+                if (!TextFilterManager.Instance.IsTextValid(operation.TextValue) || !TextFilterManager.Instance.IsTextValid(operation.TextValue, UserText.GuildName))
+                    return new GuildResultInfo(GuildResult.InvalidGuildName, referenceString: operation.TextValue);
+
+                IGuildBase conflictingGuild = GlobalGuildManager.Instance.GetGuild(Type, operation.TextValue);
+                if (conflictingGuild != null && conflictingGuild.Id != Id)
+                    return new GuildResultInfo(GuildResult.GuildNameUnavailable, referenceString: operation.TextValue);
+
+                return new GuildResultInfo(GuildResult.Success);
+            }
+
+            IGuildResultInfo info = GetResult();
+            if (info.Result == GuildResult.Success)
+            {
+                string oldName = Name;
+                RenameGuild(operation.TextValue);
+                GlobalGuildManager.Instance.UpdateGuildNameCache(this, oldName);
+            }
+
+            return info;
+        }
+
+        [GuildOperationHandler(GuildOperation.SetMyRecruitmentAvailability)]
+        private IGuildResultInfo GuildOperationSetMyRecruitmentAvailability(IGuildMember member, IPlayer player, ClientGuildOperation operation)
+        {
+            const uint recruitmentFlag = 1u << 2;
+            member.RecruitmentAvailability = operation.Data.UInt32Data & recruitmentFlag;
+
+            Broadcast(new ServerGuildRecruitmentAvailability
+            {
+                GuildIdentity1 = Identity.ToNetworkIdentity(),
+                GuildIdentity2 = Identity.ToNetworkIdentity(),
+                RecruitmentAvailability = member.RecruitmentAvailability
+            });
+
+            AnnounceGuildMemberChange(member);
+            return new GuildResultInfo(GuildResult.Success);
+        }
+
+        [GuildOperationHandler(GuildOperation.BankTabPermissions)]
+        private IGuildResultInfo GuildOperationBankTabPermissions(IGuildMember member, IPlayer player, ClientGuildOperation operation)
+        {
+            IGuildRank rank = null;
+
+            IGuildResultInfo GetResult()
+            {
+                if (!member.Rank.HasPermission(GuildRankPermission.EditLowerRankPermissions))
+                    return new GuildResultInfo(GuildResult.RankLacksRankRenamePermission);
+
+                rank = GetRank((byte)operation.Rank);
+                if (rank == null)
+                    return new GuildResultInfo(GuildResult.InvalidRank, Identity, operation.TextValue, operation.Rank);
+
+                if (member.Rank.Index >= operation.Rank)
+                    return new GuildResultInfo(GuildResult.CanOnlyModifyLowerRanks);
+
+                return new GuildResultInfo(GuildResult.Success);
+            }
+
+            IGuildResultInfo result = GetResult();
+            if (result.Result == GuildResult.Success)
+            {
+                rank.BankPermissions = operation.Data.UInt64Data;
+                AnnounceGuildRankChange();
+                AnnounceGuildResult(GuildResult.RankModified, operation.Rank, operation.TextValue);
+            }
+
+            return result;
+        }
+
+        [GuildOperationHandler(GuildOperation.WithdrawalLimitChange)]
+        private IGuildResultInfo GuildOperationWithdrawalLimitChange(IGuildMember member, IPlayer player, ClientGuildOperation operation)
+        {
+            IGuildRank rank = null;
+
+            IGuildResultInfo GetResult()
+            {
+                if (!member.Rank.HasPermission(GuildRankPermission.EditLowerRankPermissions))
+                    return new GuildResultInfo(GuildResult.RankLacksRankRenamePermission);
+
+                rank = GetRank((byte)operation.Rank);
+                if (rank == null)
+                    return new GuildResultInfo(GuildResult.InvalidRank, Identity, operation.TextValue, operation.Rank);
+
+                if (member.Rank.Index >= operation.Rank)
+                    return new GuildResultInfo(GuildResult.CanOnlyModifyLowerRanks);
+
+                return new GuildResultInfo(GuildResult.Success);
+            }
+
+            IGuildResultInfo result = GetResult();
+            if (result.Result == GuildResult.Success)
+            {
+                rank.BankMoneyWithdrawlLimits = operation.Data.UInt64Data;
+                AnnounceGuildRankChange();
+                AnnounceGuildResult(GuildResult.RankModified, operation.Rank, operation.TextValue);
+            }
+
+            return result;
+        }
+
+        [GuildOperationHandler(GuildOperation.RepairLimitChange)]
+        private IGuildResultInfo GuildOperationRepairLimitChange(IGuildMember member, IPlayer player, ClientGuildOperation operation)
+        {
+            IGuildRank rank = null;
+
+            IGuildResultInfo GetResult()
+            {
+                if (!member.Rank.HasPermission(GuildRankPermission.EditLowerRankPermissions))
+                    return new GuildResultInfo(GuildResult.RankLacksRankRenamePermission);
+
+                rank = GetRank((byte)operation.Rank);
+                if (rank == null)
+                    return new GuildResultInfo(GuildResult.InvalidRank, Identity, operation.TextValue, operation.Rank);
+
+                if (member.Rank.Index >= operation.Rank)
+                    return new GuildResultInfo(GuildResult.CanOnlyModifyLowerRanks);
+
+                return new GuildResultInfo(GuildResult.Success);
+            }
+
+            IGuildResultInfo result = GetResult();
+            if (result.Result == GuildResult.Success)
+            {
+                rank.RepairLimit = operation.Data.UInt64Data;
+                AnnounceGuildRankChange();
+                AnnounceGuildResult(GuildResult.RankModified, operation.Rank, operation.TextValue);
+            }
+
+            return result;
+        }
+
+        [GuildOperationHandler(GuildOperation.RequestBankLog)]
+        private void GuildOperationRequestBankLog(IGuildMember member, IPlayer player, ClientGuildOperation operation)
+        {
+            player.Session.EnqueueMessageEncrypted(new ServerGuildEventLog
+            {
+                GuildIdentity = Identity.ToNetworkIdentity(),
+                IsBankLog = true,
+                LogEntry = new List<GuildEventLog>()
+            });
         }
     }
 }

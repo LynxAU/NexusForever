@@ -1,10 +1,16 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using NexusForever.Game.Abstract.Spell;
+using NexusForever.Game.Configuration.Model;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Abilities;
 using NexusForever.GameTable;
 using NexusForever.Network;
 using NexusForever.Network.Message;
 using NexusForever.Network.World.Message.Model.Abilities;
+using NexusForever.Network.World.Message.Static;
+using NexusForever.Shared.Configuration;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Spell
 {
@@ -54,12 +60,60 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Spell
                     throw new InvalidPacketValueException();
             }
 
-            // Respec cost handling is deferred; no cost currently charged.
+            IActionSetAmp[] respecTargets = GetRespecTargets(actionSet, requestAmpReset.RespecType, requestAmpReset.Value);
+            ulong respecCost = CalculateRespecCost(respecTargets);
+            if (respecCost > 0 && !session.Player.CurrencyManager.CanAfford(CurrencyType.Credits, respecCost))
+            {
+                SendRespecResult(session, requestAmpReset.SpecIndex, LimitedActionSetResult.InsufficientAbilityPoints);
+                return;
+            }
+
+            if (respecCost > 0)
+                session.Player.CurrencyManager.CurrencySubtractAmount(CurrencyType.Credits, respecCost);
+
             actionSet.RemoveAmp(requestAmpReset.RespecType, requestAmpReset.Value);
             session.EnqueueMessageEncrypted(actionSet.BuildServerAmpList());
+            SendRespecResult(session, requestAmpReset.SpecIndex, LimitedActionSetResult.Ok);
+        }
 
-            if (requestAmpReset.SpecIndex == session.Player.SpellManager.ActiveActionSet)
-                session.Player.SpellManager.SendServerAbilityPoints();
+        private static IActionSetAmp[] GetRespecTargets(IActionSet actionSet, AmpRespecType type, uint value)
+        {
+            return type switch
+            {
+                AmpRespecType.Full => actionSet.Amps.ToArray(),
+                AmpRespecType.Section => actionSet.Amps
+                    .Where(a => a.Entry.EldanAugmentationCategoryId == value)
+                    .ToArray(),
+                AmpRespecType.Single => actionSet.GetAmp((ushort)value) is IActionSetAmp amp ? [amp] : [],
+                _ => []
+            };
+        }
+
+        private static ulong CalculateRespecCost(IReadOnlyCollection<IActionSetAmp> respecTargets)
+        {
+            if (respecTargets.Count == 0)
+                return 0ul;
+
+            ulong costPerAmp = SharedConfiguration.Instance.Get<RealmConfig>().AmpRespecCostPerAmpCredits;
+            if (costPerAmp == 0ul)
+                return 0ul;
+
+            return (ulong)respecTargets.Count * costPerAmp;
+        }
+
+        private static void SendRespecResult(IWorldSession session, byte specIndex, LimitedActionSetResult result)
+        {
+            session.EnqueueMessageEncrypted(new ServerAmpRespecResult
+            {
+                Results =
+                [
+                    new ServerAmpRespecResult.AmpResult
+                    {
+                        SpecIndex = specIndex,
+                        Result = result
+                    }
+                ]
+            });
         }
     }
 }

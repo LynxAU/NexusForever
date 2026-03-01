@@ -185,10 +185,7 @@ namespace NexusForever.Game.Guild
             {
                 NetworkGuildMember member = guild.GetMember(owner.CharacterId).Build();
                 if (guildAffiliation?.Id == guild.Id)
-                {
                     guildInit.ShowNameplateIndex = index;
-                    member.RecruitmentAvailability = 1; // TODO: research this
-                }
 
                 guildInit.Self.Add(member);
                 guildInit.BankWithdrawlInfo.Add(new GuildWithdrawlInfo());

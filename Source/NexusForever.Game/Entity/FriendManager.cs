@@ -1,5 +1,5 @@
+using System;
 using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Character;
@@ -7,10 +7,8 @@ using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Character;
 using NexusForever.Game;
 using NexusForever.Game.Static.Friend;
-using NexusForever.GameTable;
 using NexusForever.Network.World.Message.Model;
 using NexusForever.Network.World.Message.Model.Shared;
-using NexusForever.Network.World.Message.Static;
 using NexusForever.Shared.Game;
 using NLog;
 
@@ -21,83 +19,128 @@ namespace NexusForever.Game.Entity
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
 
         private readonly IPlayer player;
-        private readonly Dictionary<ulong, CharacterFriendModel> friends = new();
 
-        // Tracks friends added this session that must be INSERTed rather than UPDATEd.
-        private readonly HashSet<ulong> pendingCreate = new();
-        // Tracks friend models removed this session that must be DELETEd from the DB.
-        private readonly List<CharacterFriendModel> pendingDelete = new();
+        // Accepted friendships (keyed by FriendCharacterId)
+        private readonly Dictionary<ulong, CharacterFriendModel> friends = new();
+        private readonly HashSet<ulong> friendsPendingCreate = new();
+        private readonly List<CharacterFriendModel> friendsPendingDelete = new();
+
+        // Pending invites received by this player (keyed by InviteId)
+        private readonly Dictionary<ulong, CharacterFriendInviteModel> incomingInvites = new();
+        private readonly HashSet<ulong> incomingInvitesSeen = new();
+
+        // Invites this player sent this session — INSERT at next Save
+        private readonly List<CharacterFriendInviteModel> outgoingInvitesPendingCreate = new();
+
+        // Invites to DELETE (accepted or declined)
+        private readonly List<CharacterFriendInviteModel> invitesPendingDelete = new();
+
+        // Friend records for offline senders inserted in receiver's Save when they accept
+        private readonly List<CharacterFriendModel> crossFriendsPendingCreate = new();
 
         public FriendManager(IPlayer owner, CharacterModel model)
         {
             player = owner;
 
             foreach (CharacterFriendModel friendModel in model.Friends)
-            {
-                friends.Add(friendModel.FriendCharacterId, friendModel);
-            }
+                friends[friendModel.FriendCharacterId] = friendModel;
+
+            foreach (CharacterFriendInviteModel invite in model.FriendInvitesReceived)
+                incomingInvites[invite.Id] = invite;
         }
 
         public void Update(double lastTick)
         {
-            // Future: send friend location updates periodically
+            // Future: periodic friend status / location updates
         }
 
         public void Save(CharacterContext context)
         {
-            foreach (CharacterFriendModel friend in pendingDelete)
+            // ---- accepted friends ----
+            foreach (CharacterFriendModel friend in friendsPendingDelete)
                 context.CharacterFriend.Remove(friend);
-            pendingDelete.Clear();
+            friendsPendingDelete.Clear();
 
             foreach (CharacterFriendModel friend in friends.Values)
             {
-                if (pendingCreate.Contains(friend.FriendCharacterId))
+                if (friendsPendingCreate.Contains(friend.FriendCharacterId))
                     context.CharacterFriend.Add(friend);
                 else
                     context.CharacterFriend.Update(friend);
             }
-            pendingCreate.Clear();
+            friendsPendingCreate.Clear();
+
+            // Cross-friend records written on behalf of offline senders when receiver accepts
+            foreach (CharacterFriendModel cross in crossFriendsPendingCreate)
+                context.CharacterFriend.Add(cross);
+            crossFriendsPendingCreate.Clear();
+
+            // ---- invites ----
+            foreach (CharacterFriendInviteModel invite in outgoingInvitesPendingCreate)
+                context.CharacterFriendInvite.Add(invite);
+            outgoingInvitesPendingCreate.Clear();
+
+            foreach (CharacterFriendInviteModel invite in invitesPendingDelete)
+                context.CharacterFriendInvite.Remove(invite);
+            invitesPendingDelete.Clear();
+
+            foreach (ulong id in incomingInvitesSeen)
+            {
+                if (incomingInvites.TryGetValue(id, out CharacterFriendInviteModel invite))
+                    context.CharacterFriendInvite.Update(invite);
+            }
+            incomingInvitesSeen.Clear();
         }
+
+        // ---- Friend list ----
 
         public void SendFriendList()
         {
-            var friendDataList = new List<FriendData>();
-
+            var list = new List<FriendData>();
             foreach (CharacterFriendModel friend in friends.Values)
             {
-                var friendData = new FriendData
+                list.Add(new FriendData
                 {
-                    FriendshipId = friend.Id,
-                    Type = (FriendshipType)friend.Type,
-                    Note = friend.Note,
-                    PlayerIdentity = new Identity
-                    {
-                        Id      = friend.FriendCharacterId,
-                        RealmId = RealmContext.Instance.RealmId
-                    }
-                };
-
-                friendDataList.Add(friendData);
+                    FriendshipId   = friend.Id,
+                    Type           = (FriendshipType)friend.Type,
+                    Note           = friend.Note,
+                    PlayerIdentity = new Identity { Id = friend.FriendCharacterId, RealmId = RealmContext.Instance.RealmId }
+                });
             }
 
-            player.Session.EnqueueMessageEncrypted(new ServerFriendList
-            {
-                Friends = friendDataList
-            });
+            player.Session.EnqueueMessageEncrypted(new ServerFriendList { Friends = list });
         }
 
         public void SendFriendInviteList()
         {
-            // TODO: Implement invite friend list if there's pending invites storage
-            player.Session.EnqueueMessageEncrypted(new ServerFriendInviteList
+            var list = new List<ServerFriendInviteList.InviteData>();
+            foreach (CharacterFriendInviteModel invite in incomingInvites.Values)
             {
-                Invites = new List<ServerFriendInviteList.InviteData>()
-            });
+                ICharacter sender = CharacterManager.Instance.GetCharacter(invite.SenderId);
+                if (sender == null)
+                    continue;
+
+                list.Add(new ServerFriendInviteList.InviteData
+                {
+                    InviteId       = invite.Id,
+                    PlayerIdentity = new Identity { Id = invite.SenderId, RealmId = RealmContext.Instance.RealmId },
+                    Seen           = invite.Seen,
+                    ExpiryInDays   = 30f,
+                    Note           = invite.Note,
+                    Name           = sender.Name,
+                    Class          = sender.Class,
+                    Path           = sender.Path,
+                    Level          = (byte)Math.Min(sender.Level, 255u)
+                });
+            }
+
+            player.Session.EnqueueMessageEncrypted(new ServerFriendInviteList { Invites = list });
         }
+
+        // ---- Adding / removing friends ----
 
         public FriendshipResult AddFriend(string name, string note)
         {
-            // Resolve target: prefer online player, fall back to CharacterManager cache (offline characters).
             ulong targetId;
             string targetName;
 
@@ -129,78 +172,55 @@ namespace NexusForever.Game.Entity
             if (friends.Count >= 100)
                 return FriendshipResult.MaxFriends;
 
-            var friendModel = new CharacterFriendModel
+            var invite = new CharacterFriendInviteModel
             {
-                Id                = (ulong)DateTime.UtcNow.Ticks,
-                CharacterId       = player.CharacterId,
-                FriendCharacterId = targetId,
-                Type              = (byte)FriendshipType.Friend,
-                Note              = note ?? ""
+                Id         = (ulong)DateTime.UtcNow.Ticks,
+                SenderId   = player.CharacterId,
+                ReceiverId = targetId,
+                Note       = note ?? "",
+                CreatedAt  = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                Seen       = 0
             };
 
-            friends.Add(targetId, friendModel);
-            pendingCreate.Add(targetId);
+            outgoingInvitesPendingCreate.Add(invite);
 
-            player.Session.EnqueueMessageEncrypted(new ServerFriendAdd
-            {
-                Friend = new FriendData
-                {
-                    FriendshipId = friendModel.Id,
-                    Type         = FriendshipType.Friend,
-                    Note         = friendModel.Note,
-                    PlayerIdentity = new Identity
-                    {
-                        Id      = targetId,
-                        RealmId = RealmContext.Instance.RealmId
-                    }
-                }
-            });
+            IPlayer receiver = PlayerManager.Instance.GetPlayer(targetId);
+            receiver?.FriendManager.ReceiveInvite(invite);
 
-            log.Debug($"Player {player.Name} added {targetName} as friend.");
+            log.Debug($"Player {player.Name} sent friend invite to {targetName}.");
             return FriendshipResult.RequestSent;
         }
 
         public FriendshipResult RemoveFriend(ulong friendCharacterId)
         {
-            if (!friends.TryGetValue(friendCharacterId, out var friendModel))
-            {
+            if (!friends.TryGetValue(friendCharacterId, out CharacterFriendModel friendModel))
                 return FriendshipResult.FriendshipNotFound;
-            }
 
             friends.Remove(friendCharacterId);
 
-            // If the friend was added this session and never persisted, just discard it.
-            // Otherwise queue a DELETE for the next Save().
-            if (!pendingCreate.Remove(friendCharacterId))
-                pendingDelete.Add(friendModel);
+            if (!friendsPendingCreate.Remove(friendCharacterId))
+                friendsPendingDelete.Add(friendModel);
 
-            player.Session.EnqueueMessageEncrypted(new ServerFriendRemove
-            {
-                FriendshipId = friendModel.Id
-            });
+            player.Session.EnqueueMessageEncrypted(new ServerFriendRemove { FriendshipId = friendModel.Id });
 
             log.Debug($"Player {player.Name} removed friend {friendCharacterId}.");
-
             return FriendshipResult.Ok;
         }
 
         public FriendshipResult SetFriendNote(ulong friendCharacterId, string note)
         {
-            if (!friends.TryGetValue(friendCharacterId, out var friendModel))
-            {
+            if (!friends.TryGetValue(friendCharacterId, out CharacterFriendModel friendModel))
                 return FriendshipResult.FriendshipNotFound;
-            }
 
             friendModel.Note = note ?? "";
 
             player.Session.EnqueueMessageEncrypted(new ServerFriendSetNote
             {
                 FriendshipId = friendModel.Id,
-                Note = friendModel.Note
+                Note         = friendModel.Note
             });
 
             log.Debug($"Player {player.Name} updated note for friend {friendCharacterId}.");
-
             return FriendshipResult.Ok;
         }
 
@@ -212,6 +232,111 @@ namespace NexusForever.Game.Entity
             FriendshipType type = (FriendshipType)friendModel.Type;
             return type is FriendshipType.Ignore or FriendshipType.FriendAndRival;
         }
+
+        // ---- Invite responses ----
+
+        public FriendshipResult RespondToInvite(ulong inviteId, FriendshipResponse response)
+        {
+            if (!incomingInvites.TryGetValue(inviteId, out CharacterFriendInviteModel invite))
+            {
+                log.Warn($"Player {player.Name} responded to unknown invite {inviteId}.");
+                return FriendshipResult.RequestNotFound;
+            }
+
+            incomingInvites.Remove(inviteId);
+            invitesPendingDelete.Add(invite);
+            player.Session.EnqueueMessageEncrypted(new ServerFriendInviteRemove { InviteId = inviteId });
+
+            if (response is FriendshipResponse.Accept or FriendshipResponse.Mutual)
+            {
+                var myFriendModel = new CharacterFriendModel
+                {
+                    Id                = (ulong)DateTime.UtcNow.Ticks,
+                    CharacterId       = player.CharacterId,
+                    FriendCharacterId = invite.SenderId,
+                    Type              = (byte)FriendshipType.Friend,
+                    Note              = invite.Note
+                };
+                friends[invite.SenderId] = myFriendModel;
+                friendsPendingCreate.Add(invite.SenderId);
+
+                player.Session.EnqueueMessageEncrypted(new ServerFriendAdd
+                {
+                    Friend = new FriendData
+                    {
+                        FriendshipId   = myFriendModel.Id,
+                        Type           = FriendshipType.Friend,
+                        Note           = myFriendModel.Note,
+                        PlayerIdentity = new Identity { Id = invite.SenderId, RealmId = RealmContext.Instance.RealmId }
+                    }
+                });
+
+                var senderFriendModel = new CharacterFriendModel
+                {
+                    Id                = (ulong)(DateTime.UtcNow.Ticks + 1L),
+                    CharacterId       = invite.SenderId,
+                    FriendCharacterId = player.CharacterId,
+                    Type              = (byte)FriendshipType.Friend,
+                    Note              = ""
+                };
+
+                IPlayer sender = PlayerManager.Instance.GetPlayer(invite.SenderId);
+                if (sender != null)
+                    sender.FriendManager.FriendAddedExternally(senderFriendModel);
+                else
+                    crossFriendsPendingCreate.Add(senderFriendModel);
+
+                log.Debug($"Player {player.Name} accepted friend invite from {invite.SenderId}.");
+            }
+            else
+            {
+                log.Debug($"Player {player.Name} declined/ignored invite {inviteId} from {invite.SenderId}.");
+            }
+
+            return FriendshipResult.Ok;
+        }
+
+        public void MarkInvitesSeen(IEnumerable<ulong> inviteIds)
+        {
+            foreach (ulong id in inviteIds)
+            {
+                if (incomingInvites.TryGetValue(id, out CharacterFriendInviteModel invite) && invite.Seen == 0)
+                {
+                    invite.Seen = 1;
+                    incomingInvitesSeen.Add(id);
+                }
+            }
+        }
+
+        // ---- Cross-player notifications ----
+
+        public void ReceiveInvite(CharacterFriendInviteModel invite)
+        {
+            incomingInvites[invite.Id] = invite;
+            SendFriendInviteList();
+        }
+
+        public void FriendAddedExternally(CharacterFriendModel friendModel)
+        {
+            if (friends.ContainsKey(friendModel.FriendCharacterId))
+                return;
+
+            friends[friendModel.FriendCharacterId] = friendModel;
+            friendsPendingCreate.Add(friendModel.FriendCharacterId);
+
+            player.Session.EnqueueMessageEncrypted(new ServerFriendAdd
+            {
+                Friend = new FriendData
+                {
+                    FriendshipId   = friendModel.Id,
+                    Type           = FriendshipType.Friend,
+                    Note           = friendModel.Note,
+                    PlayerIdentity = new Identity { Id = friendModel.FriendCharacterId, RealmId = RealmContext.Instance.RealmId }
+                }
+            });
+        }
+
+        // ---- Initial packets ----
 
         public void SendInitialPackets()
         {

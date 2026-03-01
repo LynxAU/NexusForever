@@ -21,6 +21,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterDatacubeModel> CharacterDatacube { get; set; }
         public DbSet<CharacterEntitlementModel> CharacterEntitlement { get; set; }
         public DbSet<CharacterFriendModel> CharacterFriend { get; set; }
+        public DbSet<CharacterFriendInviteModel> CharacterFriendInvite { get; set; }
         public DbSet<CharacterInstanceModel> CharacterInstance { get; set; }
         public DbSet<CharacterKeybindingModel> CharacterKeybinding { get; set; }
         public DbSet<CharacterMailModel> CharacterMail { get; set; }
@@ -3061,6 +3062,45 @@ namespace NexusForever.Database.Character
                     .WithMany(p => p.PrimalMatrixNodes)
                     .HasForeignKey(d => d.Id)
                     .HasConstraintName("FK__character_primal_matrix_node_id__character_id");
+            });
+
+            modelBuilder.Entity<CharacterFriendInviteModel>(entity =>
+            {
+                entity.ToTable("CharacterFriendInvite");
+
+                entity.HasKey(e => e.Id)
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnType("bigint(20) unsigned");
+
+                entity.Property(e => e.SenderId)
+                    .HasColumnType("bigint(20) unsigned");
+
+                entity.Property(e => e.ReceiverId)
+                    .HasColumnType("bigint(20) unsigned");
+
+                entity.Property(e => e.Note)
+                    .HasColumnType("varchar(255)")
+                    .HasDefaultValue("");
+
+                entity.Property(e => e.CreatedAt)
+                    .HasColumnType("bigint(20)")
+                    .HasDefaultValue(0L);
+
+                entity.Property(e => e.Seen)
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue((byte)0);
+
+                entity.HasOne(d => d.Sender)
+                    .WithMany(p => p.FriendInvitesSent)
+                    .HasForeignKey(d => d.SenderId)
+                    .HasConstraintName("FK__CharacterFriendInvite_senderId__character_id");
+
+                entity.HasOne(d => d.Receiver)
+                    .WithMany(p => p.FriendInvitesReceived)
+                    .HasForeignKey(d => d.ReceiverId)
+                    .HasConstraintName("FK__CharacterFriendInvite_receiverId__character_id");
             });
         }
     }

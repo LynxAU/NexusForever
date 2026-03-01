@@ -183,7 +183,11 @@ namespace NexusForever.Game.Entity
                         if (item.Location == InventoryLocation.Equipped)
                             return GenericError.MailInvalidInventorySlot;
 
-                        // TODO: Check the Item can be traded.
+                        // Block mailing soulbound items (BindOnPickup flag 0x01).
+                        const uint BindOnPickup = 0x01u;
+                        if ((item.Info.Entry.BindFlags & BindOnPickup) != 0)
+                            return GenericError.MailCannotTransferItem;
+
                         items.Add(item);
                     }
                 }

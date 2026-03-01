@@ -12,24 +12,29 @@ using NexusForever.WorldServer.Network;
 
 namespace NexusForever.WorldServer.Network.Message.Handler.Account
 {
-    public class ClientStorefrontPurchaseCharacterHandler : IMessageHandler<IWorldSession, ClientStorefrontPurchaseCharacter>
+    /// <summary>
+    /// Handles account-level store purchases (e.g. CREDD packs).
+    /// On a private server all account items are delivered for free — no currency
+    /// is deducted regardless of what the client sends in CurrencyId.
+    /// </summary>
+    public class ClientStorefrontPurchaseAccountHandler : IMessageHandler<IWorldSession, ClientStorefrontPurchaseAccount>
     {
         #region Dependency Injection
 
-        private readonly ILogger<ClientStorefrontPurchaseCharacterHandler> log;
+        private readonly ILogger<ClientStorefrontPurchaseAccountHandler> log;
         private readonly IGlobalStorefrontManager globalStorefrontManager;
 
-        public ClientStorefrontPurchaseCharacterHandler(
-            ILogger<ClientStorefrontPurchaseCharacterHandler> log,
+        public ClientStorefrontPurchaseAccountHandler(
+            ILogger<ClientStorefrontPurchaseAccountHandler> log,
             IGlobalStorefrontManager globalStorefrontManager)
         {
-            this.log                    = log;
+            this.log                     = log;
             this.globalStorefrontManager = globalStorefrontManager;
         }
 
         #endregion
 
-        public void HandleMessage(IWorldSession session, ClientStorefrontPurchaseCharacter purchase)
+        public void HandleMessage(IWorldSession session, ClientStorefrontPurchaseAccount purchase)
         {
             IAccount account = session.Account;
 
@@ -37,30 +42,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Account
             IOfferItem offerItem = globalStorefrontManager.GetStoreOfferItem(purchase.OfferId);
             if (offerItem == null)
             {
-                log.LogWarning("Player {CharacterId} attempted to purchase unknown offer id {OfferId}.",
-                    session.Player?.CharacterId, purchase.OfferId);
+                log.LogWarning("Account {AccountId} attempted to purchase unknown offer id {OfferId}.",
+                    account.Id, purchase.OfferId);
                 return;
             }
 
-            // Resolve price for the requested currency.
-            var currencyType = (AccountCurrencyType)purchase.CurrencyId;
-            IOfferItemPrice price = offerItem.GetPriceDataForCurrency(currencyType);
-            if (price == null)
-            {
-                log.LogWarning("Offer {OfferId} has no price entry for currency {CurrencyId}.",
-                    purchase.OfferId, purchase.CurrencyId);
-                return;
-            }
-
-            ulong cost = (ulong)price.GetCurrencyValue();
-            if (!account.CurrencyManager.CanAfford(currencyType, cost))
-            {
-                log.LogWarning("Player {CharacterId} cannot afford offer {OfferId} (cost {Cost} {Currency}).",
-                    session.Player?.CharacterId, purchase.OfferId, cost, currencyType);
-                return;
-            }
-
-            // Deliver all items in the offer.
+            // Deliver all items in the offer at no cost (private server free-grant model).
             IPlayer player = session.Player;
             foreach (IOfferItemData itemData in offerItem.GetItemData())
             {
@@ -71,10 +58,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Account
                 DeliverAccountItem(account, player, entry, itemData.Amount);
             }
 
-            // Deduct currency — this also sends ServerAccountCurrencyGrant to the client.
-            account.CurrencyManager.CurrencySubtractAmount(currencyType, cost);
-
-            // Send the finalise packet so the client knows the transaction is complete.
+            // Notify the client that the transaction is complete.
             session.EnqueueMessageEncrypted(new ServerStoreFinalise());
         }
 
@@ -97,8 +81,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Account
                     (int)Math.Max(entry.EntitlementCount, 1u));
             }
 
-            // Grant account currency (e.g. bonus Omnibits, CREDD). Multiply by amount so
-            // multi-pack offers (e.g. 3x CREDD) deliver the correct quantity.
+            // Grant account currency (e.g. CREDD, Omnibits). Multiply by amount so
+            // multi-pack offers deliver the correct quantity.
             if (entry.AccountCurrencyEnum != 0 && entry.AccountCurrencyAmount != 0)
             {
                 account.CurrencyManager.CurrencyAddAmount(

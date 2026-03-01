@@ -36,6 +36,7 @@ using NexusForever.Game.Static.RBAC;
 using NexusForever.Game.Static.Reputation;
 using NexusForever.Game.Static.Setting;
 using NexusForever.Game.Static.Chat;
+using NexusForever.Game.Static.Matching;
 using NexusForever.Game.Static.Spell;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
@@ -1553,18 +1554,6 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
-        /// Determine if this <see cref="IPlayer"/> can attack supplied <see cref="IUnitEntity"/>.
-        /// </summary>
-        public override bool CanAttack(IUnitEntity target)
-        {
-            // TODO: Disable when PvP is available.
-            if (target is IPlayer)
-                return false;
-
-            return base.CanAttack(target);
-        }
-
-        /// <summary>
         /// Modify the health of this <see cref="IPlayer"/> by the supplied amount.
         /// </summary>
         /// <remarks>
@@ -1615,7 +1604,33 @@ namespace NexusForever.Game.Entity
 
         protected override void RewardKiller(IPlayer player)
         {
-            // TODO: handle PvP rewards
+            // Grant Prestige to the killer proportional to the victim's level.
+            uint prestigeAmount = Math.Max(1u, (uint)Level * 5u);
+            player.CurrencyManager.CurrencyAddAmount(CurrencyType.Prestige, prestigeAmount, isLoot: true);
+
+            // Advance PvP kill quest objectives on the killer.
+            player.QuestManager.ObjectiveUpdate(QuestObjectiveType.PvPKills, 0, 1u);
+
+            // Notify killer and victim of the open-world PvP kill.
+            var killNotification = new ServerMatchingPvpKillNotification
+            {
+                KillerType   = OpponentType.Player,
+                KillerPlayer = new ServerMatchingPvpKillNotification.OpponentPlayer
+                {
+                    Identity = new NexusForever.Network.World.Message.Model.Shared.Identity { Id = player.CharacterId, RealmId = player.Identity.RealmId },
+                    Class    = player.Class
+                },
+                VictimType   = OpponentType.Player,
+                VictimPlayer = new ServerMatchingPvpKillNotification.OpponentPlayer
+                {
+                    Identity = new NexusForever.Network.World.Message.Model.Shared.Identity { Id = CharacterId, RealmId = Identity.RealmId },
+                    Class    = Class
+                },
+                VictimTeam  = MatchTeam.Red,
+                DeathReason = PvpDeathReason.KilledByPlayer
+            };
+            player.Session.EnqueueMessageEncrypted(killNotification);
+            Session.EnqueueMessageEncrypted(killNotification);
         }
 
         protected void OnResurrection(IUnitEntity resurrector)

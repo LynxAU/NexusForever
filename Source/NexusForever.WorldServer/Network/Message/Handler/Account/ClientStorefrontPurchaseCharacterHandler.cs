@@ -105,13 +105,9 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Account
                     entry.AccountCurrencyAmount);
             }
 
-            // GenericUnlockSetId delivery (cosmetic unlocks) — requires resolving the set table,
-            // which is not yet exposed via IGlobalStorefrontManager. Logged for future implementation.
+            // Deliver cosmetic unlocks (dyes, etc.) contained in the set.
             if (entry.GenericUnlockSetId != 0)
-            {
-                log.LogWarning("Store item has GenericUnlockSetId {SetId} — delivery not yet implemented.",
-                    entry.GenericUnlockSetId);
-            }
+                account.GenericUnlockManager.UnlockSet(entry.GenericUnlockSetId);
         }
     }
 }

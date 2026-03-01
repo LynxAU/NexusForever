@@ -30,6 +30,11 @@ namespace NexusForever.Game.Abstract.Account.Unlock
         void SendUnlockResult(GenericUnlockResult result);
 
         /// <summary>
+        /// Unlock all <see cref="IGenericUnlock"/> entries contained in the supplied set id.
+        /// </summary>
+        void UnlockSet(uint genericUnlockSetId);
+
+        /// <summary>
         /// Send all <see cref="GenericUnlock"/> entries to client.
         /// </summary>
         void SendUnlockList();

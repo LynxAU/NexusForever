@@ -2011,6 +2011,21 @@ namespace NexusForever.Database.Character
                     .HasColumnType("int(10) unsigned")
                     .HasDefaultValue(0u);
 
+                entity.Property(e => e.BankTabNamesJson)
+                    .HasColumnName("bankTabNamesJson")
+                    .HasColumnType("text")
+                    .HasDefaultValue("");
+
+                entity.Property(e => e.UnlockedPerksJson)
+                    .HasColumnName("unlockedPerksJson")
+                    .HasColumnType("text")
+                    .HasDefaultValue("");
+
+                entity.Property(e => e.ActivePerksJson)
+                    .HasColumnName("activePerksJson")
+                    .HasColumnType("text")
+                    .HasDefaultValue("");
+
                 entity.Property(e => e.BackgroundIconPartId)
                     .HasColumnName("backgroundIconPartId")
                     .HasColumnType("smallint(5) unsigned")

@@ -2007,6 +2007,18 @@ namespace NexusForever.Database.Character.Migrations
                         .HasDefaultValue("")
                         .HasColumnName("additionalInfo");
 
+                    b.Property<string>("ActivePerksJson")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("")
+                        .HasColumnName("activePerksJson");
+
+                    b.Property<string>("BankTabNamesJson")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("")
+                        .HasColumnName("bankTabNamesJson");
+
                     b.Property<uint>("Classification")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int(10) unsigned")
@@ -2054,6 +2066,12 @@ namespace NexusForever.Database.Character.Migrations
                         .HasColumnType("smallint(5) unsigned")
                         .HasDefaultValue((ushort)0)
                         .HasColumnName("scanLinesPartId");
+
+                    b.Property<string>("UnlockedPerksJson")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("")
+                        .HasColumnName("unlockedPerksJson");
 
                     b.HasKey("Id")
                         .HasName("PRIMARY");

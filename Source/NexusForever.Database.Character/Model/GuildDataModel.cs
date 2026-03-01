@@ -9,6 +9,9 @@
         public uint RecruitmentDemand { get; set; }
         public uint RecruitmentMinLevel { get; set; }
         public uint Classification { get; set; }
+        public string BankTabNamesJson { get; set; }
+        public string UnlockedPerksJson { get; set; }
+        public string ActivePerksJson { get; set; }
         public ushort BackgroundIconPartId { get; set; }
         public ushort ForegroundIconPartId { get; set; }
         public ushort ScanLinesPartId { get; set; }

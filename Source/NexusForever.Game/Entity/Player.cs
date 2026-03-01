@@ -1641,7 +1641,7 @@ namespace NexusForever.Game.Entity
                     victimTeam = matchTeam.Team;
             }
 
-            // Notify killer and victim of the PvP kill.
+            // Notify killer and victim of the open-world PvP kill.
             var killNotification = new ServerMatchingPvpKillNotification
             {
                 KillerType   = OpponentType.Player,

@@ -7,39 +7,49 @@ namespace NexusForever.Script.Main.Instance.Dungeon
     /// <summary>
     /// Map script for Infinite Labs dungeon (WorldId 2980, internal "InfiniteLabs").
     ///
-    /// Completion condition: boss creature 10569 must die.
-    ///   PublicEvent 594 references CreatureId 10569 via KillEventObjectiveUnit (type 8/16).
-    ///   This creature ID is NOT found in the extracted Creature2.tbl — it may be a
-    ///   post-launch addition or use a different Creature2 table version.
-    ///   TODO: Verify creature ID against retail sniff data or in-game testing.
+    /// This dungeon hosts the Ultimate Protogames game-show experience - players
+    /// compete in a series of mini-game events (Hut-Hut, Bev-O-Rage, Crate Destruction,
+    /// etc.). Completion requires defeating the two main event bosses.
     ///
-    /// Spawn data: see WorldDatabaseRepo/Instance/Dungeon/Infinite Labs.sql
+    ///   Hut-Hut Gorganoth  - event e2675 - Creature2Id 61417 (Gorganoth Boss)
+    ///   Bev-O-Rage         - event e2680 - Creature2Id 61463 (Boss)
+    ///
+    /// Miniboss creatures also present (not required for completion):
+    ///   Crate Destruction  - event e2673 - Creature2Id 62575 (Miniboss)
+    ///   Mixed Wave         - event e2674 - Creature2Id 63319 (Miniboss)
+    ///
+    /// Creature IDs confirmed via Creature2.tbl description search ([UP]/w2980 tags).
     /// Source: PublicEvent 594 objectives (WorldId 2980).
     /// </summary>
     [ScriptFilterOwnerId(2980)]
     public class InfiniteLabsScript : IContentMapScript, IOwnedScript<IContentMapInstance>
     {
-        // TODO: Verify this creature ID — not found in Creature2.tbl extraction.
-        // PublicEvent 594 references it via KillEventObjectiveUnit objectives.
-        private const uint BossCreatureId = 10569u;
+        private static readonly HashSet<uint> RequiredBossIds = new()
+        {
+            61417u,  // Hut-Hut Gorganoth Boss (event e2675)
+            61463u,  // Bev-O-Rage Boss (event e2680)
+        };
+
+        private const int RequiredBossCount = 2;
 
         private IContentMapInstance owner;
-        private bool bossDefeated;
+        private HashSet<uint> defeatedBosses = new();
 
         /// <inheritdoc/>
         public void OnLoad(IContentMapInstance owner)
         {
             this.owner = owner;
-            bossDefeated = false;
+            defeatedBosses.Clear();
         }
 
         /// <inheritdoc/>
         public void OnBossDeath(uint creatureId)
         {
-            if (creatureId != BossCreatureId || bossDefeated)
+            if (!RequiredBossIds.Contains(creatureId) || !defeatedBosses.Add(creatureId))
                 return;
 
-            bossDefeated = true;
+            if (defeatedBosses.Count < RequiredBossCount)
+                return;
 
             if (owner.Match != null)
                 owner.Match.MatchFinish();
@@ -50,7 +60,7 @@ namespace NexusForever.Script.Main.Instance.Dungeon
         /// <inheritdoc/>
         public void OnEncounterReset()
         {
-            bossDefeated = false;
+            defeatedBosses.Clear();
         }
     }
 }

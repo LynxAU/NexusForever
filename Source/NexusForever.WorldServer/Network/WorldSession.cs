@@ -74,7 +74,7 @@ namespace NexusForever.WorldServer.Network
         protected override void OnDisconnect()
         {
             base.OnDisconnect();
-            Player?.LogoutManager.Finish(LogoutReason.AccountDisconnected);
+            Player?.LogoutManager?.Finish(LogoutReason.AccountDisconnected);
 
             // We check that Account isn't null because AuthServer pings World to check if online
             if (Account != null)
@@ -85,9 +85,10 @@ namespace NexusForever.WorldServer.Network
         {
             base.Update(lastTick);
 
-            if (Player != null && Player.LogoutManager.State == LogoutState.Finished)
+            IPlayer player = Player;
+            if (player?.LogoutManager?.State == LogoutState.Finished)
             {
-                log.Trace($"Removed player {Player.CharacterId} from session {Id}.");
+                log.Trace($"Removed player {player.CharacterId} from session {Id}.");
                 Player = null;
             }
         }

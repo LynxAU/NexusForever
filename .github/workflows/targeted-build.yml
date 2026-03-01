@@ -1,4 +1,4 @@
-name: Targeted Build
+name: PR Guardrails
 
 on:
   pull_request:
@@ -6,8 +6,25 @@ on:
     branches: [ main ]
 
 jobs:
-  build-targeted:
+  repo-hygiene:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure local/build artifact paths are not tracked
+        run: |
+          set -euo pipefail
+          BAD_PATHS="$(git ls-files | grep -E '(^|/)\.out/|(^|/)\.claude/' || true)"
+          if [[ -n "$BAD_PATHS" ]]; then
+            echo "Tracked artifact/meta paths detected:"
+            echo "$BAD_PATHS"
+            exit 1
+          fi
+
+  build:
+    runs-on: ubuntu-latest
+    needs: repo-hygiene
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,8 +34,11 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Restore
-        run: dotnet restore
+      - name: Restore targeted projects
+        run: |
+          dotnet restore Source/NexusForever.Game.Abstract/NexusForever.Game.Abstract.csproj
+          dotnet restore Source/NexusForever.Database.World/NexusForever.Database.World.csproj
+          dotnet restore Source/NexusForever.Aspire.Database.Migrations/NexusForever.Aspire.Database.Migrations.csproj
 
       - name: Build Game.Abstract
         run: dotnet build Source/NexusForever.Game.Abstract/NexusForever.Game.Abstract.csproj --configuration Release --no-restore
@@ -28,3 +48,30 @@ jobs:
 
       - name: Build Aspire DB Migrations
         run: dotnet build Source/NexusForever.Aspire.Database.Migrations/NexusForever.Aspire.Database.Migrations.csproj --configuration Release --no-restore
+
+  deploy-smoke:
+    runs-on: ubuntu-latest
+    needs: repo-hygiene
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deploy script files exist
+        run: |
+          test -f scripts/deploy/deploy.sh
+          test -f scripts/deploy/healthcheck.sh
+          test -f scripts/deploy/migrate.sh
+          test -f scripts/deploy/release.sh
+          test -f scripts/deploy/rollback.sh
+          test -f scripts/deploy/unraid_live_rebuild.sh
+          test -f scripts/deploy/unraid/bootstrap_nf_iso_stack.sh
+
+      - name: Bash syntax check
+        run: |
+          bash -n scripts/deploy/deploy.sh
+          bash -n scripts/deploy/healthcheck.sh
+          bash -n scripts/deploy/migrate.sh
+          bash -n scripts/deploy/release.sh
+          bash -n scripts/deploy/rollback.sh
+          bash -n scripts/deploy/unraid_live_rebuild.sh
+          bash -n scripts/deploy/unraid/bootstrap_nf_iso_stack.sh

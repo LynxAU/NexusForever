@@ -1,10 +1,14 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NexusForever.Database;
+using NexusForever.Database.Character;
+using NexusForever.Database.Configuration.Model;
 using NexusForever.Game.Marketplace;
+using NexusForever.Shared.Configuration;
 
 namespace NexusForever.WorldServer.Service
 {
@@ -13,18 +17,45 @@ namespace NexusForever.WorldServer.Service
     /// </summary>
     public class MarketplaceHostedService : BackgroundService
     {
+        private sealed class MarketplaceCharacterContextFactory : IDbContextFactory<CharacterContext>
+        {
+            private readonly IConnectionString connectionString;
+
+            public MarketplaceCharacterContextFactory(IConnectionString connectionString)
+            {
+                this.connectionString = connectionString;
+            }
+
+            public CharacterContext CreateDbContext()
+            {
+                return new CharacterContext(connectionString);
+            }
+        }
+
         private readonly ILogger<MarketplaceHostedService> log;
-        private readonly IServiceProvider serviceProvider;
+        private AuctionManager auctionManager;
+        private CommodityExchangeManager commodityManager;
 
         // Run expiration processing every 60 seconds
         private readonly TimeSpan ProcessInterval = TimeSpan.FromSeconds(60);
 
-        public MarketplaceHostedService(
-            ILogger<MarketplaceHostedService> log,
-            IServiceProvider serviceProvider)
+        public MarketplaceHostedService(ILogger<MarketplaceHostedService> log)
         {
             this.log = log;
-            this.serviceProvider = serviceProvider;
+        }
+
+        private void EnsureManagers()
+        {
+            if (auctionManager != null && commodityManager != null)
+                return;
+
+            DatabaseConfig databaseConfig = SharedConfiguration.Instance.Get<DatabaseConfig>();
+            if (databaseConfig?.Character == null)
+                throw new InvalidOperationException("Missing Database:Character configuration for marketplace.");
+
+            IDbContextFactory<CharacterContext> dbContextFactory = new MarketplaceCharacterContextFactory(databaseConfig.Character);
+            auctionManager = new AuctionManager(dbContextFactory);
+            commodityManager = new CommodityExchangeManager(dbContextFactory);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -35,14 +66,9 @@ namespace NexusForever.WorldServer.Service
             {
                 try
                 {
-                    using var scope = serviceProvider.CreateScope();
-                    
-                    // Process expired auctions
-                    var auctionManager = scope.ServiceProvider.GetRequiredService<AuctionManager>();
+                    EnsureManagers();
                     await auctionManager.ProcessExpiredAuctionsAsync();
 
-                    // Process expired commodity orders
-                    var commodityManager = scope.ServiceProvider.GetRequiredService<CommodityExchangeManager>();
                     await commodityManager.ProcessExpiredOrdersAsync();
                 }
                 catch (Exception ex)

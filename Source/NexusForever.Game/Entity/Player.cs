@@ -1631,7 +1631,17 @@ namespace NexusForever.Game.Entity
             // Advance PvP kill quest objectives on the killer.
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.PvPKills, 0, 1u);
 
-            // Notify killer and victim of the open-world PvP kill.
+            // Decrement the deathmatch pool for the victim's team and resolve the victim's actual team.
+            MatchTeam victimTeam = MatchTeam.Red;
+            if (Map is IContentPvpMapInstance pvpMap && pvpMap.Match is IPvpMatch pvpMatch)
+            {
+                pvpMatch.UpdatePool(Identity);
+                IMatchTeam matchTeam = pvpMatch.GetTeam(Identity);
+                if (matchTeam != null)
+                    victimTeam = matchTeam.Team;
+            }
+
+            // Notify killer and victim of the PvP kill.
             var killNotification = new ServerMatchingPvpKillNotification
             {
                 KillerType   = OpponentType.Player,
@@ -1646,7 +1656,7 @@ namespace NexusForever.Game.Entity
                     Identity = new NexusForever.Network.World.Message.Model.Shared.Identity { Id = CharacterId, RealmId = Identity.RealmId },
                     Class    = Class
                 },
-                VictimTeam  = MatchTeam.Red,
+                VictimTeam  = victimTeam,
                 DeathReason = PvpDeathReason.KilledByPlayer
             };
             player.Session.EnqueueMessageEncrypted(killNotification);

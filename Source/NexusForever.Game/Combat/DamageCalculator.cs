@@ -439,38 +439,44 @@ namespace NexusForever.Game.Combat
         }
 
         /// <summary>
-        /// Returns the defensive damage reduction multiplier to apply after all other calculations.
-        /// Handles PvP damage reduction when both attacker and victim are players.
-        /// Returns 1.0f for no reduction, values less than 1.0f for damage reduction.
+        /// Returns the damage multiplier to apply after all other calculations for PvP combat.
+        /// Applies the global flat reduction, plus per-player PvP offense and defense offsets.
+        /// Returns 1.0f for no change; values below 1.0f reduce damage, above 1.0f increase it.
         /// </summary>
         private float GetDefensiveModifier(IUnitEntity attacker, IUnitEntity victim)
         {
             float modifier = 1.0f;
 
-            // Apply PvP damage reduction when both attacker and victim are players.
-            // WildStar applied a global damage reduction in PvP instances.
-            // GameFormula 1275 stores the reduction coefficient; fall back to 30% if missing.
             if (attacker.Type == EntityType.Player && victim.Type == EntityType.Player)
             {
+                // Global PvP flat damage reduction (GameFormula 1275, fallback 30%).
                 GameFormulaEntry pvpFormula = gameTableManager.GameFormula.GetEntry(1275);
                 float pvpReduction = pvpFormula?.Datafloat0 ?? 0.30f;
                 modifier *= (1.0f - Math.Clamp(pvpReduction, 0f, 0.90f));
+
+                // Per-player PvP offensive bonus: increases the attacker's damage dealt to players.
+                // Set by PvP gear and abilities via Property.PvPOffensePctOffset.
+                float pvpOffense = attacker.GetPropertyValue(Property.PvPOffensePctOffset);
+                if (pvpOffense > 0f)
+                    modifier *= (1.0f + pvpOffense);
+
+                // Per-player PvP defensive reduction: reduces the victim's damage taken from players.
+                // Set by PvP gear and abilities via Property.PvPDefensePctOffset.
+                float pvpDefense = victim.GetPropertyValue(Property.PvPDefensePctOffset);
+                if (pvpDefense > 0f)
+                    modifier *= (1.0f - Math.Clamp(pvpDefense, 0f, 0.75f));
             }
 
             return modifier;
         }
 
         /// <summary>
-        /// Applies defensive modifiers to damage and returns the reduced amount.
+        /// Applies defensive modifiers to damage and returns the adjusted amount.
         /// </summary>
         private uint ApplyDefensiveModifiers(uint damage, IUnitEntity attacker, IUnitEntity victim)
         {
             float modifier = GetDefensiveModifier(attacker, victim);
-            if (modifier < 1.0f)
-            {
-                return (uint)(damage * modifier);
-            }
-            return damage;
+            return (uint)(damage * modifier);
         }
 
         /// <summary>

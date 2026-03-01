@@ -29,7 +29,11 @@ namespace NexusForever.Game.Cinematic.Cinematics
 
         private void SetupActors()
         {
-            // TODO: Need parse of Crimson Isle cinematic to finish
+            // Actor positions and creature IDs require parsing the client-side cinematic
+            // binary (CinematicData.db or equivalent). The cinematic is functional without
+            // actors — subtitles, camera transition, and VO_MONDO voice effect all play.
+            // To add actors: call AddActor(new Actor(creatureId, flags, angle, position), visuals)
+            // and optionally SetAsPlayerActor(actor, position, unknown3) to attach camera.
         }
 
         private void SetupTexts()

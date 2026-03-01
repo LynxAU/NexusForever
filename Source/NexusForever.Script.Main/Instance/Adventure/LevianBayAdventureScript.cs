@@ -8,8 +8,8 @@ namespace NexusForever.Script.Main.Instance.Adventure
     /// Type: Combat — players push through Levian Bay fighting Purewater zealots
     /// and Grimvoid operatives in sequential encounters.
     ///
-    /// Exact Levian Bay encounter IDs are still being mapped; until then this script
-    /// uses fallback completion after three unique boss deaths.
+    /// Boss creature IDs are wired via <c>FallbackAdventureBossScripts.cs</c>; completion
+    /// remains fallback-based until wave sequencing is fully scripted.
     /// </summary>
     [ScriptFilterOwnerId(3176)]
     public class LevianBayAdventureScript : AdventureScript

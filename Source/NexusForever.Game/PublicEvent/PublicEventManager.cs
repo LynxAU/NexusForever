@@ -22,6 +22,8 @@ namespace NexusForever.Game.PublicEvent
     {
         private IBaseMap map;
         private readonly Dictionary<uint, IPublicEvent> publicEvents = [];
+        private readonly Dictionary<uint, double> autoRestartDelays = [];
+        private readonly Dictionary<uint, double> pendingRestarts = [];
 
         private readonly Dictionary<ulong, IPublicEventCharacter> characters = [];
 
@@ -69,6 +71,8 @@ namespace NexusForever.Game.PublicEvent
         /// </remarks>
         public void Cleanup()
         {
+            pendingRestarts.Clear();
+
             foreach (IPublicEvent @event in publicEvents.Values)
             {
                 @event.Finish(null);
@@ -84,6 +88,20 @@ namespace NexusForever.Game.PublicEvent
         /// </summary>
         public void Update(double lastTick)
         {
+            if (pendingRestarts.Count > 0)
+            {
+                foreach (uint id in pendingRestarts.Keys.ToList())
+                {
+                    pendingRestarts[id] -= lastTick;
+                    if (pendingRestarts[id] <= 0)
+                    {
+                        pendingRestarts.Remove(id);
+                        CreateEvent(id);
+                        log.LogTrace($"Auto-restarted public event {id} for map {map.Entry.Id}.");
+                    }
+                }
+            }
+
             if (publicEvents.Count == 0)
                 return;
 
@@ -100,6 +118,12 @@ namespace NexusForever.Game.PublicEvent
             {
                 publicEvents.Remove(@event.Id);
                 @event.Dispose();
+
+                if (autoRestartDelays.TryGetValue(@event.Id, out double delay))
+                {
+                    pendingRestarts[@event.Id] = delay;
+                    log.LogTrace($"Scheduled auto-restart for public event {@event.Id} in {delay:F1}s.");
+                }
 
                 log.LogTrace($"Removed public event {@event.Id} for map {map.Entry.Id} from store.");
             }
@@ -244,6 +268,15 @@ namespace NexusForever.Game.PublicEvent
                 return;
 
             character.RespondVote(player, eventId, choice);
+        }
+
+        /// <summary>
+        /// Register an auto-restart delay for a public event.
+        /// When the event finalises it will be re-created after the supplied delay in seconds.
+        /// </summary>
+        public void RegisterAutoRestart(uint eventId, double delaySeconds)
+        {
+            autoRestartDelays[eventId] = delaySeconds;
         }
 
         public void DistributeCompletionRewards(uint eventId, IEnumerable<ulong> participantCharacterIds)

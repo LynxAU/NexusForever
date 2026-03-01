@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract;
@@ -6,6 +6,9 @@ using NexusForever.Game.Abstract.Achievement;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Achievement;
 using NexusForever.Game.Static.Guild;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 using NexusForever.Network.Internal;
 using NexusForever.Network.World.Message.Model.Guild;
 
@@ -25,7 +28,10 @@ namespace NexusForever.Game.Guild
             RecruitmentDescription = 0x0004,
             RecruitmentDemand      = 0x0008,
             RecruitmentMinLevel    = 0x0010,
-            Classification         = 0x0020
+            Classification         = 0x0020,
+            BankTabNames           = 0x0040,
+            UnlockedPerks          = 0x0080,
+            ActivePerks            = 0x0100
         }
 
         public override GuildType Type => GuildType.Guild;
@@ -99,6 +105,9 @@ namespace NexusForever.Game.Guild
             }
         }
         private GuildClassification classification;
+        private string[] bankTabNames = Enumerable.Repeat(string.Empty, 10).ToArray();
+        private HashSet<GuildPerk> unlockedPerks = new();
+        private Dictionary<GuildPerk, DateTime> activePerks = new();
 
         private GuildSaveMask saveMask;
 
@@ -126,6 +135,9 @@ namespace NexusForever.Game.Guild
             recruitmentDemand      = model.GuildData.RecruitmentDemand;
             recruitmentMinLevel    = model.GuildData.RecruitmentMinLevel == 0u ? 1u : model.GuildData.RecruitmentMinLevel;
             classification         = (GuildClassification)model.GuildData.Classification;
+            bankTabNames           = ParseBankTabNames(model.GuildData.BankTabNamesJson);
+            unlockedPerks          = ParseUnlockedPerks(model.GuildData.UnlockedPerksJson);
+            activePerks            = ParseActivePerks(model.GuildData.ActivePerksJson);
 
             base.Initialise(model);
         }
@@ -143,6 +155,9 @@ namespace NexusForever.Game.Guild
             recruitmentDemand      = 0u;
             recruitmentMinLevel    = 1u;
             classification         = GuildClassification.Leveling;
+            bankTabNames           = Enumerable.Repeat(string.Empty, 10).ToArray();
+            unlockedPerks          = new HashSet<GuildPerk>();
+            activePerks            = new Dictionary<GuildPerk, DateTime>();
 
             Initialise(name, leaderRankName, councilRankName, memberRankName);
         }
@@ -160,6 +175,9 @@ namespace NexusForever.Game.Guild
                     RecruitmentDemand      = RecruitmentDemand,
                     RecruitmentMinLevel    = RecruitmentMinLevel,
                     Classification         = (uint)Classification,
+                    BankTabNamesJson       = SerialiseBankTabNames(),
+                    UnlockedPerksJson      = SerialiseUnlockedPerks(),
+                    ActivePerksJson        = SerialiseActivePerks(),
                     BackgroundIconPartId = (ushort)Standard.BackgroundIcon.GuildStandardPartEntry.Id,
                     ForegroundIconPartId = (ushort)Standard.ForegroundIcon.GuildStandardPartEntry.Id,
                     ScanLinesPartId      = (ushort)Standard.ScanLines.GuildStandardPartEntry.Id
@@ -210,6 +228,24 @@ namespace NexusForever.Game.Guild
                     entity.Property(p => p.Classification).IsModified = true;
                 }
 
+                if ((saveMask & GuildSaveMask.BankTabNames) != 0)
+                {
+                    model.BankTabNamesJson = SerialiseBankTabNames();
+                    entity.Property(p => p.BankTabNamesJson).IsModified = true;
+                }
+
+                if ((saveMask & GuildSaveMask.UnlockedPerks) != 0)
+                {
+                    model.UnlockedPerksJson = SerialiseUnlockedPerks();
+                    entity.Property(p => p.UnlockedPerksJson).IsModified = true;
+                }
+
+                if ((saveMask & GuildSaveMask.ActivePerks) != 0)
+                {
+                    model.ActivePerksJson = SerialiseActivePerks();
+                    entity.Property(p => p.ActivePerksJson).IsModified = true;
+                }
+
                 saveMask = GuildSaveMask.None;
             }
 
@@ -218,7 +254,7 @@ namespace NexusForever.Game.Guild
 
         public override GuildData Build()
         {
-            return new GuildData
+            var guildData = new GuildData
             {
                 GuildId           = Id,
                 GuildName         = Name,
@@ -228,6 +264,8 @@ namespace NexusForever.Game.Guild
                 GuildStandard     = Standard.Build(),
                 MemberCount       = (uint)members.Count,
                 OnlineMemberCount = (uint)onlineMembers.Count,
+                BankTabCount      = (uint)bankTabNames.Count(n => !string.IsNullOrWhiteSpace(n)),
+                BankTabNames      = bankTabNames.ToList(),
                 GuildInfo =
                 {
                     MessageOfTheDay         = MessageOfTheDay,
@@ -235,6 +273,150 @@ namespace NexusForever.Game.Guild
                     GuildCreationDateInDays = (float)DateTime.Now.Subtract(CreateTime).TotalDays * -1f
                 }
             };
+
+            foreach (GuildPerk perk in unlockedPerks)
+            {
+                int bit = (int)perk - 1;
+                if (bit >= 0)
+                    guildData.UnlockedPerks.SetBit((uint)bit, true);
+            }
+
+            foreach ((GuildPerk perk, DateTime activatedAt) in activePerks)
+            {
+                guildData.ActivePerks.Add(new GuildData.ActivePerk
+                {
+                    Perk    = perk,
+                    EndTime = (float)DateTime.UtcNow.Subtract(activatedAt).TotalDays * -1f
+                });
+            }
+
+            return guildData;
+        }
+
+        public bool RenameBankTab(byte index, string name)
+        {
+            if (index >= bankTabNames.Length)
+                return false;
+
+            bankTabNames[index] = name ?? string.Empty;
+            saveMask |= GuildSaveMask.BankTabNames;
+            return true;
+        }
+
+        public bool IsPerkUnlocked(GuildPerk perk)
+        {
+            return unlockedPerks.Contains(perk);
+        }
+
+        public bool IsPerkActive(GuildPerk perk)
+        {
+            return activePerks.ContainsKey(perk);
+        }
+
+        public string[] GetBankTabNames()
+        {
+            return bankTabNames.ToArray();
+        }
+
+        public bool UnlockPerk(GuildPerk perk)
+        {
+            if (!unlockedPerks.Add(perk))
+                return false;
+
+            saveMask |= GuildSaveMask.UnlockedPerks;
+            return true;
+        }
+
+        public bool ActivatePerk(GuildPerk perk)
+        {
+            if (!unlockedPerks.Contains(perk))
+                return false;
+
+            activePerks[perk] = DateTime.UtcNow;
+            saveMask |= GuildSaveMask.ActivePerks;
+            return true;
+        }
+
+        private string[] ParseBankTabNames(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return Enumerable.Repeat(string.Empty, 10).ToArray();
+
+            try
+            {
+                string[] parsed = JsonSerializer.Deserialize<string[]>(raw);
+                if (parsed == null || parsed.Length == 0)
+                    return Enumerable.Repeat(string.Empty, 10).ToArray();
+
+                if (parsed.Length < 10)
+                    return parsed.Concat(Enumerable.Repeat(string.Empty, 10 - parsed.Length)).Take(10).ToArray();
+
+                return parsed.Take(10).ToArray();
+            }
+            catch
+            {
+                return Enumerable.Repeat(string.Empty, 10).ToArray();
+            }
+        }
+
+        private HashSet<GuildPerk> ParseUnlockedPerks(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return new HashSet<GuildPerk>();
+
+            try
+            {
+                uint[] parsed = JsonSerializer.Deserialize<uint[]>(raw);
+                if (parsed == null)
+                    return new HashSet<GuildPerk>();
+
+                return parsed
+                    .Where(v => Enum.IsDefined(typeof(GuildPerk), (int)v))
+                    .Select(v => (GuildPerk)v)
+                    .ToHashSet();
+            }
+            catch
+            {
+                return new HashSet<GuildPerk>();
+            }
+        }
+
+        private Dictionary<GuildPerk, DateTime> ParseActivePerks(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+                return new Dictionary<GuildPerk, DateTime>();
+
+            try
+            {
+                Dictionary<uint, DateTime> parsed = JsonSerializer.Deserialize<Dictionary<uint, DateTime>>(raw);
+                if (parsed == null)
+                    return new Dictionary<GuildPerk, DateTime>();
+
+                return parsed
+                    .Where(kvp => Enum.IsDefined(typeof(GuildPerk), (int)kvp.Key))
+                    .ToDictionary(kvp => (GuildPerk)kvp.Key, kvp => kvp.Value);
+            }
+            catch
+            {
+                return new Dictionary<GuildPerk, DateTime>();
+            }
+        }
+
+        private string SerialiseBankTabNames()
+        {
+            return JsonSerializer.Serialize(bankTabNames);
+        }
+
+        private string SerialiseUnlockedPerks()
+        {
+            uint[] perkIds = unlockedPerks.Select(p => (uint)p).OrderBy(v => v).ToArray();
+            return JsonSerializer.Serialize(perkIds);
+        }
+
+        private string SerialiseActivePerks()
+        {
+            var payload = activePerks.ToDictionary(kvp => (uint)kvp.Key, kvp => kvp.Value);
+            return JsonSerializer.Serialize(payload);
         }
 
         /// <summary>

@@ -56,7 +56,12 @@ namespace NexusForever.Game.Guild
         [GuildOperationHandler(GuildOperation.RequestEventLog)]
         private void GuildOperationInitGuildWindow(IGuildMember member, IPlayer player, ClientGuildOperation operation)
         {
-            // Probably want to send roster update
+            player.Session.EnqueueMessageEncrypted(new ServerGuildEventLog
+            {
+                GuildIdentity = Identity.ToNetworkIdentity(),
+                IsBankLog = false,
+                LogEntry = new List<GuildEventLog>()
+            });
         }
 
         [GuildOperationHandler(GuildOperation.MemberDemote)]

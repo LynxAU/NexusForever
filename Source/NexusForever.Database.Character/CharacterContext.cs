@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using NexusForever.Database.Character.Model;
 using NexusForever.Database.Configuration.Model;
 
@@ -2010,6 +2010,21 @@ namespace NexusForever.Database.Character
                     .HasColumnName("classification")
                     .HasColumnType("int(10) unsigned")
                     .HasDefaultValue(0u);
+
+                entity.Property(e => e.BankTabNamesJson)
+                    .HasColumnName("bankTabNamesJson")
+                    .HasColumnType("text")
+                    .HasDefaultValue("");
+
+                entity.Property(e => e.UnlockedPerksJson)
+                    .HasColumnName("unlockedPerksJson")
+                    .HasColumnType("text")
+                    .HasDefaultValue("");
+
+                entity.Property(e => e.ActivePerksJson)
+                    .HasColumnName("activePerksJson")
+                    .HasColumnType("text")
+                    .HasDefaultValue("");
 
                 entity.Property(e => e.BackgroundIconPartId)
                     .HasColumnName("backgroundIconPartId")

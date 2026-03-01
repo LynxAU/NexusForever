@@ -685,7 +685,9 @@ namespace NexusForever.Game.Entity
                     .ToList(),
                 GuildName = GuildManager.GuildAffiliation?.Name,
                 GuildType = GuildManager.GuildAffiliation?.Type ?? GuildType.None,
-                PvPFlag   = PvPFlag.Disabled,
+                // Forced = always PvP-flagged, hides the client toggle button.
+                // This server uses faction disposition to determine hostility, so all players are permanently PvP-active.
+                PvPFlag   = PvPFlag.Forced,
 
                 // We use Group 1 as the "dominant group"
                 GroupId   = GroupAssociation

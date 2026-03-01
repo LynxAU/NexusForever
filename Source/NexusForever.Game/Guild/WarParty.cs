@@ -5,6 +5,7 @@ using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Static.Guild;
 using NexusForever.Network.Internal;
+using System.Text.Json;
 
 namespace NexusForever.Game.Guild
 {
@@ -16,6 +17,7 @@ namespace NexusForever.Game.Guild
             None   = 0x00,
             Create = 0x01,
             Rating = 0x02,
+            Plugs  = 0x04,
         }
 
         public override GuildType Type => GuildType.WarParty;
@@ -29,6 +31,19 @@ namespace NexusForever.Game.Guild
 
         public int SeasonLosses => seasonLosses;
         private int seasonLosses;
+
+        /// <summary>
+        /// Plug slots for warplot defense (slotIndex -> plugItemId).
+        /// Used during the build phase before a warplot match starts.
+        /// </summary>
+        private readonly Dictionary<byte, ushort> plugSlots = new();
+
+        /// <summary>
+        /// Boss tokens earned from rated warplot match wins.
+        /// Used to unlock boss plugs in the warplot.
+        /// </summary>
+        public int BossTokens => bossTokens;
+        private int bossTokens;
 
         private WarPartySaveMask warPartySaveMask;
 
@@ -53,6 +68,21 @@ namespace NexusForever.Game.Guild
                 rating       = model.WarPartyData.Rating;
                 seasonWins   = model.WarPartyData.SeasonWins;
                 seasonLosses = model.WarPartyData.SeasonLosses;
+                bossTokens   = model.WarPartyData.BossTokens;
+
+                // Deserialize plug slots from JSON
+                if (!string.IsNullOrEmpty(model.WarPartyData.PlugSlots))
+                {
+                    var slots = JsonSerializer.Deserialize<Dictionary<string, ushort>>(model.WarPartyData.PlugSlots);
+                    if (slots != null)
+                    {
+                        foreach (var kvp in slots)
+                        {
+                            if (byte.TryParse(kvp.Key, out byte slotIndex))
+                                plugSlots[slotIndex] = kvp.Value;
+                        }
+                    }
+                }
             }
 
             base.Initialise(model);
@@ -93,6 +123,53 @@ namespace NexusForever.Game.Guild
             warPartySaveMask |= WarPartySaveMask.Rating;
         }
 
+        /// <summary>
+        /// Set a plug in a warplot slot.
+        /// </summary>
+        public void SetPlug(byte slotIndex, ushort plugItemId)
+        {
+            if (plugItemId == 0)
+                plugSlots.Remove(slotIndex);
+            else
+                plugSlots[slotIndex] = plugItemId;
+            warPartySaveMask |= WarPartySaveMask.Plugs;
+        }
+
+        /// <summary>
+        /// Get the plug item ID for a specific slot.
+        /// </summary>
+        public ushort GetPlug(byte slotIndex)
+        {
+            return plugSlots.TryGetValue(slotIndex, out ushort value) ? value : (ushort)0;
+        }
+
+        /// <summary>
+        /// Get all plug slots for this warparty.
+        /// </summary>
+        public IReadOnlyDictionary<byte, ushort> GetPlugSlots() => plugSlots;
+
+        /// <summary>
+        /// Add boss tokens earned from a rated warplot match win.
+        /// </summary>
+        public void AddBossToken()
+        {
+            bossTokens++;
+            warPartySaveMask |= WarPartySaveMask.Plugs;
+        }
+
+        /// <summary>
+        /// Spend boss tokens to unlock a boss plug.
+        /// Returns true if tokens were successfully spent.
+        /// </summary>
+        public bool SpendBossToken()
+        {
+            if (bossTokens <= 0)
+                return false;
+            bossTokens--;
+            warPartySaveMask |= WarPartySaveMask.Plugs;
+            return true;
+        }
+
         protected override void Save(CharacterContext context, GuildBaseSaveMask guildSaveMask)
         {
             if (warPartySaveMask == WarPartySaveMask.None)
@@ -105,25 +182,48 @@ namespace NexusForever.Game.Guild
                     Id           = Id,
                     Rating       = rating,
                     SeasonWins   = seasonWins,
-                    SeasonLosses = seasonLosses
+                    SeasonLosses = seasonLosses,
+                    BossTokens   = bossTokens,
+                    PlugSlots    = SerializePlugSlots()
                 });
             }
-            else if ((warPartySaveMask & WarPartySaveMask.Rating) != 0)
+            else
             {
                 var model = new WarPartyModel { Id = Id };
                 EntityEntry<WarPartyModel> entity = context.Attach(model);
 
-                model.Rating = rating;
-                entity.Property(p => p.Rating).IsModified = true;
+                if ((warPartySaveMask & WarPartySaveMask.Rating) != 0)
+                {
+                    model.Rating = rating;
+                    entity.Property(p => p.Rating).IsModified = true;
 
-                model.SeasonWins = seasonWins;
-                entity.Property(p => p.SeasonWins).IsModified = true;
+                    model.SeasonWins = seasonWins;
+                    entity.Property(p => p.SeasonWins).IsModified = true;
 
-                model.SeasonLosses = seasonLosses;
-                entity.Property(p => p.SeasonLosses).IsModified = true;
+                    model.SeasonLosses = seasonLosses;
+                    entity.Property(p => p.SeasonLosses).IsModified = true;
+                }
+
+                if ((warPartySaveMask & WarPartySaveMask.Plugs) != 0)
+                {
+                    model.BossTokens = bossTokens;
+                    entity.Property(p => p.BossTokens).IsModified = true;
+
+                    model.PlugSlots = SerializePlugSlots();
+                    entity.Property(p => p.PlugSlots).IsModified = true;
+                }
             }
 
             warPartySaveMask = WarPartySaveMask.None;
+        }
+
+        /// <summary>
+        /// Serialize plug slots to JSON for database storage.
+        /// </summary>
+        private string SerializePlugSlots()
+        {
+            var slots = plugSlots.ToDictionary(kvp => kvp.Key.ToString(), kvp => kvp.Value);
+            return JsonSerializer.Serialize(slots);
         }
     }
 }

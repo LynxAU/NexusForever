@@ -46,5 +46,16 @@ namespace NexusForever.Game.Abstract.Entity
         /// Return the current accumulated XP for a tradeskill (0 if not tracked).
         /// </summary>
         uint GetTradeskillXp(uint tradeskillId);
+
+        /// <summary>
+        /// Return the XP that would be awarded for crafting the specified schematic at the player's current tier.
+        /// </summary>
+        uint GetCraftRewardXp(uint schematicId);
+
+        /// <summary>
+        /// Craft an item with optional crit, returning the crafted item id and XP earned.
+        /// Used by the complex craft handler to select between normal and crit output.
+        /// </summary>
+        CraftingResult CraftItemWithResult(uint schematicId, bool isCrit, out uint craftedItemId, out uint earnedXp);
     }
 }

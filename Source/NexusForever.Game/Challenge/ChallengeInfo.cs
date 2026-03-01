@@ -16,6 +16,7 @@ namespace NexusForever.Game.Challenge
         public uint RewardTrackId { get; }
         public uint RequiredWorldZoneId { get; }
         public uint CreatureCategoryFilterId { get; }
+        public uint Flags { get; }
 
         public ChallengeInfo(ChallengeEntry entry, ChallengeTierEntry[] tiers)
         {
@@ -25,6 +26,7 @@ namespace NexusForever.Game.Challenge
             CompletionCount = entry.CompletionCount;
             TargetGroupId   = entry.TargetGroupIdRewardPane;
             RewardTrackId   = entry.RewardTrackId;
+            Flags           = entry.ChallengeFlags;
             RequiredWorldZoneId = entry.WorldZoneIdRestriction != 0u
                 ? entry.WorldZoneIdRestriction
                 : entry.WorldZoneId;

@@ -27,7 +27,22 @@ namespace NexusForever.Game.Entity
 
         public void Update(double lastTick)
         {
-            // Timer-based challenge expiry / cooldown tracking goes here in a future pass.
+            foreach (IChallenge challenge in challenges.Values)
+            {
+                bool expired = challenge.Update(lastTick);
+
+                if (expired)
+                {
+                    SendResult(challenge.Id, ChallengeResult.TimerExpired);
+                    SendUpdate(challenge);
+                    continue;
+                }
+
+                // Flush tier notifications queued since last tick
+                uint? tier = challenge.ConsumePendingTierNotify();
+                if (tier.HasValue)
+                    SendTierAchieved(challenge.Id, tier.Value);
+            }
         }
 
         public void SendInitialPackets()
@@ -59,6 +74,12 @@ namespace NexusForever.Game.Entity
                 challenges[challengeId] = challenge;
             }
 
+            if (challenge.IsOnCooldown)
+            {
+                SendResult(challengeId, ChallengeResult.CooldownActive);
+                return;
+            }
+
             challenge.Activate();
             SendResult(challengeId, ChallengeResult.Activate);
             SendUpdate(challenge);
@@ -76,25 +97,32 @@ namespace NexusForever.Game.Entity
 
         public void OnEntityKilled(uint creatureId)
         {
-            bool anyUpdated = false;
-
-            // Advance all active Combat-type challenges that match this creature
             foreach (IChallenge challenge in challenges.Values.Where(c => c.IsActivated))
             {
-                if (!challenge.OnEntityKilled(creatureId))
-                    continue;
-
-                anyUpdated = true;
-
-                if (challenge.IsCompleted)
-                    SendResult(challenge.Id, ChallengeResult.Completed);
-                else
-                    SendUpdate(challenge);
+                if (challenge.OnEntityKilled(creatureId))
+                    FlushProgressNotifications(challenge);
             }
+        }
 
-            // Also check if any unlocked Combat challenges for this creature exist and should be advertised
-            if (!anyUpdated)
-                return; // avoid extra work — only send updates if something progressed
+        public void OnSpellCast(uint spell4Id)
+        {
+            foreach (IChallenge challenge in challenges.Values.Where(c => c.IsActivated))
+            {
+                if (challenge.OnSpellCast(spell4Id))
+                    FlushProgressNotifications(challenge);
+            }
+        }
+
+        private void FlushProgressNotifications(IChallenge challenge)
+        {
+            uint? tier = challenge.ConsumePendingTierNotify();
+            if (tier.HasValue)
+                SendTierAchieved(challenge.Id, tier.Value);
+
+            if (challenge.IsCompleted)
+                SendResult(challenge.Id, ChallengeResult.Completed);
+            else
+                SendUpdate(challenge);
         }
 
         private void SendResult(uint challengeId, ChallengeResult result)
@@ -103,6 +131,16 @@ namespace NexusForever.Game.Entity
             {
                 ChallengeId = (ushort)challengeId,
                 Result      = result
+            });
+        }
+
+        private void SendTierAchieved(uint challengeId, uint tier)
+        {
+            player.Session.EnqueueMessageEncrypted(new ServerChallengeResult
+            {
+                ChallengeId = (ushort)challengeId,
+                Result      = ChallengeResult.TierAchieved,
+                Data        = (int)tier
             });
         }
 

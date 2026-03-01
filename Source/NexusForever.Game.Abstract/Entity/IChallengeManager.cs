@@ -23,5 +23,10 @@ namespace NexusForever.Game.Abstract.Entity
         /// Notify the manager that a creature was killed so Combat-type challenges can advance.
         /// </summary>
         void OnEntityKilled(uint creatureId);
+
+        /// <summary>
+        /// Notify the manager that a spell was cast so Ability-type challenges can advance.
+        /// </summary>
+        void OnSpellCast(uint spell4Id);
     }
 }

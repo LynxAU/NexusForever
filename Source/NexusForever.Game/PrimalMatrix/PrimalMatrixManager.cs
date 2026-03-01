@@ -27,8 +27,14 @@ namespace NexusForever.Game.PrimalMatrix
         private const uint EssenceIdPurple = 4u;
 
         private const uint RewardTypeNone = 0u;
-        private const uint RewardTypeSpecialA = 2u;
-        private const uint RewardTypeSpecialB = 3u;
+        // Data-backed inference from PrimalMatrixReward.tbl:
+        // reward 52 uses type 2 with value 1 and no object id (point-style payload).
+        // reward 51 uses type 3 with value 1 and no object id (point-style payload).
+        // Mapping chosen to align with client ability/AMP surfaces:
+        //   type 2 -> bonus LAS ability point
+        //   type 3 -> bonus AMP power point
+        private const uint RewardTypeAbilityPoint = 2u;
+        private const uint RewardTypeAmpPower = 3u;
         private const uint RewardTypeSpellUnlock = 4u;
         private const uint RewardTypeProperty = 5u;
 
@@ -59,6 +65,8 @@ namespace NexusForever.Game.PrimalMatrix
 
         // absolute primal-matrix property contribution currently applied to player
         private readonly Dictionary<Property, float> appliedPropertyBonuses = new();
+        private byte appliedAbilityPoints;
+        private byte appliedAmpPower;
 
         // coordinate lookup for adjacency checks
         private readonly Dictionary<(int X, int Y), uint> nodeByPosition = new();
@@ -95,8 +103,8 @@ namespace NexusForever.Game.PrimalMatrix
 
             loaded = true;
 
-            // Property rewards are derived from node allocations, so rebuild them on login.
-            RebuildPropertyBonusesFromAllocations();
+            // Persistent matrix rewards are derived from node allocations.
+            RebuildPersistentBonusesFromAllocations();
         }
 
         /// <summary>
@@ -180,7 +188,7 @@ namespace NexusForever.Game.PrimalMatrix
             SendNodeUpdate(nodeId, nodeAllocations[nodeId]);
 
             GrantNodeNonPersistentRewards(nodeEntry, player.Class);
-            RebuildPropertyBonusesFromAllocations();
+            RebuildPersistentBonusesFromAllocations();
 
             player.QuestManager.ObjectiveUpdate(QuestObjectiveType.BeginMatrix, 0u, 1u);
             return true;
@@ -294,12 +302,9 @@ namespace NexusForever.Game.PrimalMatrix
                     DispatchSpellUnlock(objectId, nodeId, slotIndex);
                     return;
                 case RewardTypeProperty:
-                    // Property rewards are rebuilt from allocations as persistent state.
-                    return;
-                case RewardTypeSpecialA:
-                case RewardTypeSpecialB:
-                    // TODO: implement special matrix reward payloads once enum semantics are confirmed.
-                    LogUnsupportedSpecialReward(rewardType, objectId, subObjectId, value, nodeId, slotIndex);
+                case RewardTypeAbilityPoint:
+                case RewardTypeAmpPower:
+                    // These rewards are rebuilt from allocations as persistent state.
                     return;
                 default:
                     LogUnsupportedSpecialReward(rewardType, objectId, subObjectId, value, nodeId, slotIndex);
@@ -351,9 +356,11 @@ namespace NexusForever.Game.PrimalMatrix
             log.Trace($"Skipped unsupported Primal Matrix reward: type={rewardType}, node={nodeId}, slot={slotIndex}, objectId={objectId}, subObjectId={subObjectId}, value={value}.");
         }
 
-        private void RebuildPropertyBonusesFromAllocations()
+        private void RebuildPersistentBonusesFromAllocations()
         {
-            var rebuilt = new Dictionary<Property, float>();
+            var rebuiltProperties = new Dictionary<Property, float>();
+            uint rebuiltAbilityPoints = 0u;
+            uint rebuiltAmpPower = 0u;
 
             foreach ((uint nodeId, uint allocations) in nodeAllocations)
             {
@@ -372,30 +379,56 @@ namespace NexusForever.Game.PrimalMatrix
                 if (reward == null)
                     continue;
 
-                AccumulatePropertyRewardSlot(reward.PrimalMatrixRewardTypeEnum0, reward.ObjectId0, reward.SubObjectId0, reward.Value0, allocations, rebuilt);
-                AccumulatePropertyRewardSlot(reward.PrimalMatrixRewardTypeEnum1, reward.ObjectId1, reward.SubObjectId1, reward.Value1, allocations, rebuilt);
-                AccumulatePropertyRewardSlot(reward.PrimalMatrixRewardTypeEnum2, reward.ObjectId2, reward.SubObjectId2, reward.Value2, allocations, rebuilt);
-                AccumulatePropertyRewardSlot(reward.PrimalMatrixRewardTypeEnum3, reward.ObjectId3, reward.SubObjectId3, reward.Value3, allocations, rebuilt);
+                AccumulatePersistentRewardSlot(reward.PrimalMatrixRewardTypeEnum0, reward.ObjectId0, reward.SubObjectId0, reward.Value0, allocations, rebuiltProperties, ref rebuiltAbilityPoints, ref rebuiltAmpPower);
+                AccumulatePersistentRewardSlot(reward.PrimalMatrixRewardTypeEnum1, reward.ObjectId1, reward.SubObjectId1, reward.Value1, allocations, rebuiltProperties, ref rebuiltAbilityPoints, ref rebuiltAmpPower);
+                AccumulatePersistentRewardSlot(reward.PrimalMatrixRewardTypeEnum2, reward.ObjectId2, reward.SubObjectId2, reward.Value2, allocations, rebuiltProperties, ref rebuiltAbilityPoints, ref rebuiltAmpPower);
+                AccumulatePersistentRewardSlot(reward.PrimalMatrixRewardTypeEnum3, reward.ObjectId3, reward.SubObjectId3, reward.Value3, allocations, rebuiltProperties, ref rebuiltAbilityPoints, ref rebuiltAmpPower);
             }
 
-            ApplyPropertyBonuses(rebuilt);
+            ApplyPropertyBonuses(rebuiltProperties);
+            ApplyPointBonuses(rebuiltAbilityPoints, rebuiltAmpPower);
         }
 
-        private static void AccumulatePropertyRewardSlot(uint rewardType, uint objectId, uint subObjectId, float value, uint allocations, Dictionary<Property, float> rebuilt)
+        private static void AccumulatePersistentRewardSlot(
+            uint rewardType,
+            uint objectId,
+            uint subObjectId,
+            float value,
+            uint allocations,
+            Dictionary<Property, float> rebuiltProperties,
+            ref uint rebuiltAbilityPoints,
+            ref uint rebuiltAmpPower)
         {
-            if (rewardType != RewardTypeProperty || objectId == 0u || allocations == 0u)
+            if (allocations == 0u)
                 return;
 
-            if (!Enum.IsDefined(typeof(Property), (int)objectId))
+            if (rewardType == RewardTypeProperty)
+            {
+                if (objectId == 0u || !Enum.IsDefined(typeof(Property), (int)objectId))
+                    return;
+
+                float amount = ResolvePropertyRewardAmount(subObjectId, value);
+                if (Math.Abs(amount) < 0.0001f)
+                    return;
+
+                Property property = (Property)objectId;
+                rebuiltProperties.TryGetValue(property, out float current);
+                rebuiltProperties[property] = current + (amount * allocations);
+                return;
+            }
+
+            if (rewardType != RewardTypeAbilityPoint && rewardType != RewardTypeAmpPower)
                 return;
 
-            float amount = ResolvePropertyRewardAmount(subObjectId, value);
-            if (Math.Abs(amount) < 0.0001f)
+            uint amountPerAllocation = ResolvePointRewardAmount(subObjectId, value);
+            if (amountPerAllocation == 0u)
                 return;
 
-            Property property = (Property)objectId;
-            rebuilt.TryGetValue(property, out float current);
-            rebuilt[property] = current + (amount * allocations);
+            uint totalAmount = amountPerAllocation * allocations;
+            if (rewardType == RewardTypeAbilityPoint)
+                rebuiltAbilityPoints += totalAmount;
+            else
+                rebuiltAmpPower += totalAmount;
         }
 
         private static float ResolvePropertyRewardAmount(uint subObjectId, float value)
@@ -407,6 +440,17 @@ namespace NexusForever.Game.PrimalMatrix
                 return subObjectId;
 
             return 0f;
+        }
+
+        private static uint ResolvePointRewardAmount(uint subObjectId, float value)
+        {
+            if (subObjectId > 0u)
+                return subObjectId;
+
+            if (value > 0f)
+                return Math.Max(1u, (uint)MathF.Round(value));
+
+            return 0u;
         }
 
         private void ApplyPropertyBonuses(Dictionary<Property, float> rebuilt)
@@ -427,6 +471,19 @@ namespace NexusForever.Game.PrimalMatrix
             appliedPropertyBonuses.Clear();
             foreach ((Property property, float amount) in rebuilt)
                 appliedPropertyBonuses[property] = amount;
+        }
+
+        private void ApplyPointBonuses(uint abilityPoints, uint ampPower)
+        {
+            byte nextAbilityPoints = (byte)Math.Min(byte.MaxValue, abilityPoints);
+            byte nextAmpPower = (byte)Math.Min(byte.MaxValue, ampPower);
+
+            if (appliedAbilityPoints == nextAbilityPoints && appliedAmpPower == nextAmpPower)
+                return;
+
+            appliedAbilityPoints = nextAbilityPoints;
+            appliedAmpPower = nextAmpPower;
+            player.SpellManager.SetPrimalMatrixBonusPoints(nextAbilityPoints, nextAmpPower);
         }
 
         private void CheckUnlockThresholds()
@@ -540,8 +597,8 @@ namespace NexusForever.Game.PrimalMatrix
             foreach ((uint nodeId, uint alloc) in nodeAllocations)
                 SendNodeUpdate(nodeId, alloc);
 
-            // Keep property rewards in sync on login packet send path.
-            RebuildPropertyBonusesFromAllocations();
+            // Keep persistent matrix rewards in sync on login packet send path.
+            RebuildPersistentBonusesFromAllocations();
         }
     }
 }

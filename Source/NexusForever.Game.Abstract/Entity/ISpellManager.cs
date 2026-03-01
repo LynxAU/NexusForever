@@ -11,6 +11,7 @@ namespace NexusForever.Game.Abstract.Entity
         /// Index of the active <see cref="IActionSet"/>.
         /// </summary>
         byte ActiveActionSet { get; }
+        byte PrimalMatrixAmpPower { get; }
 
         void GrantSpells();
 
@@ -63,5 +64,6 @@ namespace NexusForever.Game.Abstract.Entity
 
         void SendInitialPackets();
         void SendServerAbilityPoints();
+        void SetPrimalMatrixBonusPoints(byte abilityPoints, byte ampPower);
     }
 }

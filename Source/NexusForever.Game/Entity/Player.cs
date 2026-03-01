@@ -827,6 +827,7 @@ namespace NexusForever.Game.Entity
             }
 
             playerCreate.SpecIndex = SpellManager.ActiveActionSet;
+            playerCreate.BonusPower = SpellManager.PrimalMatrixAmpPower;
             Session.EnqueueMessageEncrypted(playerCreate);
             Session.EnqueueMessageEncrypted(new ServerProfessionsLoad
             {

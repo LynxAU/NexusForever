@@ -103,6 +103,7 @@ namespace NexusForever.Game.Entity
         {
             foreach (IChallenge challenge in challenges.Values)
             {
+                bool wasCompleted = challenge.IsCompleted;
                 bool expired = challenge.Update(lastTick);
 
                 if (expired)
@@ -112,10 +113,26 @@ namespace NexusForever.Game.Entity
                     continue;
                 }
 
-                // Flush tier notifications queued since last tick
-                uint? tier = challenge.ConsumePendingTierNotify();
-                if (tier.HasValue)
+                if (!wasCompleted && challenge.IsCompleted)
+                {
+                    FlushProgressNotifications(challenge);
+                    continue;
+                }
+
+                // Flush tier notifications queued since last tick.
+                bool sentTier = false;
+                while (true)
+                {
+                    uint? tier = challenge.ConsumePendingTierNotify();
+                    if (!tier.HasValue)
+                        break;
+
                     SendTierAchieved(challenge.Id, tier.Value);
+                    sentTier = true;
+                }
+
+                if (sentTier)
+                    SendUpdate(challenge);
             }
         }
 
@@ -154,6 +171,12 @@ namespace NexusForever.Game.Entity
                 return;
             }
 
+            if (!challenge.IsUnlocked)
+            {
+                SendResult(challengeId, ChallengeResult.GenericFail);
+                return;
+            }
+
             challenge.Activate();
             SendResult(challengeId, ChallengeResult.Activate);
             SendUpdate(challenge);
@@ -176,6 +199,12 @@ namespace NexusForever.Game.Entity
                 info =>
                     (info.Target == 0u || info.Target == creatureId)
                     && MatchesCreatureCategory(info, creatureId));
+            AutoActivateChallenges(
+                ChallengeType.General,
+                info => info.Target != 0u && info.Target == creatureId);
+            AutoActivateChallenges(
+                ChallengeType.ChecklistActivate,
+                info => info.Target != 0u && info.Target == creatureId);
 
             foreach (IChallenge challenge in challenges.Values.Where(c => c.IsActivated))
             {
@@ -196,6 +225,12 @@ namespace NexusForever.Game.Entity
             AutoActivateChallenges(
                 ChallengeType.Ability,
                 info => info.Target == 0u || info.Target == spell4Id);
+            AutoActivateChallenges(
+                ChallengeType.General,
+                info => info.Target != 0u && info.Target == spell4Id);
+            AutoActivateChallenges(
+                ChallengeType.ChecklistActivate,
+                info => info.Target != 0u && info.Target == spell4Id);
 
             foreach (IChallenge challenge in challenges.Values.Where(c => c.IsActivated))
             {
@@ -216,6 +251,12 @@ namespace NexusForever.Game.Entity
             AutoActivateChallenges(
                 ChallengeType.Collect,
                 info => info.Target == 0u || info.Target == itemId);
+            AutoActivateChallenges(
+                ChallengeType.General,
+                info => info.Target != 0u && info.Target == itemId);
+            AutoActivateChallenges(
+                ChallengeType.ChecklistActivate,
+                info => info.Target != 0u && info.Target == itemId);
 
             foreach (IChallenge challenge in challenges.Values.Where(c => c.IsActivated))
             {
@@ -264,7 +305,7 @@ namespace NexusForever.Game.Entity
                     challenges[info.Id] = challenge;
                 }
 
-                if (challenge.IsActivated || challenge.IsOnCooldown)
+                if (!challenge.IsUnlocked || challenge.IsActivated || challenge.IsOnCooldown)
                     continue;
 
                 challenge.Activate();
@@ -275,15 +316,22 @@ namespace NexusForever.Game.Entity
 
         private void FlushProgressNotifications(IChallenge challenge)
         {
-            uint? tier = challenge.ConsumePendingTierNotify();
-            if (tier.HasValue)
+            while (true)
+            {
+                uint? tier = challenge.ConsumePendingTierNotify();
+                if (!tier.HasValue)
+                    break;
+
                 SendTierAchieved(challenge.Id, tier.Value);
+            }
 
             if (challenge.IsCompleted)
             {
                 DeliverChallengeRewards(challenge.RewardTrackId);
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CompleteChallenge, challenge.Id, 1u);
-                SendResult(challenge.Id, ChallengeResult.Completed);
+                uint achievedTier = challenge.CurrentTier > 0 ? challenge.CurrentTier - 1 : 0u;
+                SendResult(challenge.Id, ChallengeResult.Completed, (int)achievedTier);
+                SendUpdate(challenge);
             }
             else
                 SendUpdate(challenge);
@@ -348,6 +396,16 @@ namespace NexusForever.Game.Entity
             {
                 ChallengeId = (ushort)challengeId,
                 Result      = result
+            });
+        }
+
+        private void SendResult(uint challengeId, ChallengeResult result, int data)
+        {
+            player.Session.EnqueueMessageEncrypted(new ServerChallengeResult
+            {
+                ChallengeId = (ushort)challengeId,
+                Result      = result,
+                Data        = data
             });
         }
 

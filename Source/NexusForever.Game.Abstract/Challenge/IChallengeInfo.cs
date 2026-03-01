@@ -41,5 +41,10 @@ namespace NexusForever.Game.Abstract.Challenge
         /// Optional creature category/faction filter used for combat challenges (0 means unrestricted).
         /// </summary>
         uint CreatureCategoryFilterId { get; }
+
+        /// <summary>
+        /// Raw challenge flags from Challenge.tbl.
+        /// </summary>
+        uint Flags { get; }
     }
 }

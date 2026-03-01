@@ -283,6 +283,95 @@ namespace NexusForever.Game.Tradeskill
         }
 
         /// <summary>
+        /// Return the XP that would be awarded for crafting the specified schematic at the player's current tier.
+        /// </summary>
+        public uint GetCraftRewardXp(uint schematicId)
+        {
+            TradeskillSchematic2Entry schematic = GameTableManager.Instance.TradeskillSchematic2.GetEntry(schematicId);
+            if (schematic == null)
+                return 0u;
+
+            if (!tradeskillXp.TryGetValue(schematic.TradeSkillId, out TradeskillXpState state) || state.IsDeleted)
+                return 0u;
+
+            TradeskillTierEntry tierEntry = GameTableManager.Instance.TradeskillTier.Entries
+                .FirstOrDefault(e => e != null && e.TradeSkillId == schematic.TradeSkillId && e.Tier == state.CurrentTier);
+            return tierEntry?.CraftXp ?? 0u;
+        }
+
+        /// <summary>
+        /// Craft an item with optional crit or failure, returning the crafted item id and XP earned.
+        /// When <paramref name="isFail"/> is true the schematic's <c>Item2IdOutputFail</c> is produced
+        /// instead of the normal output (minigame failure). XP is not awarded on failure.
+        /// </summary>
+        public CraftingResult CraftItemWithResult(uint schematicId, bool isCrit, bool isFail, out uint craftedItemId, out uint earnedXp)
+        {
+            craftedItemId = 0u;
+            earnedXp      = 0u;
+
+            TradeskillSchematic2Entry schematic = GameTableManager.Instance.TradeskillSchematic2.GetEntry(schematicId);
+            if (schematic == null)
+                return CraftingResult.InvalidSchematic;
+
+            if (!player.HasLearnedSchematic(schematicId))
+                return CraftingResult.SchematicNotLearned;
+
+            if (!player.GetLearnedTradeskills().Contains((TradeskillType)schematic.TradeSkillId))
+                return CraftingResult.TradeskillNotLearned;
+
+            if (!HasMaterials(schematic, 1))
+                return CraftingResult.InsufficientMaterials;
+
+            ConsumeMaterials(schematic, 1);
+
+            // Failure path: give the fail item if the schematic defines one; otherwise produce nothing.
+            if (isFail)
+            {
+                if (schematic.Item2IdOutputFail != 0)
+                {
+                    var failItemInfo = ItemManager.Instance.GetItemInfo(schematic.Item2IdOutputFail);
+                    if (failItemInfo != null)
+                    {
+                        var failItem = new NexusForever.Game.Entity.Item(player.CharacterId, failItemInfo, 1u);
+                        try { player.Inventory.AddItem(failItem, InventoryLocation.Inventory, ItemUpdateReason.Crafting); }
+                        catch (Exception) { /* inventory full — fail item lost, craft still counted as failed */ }
+                        craftedItemId = schematic.Item2IdOutputFail;
+                    }
+                }
+                return CraftingResult.CraftFailed;
+            }
+
+            // Select crit vs normal output.
+            uint outputItemId = (isCrit && schematic.Item2IdOutputCrit != 0)
+                ? schematic.Item2IdOutputCrit
+                : schematic.Item2IdOutput;
+            uint outputCount = schematic.OutputCount
+                + (isCrit && schematic.Item2IdOutputCrit != 0 ? schematic.OutputCountCritBonus : 0u);
+
+            if (outputItemId == 0)
+                return CraftingResult.InvalidOutput;
+
+            var itemInfo = ItemManager.Instance.GetItemInfo(outputItemId);
+            if (itemInfo == null)
+                return CraftingResult.InvalidOutput;
+
+            var item = new NexusForever.Game.Entity.Item(player.CharacterId, itemInfo, Math.Max(1u, outputCount));
+            try
+            {
+                player.Inventory.AddItem(item, InventoryLocation.Inventory, ItemUpdateReason.Crafting);
+            }
+            catch (Exception)
+            {
+                return CraftingResult.InventoryFull;
+            }
+
+            craftedItemId = outputItemId;
+            earnedXp      = GetCraftRewardXp(schematicId);
+            AwardCraftXp(schematic, 1);
+            return CraftingResult.Success;
+        }
+
+        /// <summary>
         /// Try to learn a schematic.
         /// </summary>
         public void TryLearnSchematic(uint schematicId)

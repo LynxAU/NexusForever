@@ -353,7 +353,12 @@ namespace NexusForever.Game.Matching.Match
             if (parties == null)
                 return;
             foreach (IWarParty party in parties)
+            {
                 party.UpdateRating(delta, won);
+                // Award boss token on rated warplot match win
+                if (won)
+                    party.AddBossToken();
+            }
         }
     }
 }

@@ -30,7 +30,7 @@ namespace NexusForever.Game.Challenge
         private double timeRemaining;
         private double cooldownRemaining;
         private uint   activatedDt;    // Unix timestamp for packet
-        private uint?  pendingTier;    // 0-based tier just reached, awaiting notify
+        private readonly Queue<uint> pendingTiers = new(); // 0-based tiers reached, awaiting notify
 
         public Challenge(IChallengeInfo info)
         {
@@ -39,7 +39,7 @@ namespace NexusForever.Game.Challenge
 
         public void Activate()
         {
-            if (IsActivated || IsOnCooldown)
+            if (IsActivated || IsOnCooldown || IsCompletionCapReached())
                 return;
 
             IsActivated   = true;
@@ -48,7 +48,7 @@ namespace NexusForever.Game.Challenge
             currentTier   = 0;
             timeRemaining = ActiveDuration;
             activatedDt   = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            pendingTier   = null;
+            pendingTiers.Clear();
         }
 
         public void Abandon()
@@ -56,7 +56,7 @@ namespace NexusForever.Game.Challenge
             IsActivated       = false;
             currentCount      = 0;
             currentTier       = 0;
-            pendingTier       = null;
+            pendingTiers.Clear();
             IsOnCooldown      = true;
             cooldownRemaining = CooldownDuration;
         }
@@ -83,11 +83,25 @@ namespace NexusForever.Game.Challenge
             timeRemaining -= lastTick;
             if (timeRemaining <= 0d)
             {
+                timeRemaining = 0d;
+
+                // General/checklist style challenges are timer-complete, not timer-fail.
+                if (CompletesOnTimeout())
+                {
+                    IsActivated       = false;
+                    IsCompleted       = true;
+                    IsOnCooldown      = true;
+                    cooldownRemaining = CooldownDuration;
+                    completionCount++;
+                    if (IsCompletionCapReached())
+                        IsUnlocked = false;
+                    return false;
+                }
+
                 IsActivated       = false;
                 IsOnCooldown      = true;
                 cooldownRemaining = CooldownDuration;
-                timeRemaining     = 0d;
-                pendingTier       = null;
+                pendingTiers.Clear();
                 return true;
             }
 
@@ -99,9 +113,10 @@ namespace NexusForever.Game.Challenge
         /// </summary>
         public uint? ConsumePendingTierNotify()
         {
-            uint? tier = pendingTier;
-            pendingTier = null;
-            return tier;
+            if (pendingTiers.Count == 0)
+                return null;
+
+            return pendingTiers.Dequeue();
         }
 
         public bool OnEntityKilled(uint creatureId)
@@ -109,7 +124,7 @@ namespace NexusForever.Game.Challenge
             if (!IsActivated || IsCompleted)
                 return false;
 
-            if (info.Type != ChallengeType.Combat)
+            if (info.Type is not (ChallengeType.Combat or ChallengeType.General or ChallengeType.ChecklistActivate))
                 return false;
 
             if (info.Target != 0 && info.Target != creatureId)
@@ -123,7 +138,7 @@ namespace NexusForever.Game.Challenge
             if (!IsActivated || IsCompleted)
                 return false;
 
-            if (info.Type != ChallengeType.Ability)
+            if (info.Type is not (ChallengeType.Ability or ChallengeType.General or ChallengeType.ChecklistActivate))
                 return false;
 
             if (info.Target != 0 && info.Target != spell4Id)
@@ -137,7 +152,7 @@ namespace NexusForever.Game.Challenge
             if (!IsActivated || IsCompleted)
                 return false;
 
-            if (info.Type is not (ChallengeType.Item or ChallengeType.Collect))
+            if (info.Type is not (ChallengeType.Item or ChallengeType.Collect or ChallengeType.General or ChallengeType.ChecklistActivate))
                 return false;
 
             if (info.Target != 0 && info.Target != itemId)
@@ -162,9 +177,12 @@ namespace NexusForever.Game.Challenge
                     currentTier = tier + 1;
             }
 
-            // Queue tier notification if a new tier was reached (0-based index)
+            // Queue notifications for every newly reached tier (0-based indices).
             if (currentTier > prevTier)
-                pendingTier = currentTier - 1;
+            {
+                for (uint tier = prevTier; tier < currentTier; tier++)
+                    pendingTiers.Enqueue(tier);
+            }
 
             uint completionGoal = GetCompletionGoal();
             if (completionGoal > 0 && currentCount >= completionGoal)
@@ -174,6 +192,8 @@ namespace NexusForever.Game.Challenge
                 IsOnCooldown      = true;
                 cooldownRemaining = CooldownDuration;
                 completionCount++;
+                if (IsCompletionCapReached())
+                    IsUnlocked = false;
             }
 
             return true;
@@ -189,6 +209,19 @@ namespace NexusForever.Game.Challenge
             return info.CompletionCount;
         }
 
+        private bool CompletesOnTimeout()
+        {
+            return info.Type is ChallengeType.General or ChallengeType.ChecklistActivate;
+        }
+
+        private bool IsCompletionCapReached()
+        {
+            if (info.CompletionCount == 0u || info.CompletionCount == uint.MaxValue)
+                return false;
+
+            return completionCount >= info.CompletionCount;
+        }
+
         public ServerChallengeUpdate.Challenge Build()
         {
             uint completionGoal = GetCompletionGoal();
@@ -201,9 +234,13 @@ namespace NexusForever.Game.Challenge
                 ChallengeId       = Id,
                 Type              = info.Type,
                 TargetGroupId     = info.TargetGroupId,
+                QualifyCount      = currentCount,
+                QualityTotal      = completionGoal,
                 CurrentCount      = currentCount,
                 GoalCount         = completionGoal,
+                ObjectiveCompletion = currentCount,
                 CurrentTier       = currentTier,
+                LastRewardTier    = currentTier > 0 ? currentTier - 1 : 0u,
                 CompletionCount   = completionCount,
                 TierGoalCount     = info.TierGoalCounts.ToArray(),
                 Unlocked          = IsUnlocked,
@@ -238,7 +275,7 @@ namespace NexusForever.Game.Challenge
             timeRemaining     = Math.Max(0d, timeRemainingSeconds);
             cooldownRemaining = Math.Max(0d, cooldownRemainingSeconds);
             this.activatedDt  = activatedDt;
-            pendingTier       = null;
+            pendingTiers.Clear();
         }
     }
 }

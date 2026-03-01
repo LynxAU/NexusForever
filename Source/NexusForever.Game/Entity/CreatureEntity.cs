@@ -40,6 +40,15 @@ namespace NexusForever.Game.Entity
         // Extra melee buffer added to the sum of caster and target HitRadius to determine "in attack range".
         private const float MeleeAttackBuffer = 1.5f;
 
+        // Spell effect types that require an allied target rather than a hostile one.
+        private static readonly HashSet<SpellEffectType> FriendlyEffectTypes = new()
+        {
+            SpellEffectType.Heal,
+            SpellEffectType.HealShields,
+            SpellEffectType.HealingAbsorption,
+            SpellEffectType.Resurrect,
+        };
+
         // Movement speed when chasing a combat target.
         private const float ChaseSpeed = 7f;
 
@@ -655,16 +664,30 @@ namespace NexusForever.Game.Entity
                 if (spellEntry == null)
                     continue;
 
-                if (!IsSpellInRange(target, spellEntry))
+                // Determine the appropriate target: wounded ally for friendly spells, hostile for damage spells.
+                IUnitEntity castTarget;
+                if (IsFriendlySpell(spellEntry.Id))
+                {
+                    float searchRange = spellEntry.TargetMaxRange > 0f ? spellEntry.TargetMaxRange : 20f;
+                    castTarget = FindMostWoundedAlly(searchRange);
+                    if (castTarget == null)
+                        continue; // no wounded ally to heal; skip this action
+                }
+                else
+                {
+                    castTarget = target;
+                }
+
+                if (!IsSpellInRange(castTarget, spellEntry))
                     continue;
 
                 // Terrain LOS check for ranged spells — skip if terrain blocks the path.
                 bool isRangedSpell = spellEntry.TargetMaxRange > HitRadius + 1f + MeleeAttackBuffer;
-                if (isRangedSpell && !HasLineOfSight(target))
+                if (isRangedSpell && !HasLineOfSight(castTarget))
                     continue;
 
                 bool hadActiveBefore = GetActiveSpell(s => !s.IsFinished && s.Parameters.SpellInfo.Entry.Id == spellEntry.Id) != null;
-                CastSpell(action.ActionData00, new SpellParameters { PrimaryTargetId = target.Guid });
+                CastSpell(action.ActionData00, new SpellParameters { PrimaryTargetId = castTarget.Guid });
                 bool hasActiveAfter = GetActiveSpell(s => !s.IsFinished && s.Parameters.SpellInfo.Entry.Id == spellEntry.Id) != null;
 
                 // Instant casts may execute and finish in the same tick, so they can bypass active-spell detection.
@@ -673,7 +696,7 @@ namespace NexusForever.Game.Entity
                 {
                     double cooldown = action.DelayMS > 0u ? action.DelayMS / 1000.0 : DefaultSpellCooldown;
                     spellCooldowns[action.Id] = cooldown;
-                    log.Trace($"Creature {Guid} cast spell {spellEntry.Id} on {target.Guid}; cooldown {cooldown:0.00}s.");
+                    log.Trace($"Creature {Guid} cast spell {spellEntry.Id} on {castTarget.Guid}; cooldown {cooldown:0.00}s.");
                     return true;
                 }
             }
@@ -695,6 +718,56 @@ namespace NexusForever.Game.Entity
             return horizontalDistance >= minRange
                 && horizontalDistance <= maxRange
                 && verticalDistance <= maxVerticalRange;
+        }
+
+        /// <summary>
+        /// Returns true if any effect on the spell targets allies (heals, shields, resurrect).
+        /// Such spells require an allied target rather than the hostile combat target.
+        /// </summary>
+        private bool IsFriendlySpell(uint spellId)
+        {
+            return GlobalSpellManager.Instance.GetSpell4EffectEntries(spellId)
+                .Any(e => FriendlyEffectTypes.Contains(e.EffectType));
+        }
+
+        /// <summary>
+        /// Returns the most-wounded alive ally (including self) within <paramref name="range"/> metres,
+        /// or null if all allies are at full health.
+        /// </summary>
+        private IUnitEntity FindMostWoundedAlly(float range)
+        {
+            IUnitEntity best = null;
+            float bestRatio = 1f; // only target allies that are not at full health
+
+            // Include self as a heal candidate.
+            if (IsAlive && MaxHealth > 0u)
+            {
+                float selfRatio = (float)Health / MaxHealth;
+                if (selfRatio < bestRatio)
+                {
+                    bestRatio = selfRatio;
+                    best = this;
+                }
+            }
+
+            foreach (ICreatureEntity ally in Map.Search(Position, range, new SearchCheckRange<ICreatureEntity>(Position, range)))
+            {
+                if (ally == this || !ally.IsAlive || ally.MaxHealth == 0u)
+                    continue;
+
+                // Skip enemies — only heal allies.
+                if (CanAttack(ally))
+                    continue;
+
+                float ratio = (float)ally.Health / ally.MaxHealth;
+                if (ratio < bestRatio)
+                {
+                    bestRatio = ratio;
+                    best = ally;
+                }
+            }
+
+            return best;
         }
 
         /// <summary>
@@ -782,18 +855,42 @@ namespace NexusForever.Game.Entity
         /// </summary>
         protected virtual void LoadFamilyBehavior()
         {
-            if (CreatureEntry == null || CreatureEntry.Creature2FamilyId == 0u)
+            if (CreatureEntry == null)
                 return;
 
-            // Derive a broad behavioral class from the family ID.
-            // Values without verified game-table data use conservative defaults.
-            // Subclasses should override this method with family-specific logic.
-            switch (CreatureEntry.Creature2FamilyId)
+            // Derive behavioral class from the creature's spell set and difficulty tier.
+            // This avoids a dependency on unverified Creature2Family table IDs while still
+            // producing sensible defaults for common creature archetypes.
+            // Subclasses and scripts can override this method for finer tuning.
+
+            // Healer/Support: creature has at least one heal spell.
+            // Healers don't flee on low HP — they heal themselves — and stay back from melee range.
+            bool isHealer = spellActions?.Any(a => IsFriendlySpell(a.ActionData00)) ?? false;
+            if (isHealer)
             {
-                // Unknown / no special tuning for unrecognised families.
-                default:
-                    break;
+                fleeHealthThreshold = 0f;
+                AggroRadius         = Math.Min(AggroRadius, 8f);
+                return;
             }
+
+            // Ranged-only: all spells are ranged — creature needs extended threat awareness.
+            if (IsRangedCreature())
+            {
+                AggroRadius         = Math.Max(AggroRadius, 14f);
+                fleeHealthThreshold = 0.2f;
+                return;
+            }
+
+            // Pure melee (no spells): aggressive brute — fights until very low HP.
+            if (spellActions == null || spellActions.Count == 0)
+            {
+                fleeHealthThreshold = 0.1f;
+                return;
+            }
+
+            // Difficulty-tier bonus: elite/champion+ creatures patrol a wider radius.
+            if (CreatureEntry.Creature2DifficultyId >= 2u)
+                AggroRadius = Math.Max(AggroRadius, 13f);
         }
 
         /// <summary>

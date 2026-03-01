@@ -11,6 +11,8 @@ namespace NexusForever.Game.Static.Crafting
         TradeskillNotLearned    = 3,
         InsufficientMaterials   = 4,
         InventoryFull           = 5,
-        InvalidOutput           = 6
+        InvalidOutput           = 6,
+        /// <summary>Complex-craft minigame failure: materials consumed but craft produced a fail item or nothing.</summary>
+        CraftFailed             = 7
     }
 }

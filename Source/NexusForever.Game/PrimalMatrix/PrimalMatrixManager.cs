@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using NexusForever.Database.Character;
@@ -196,14 +197,110 @@ namespace NexusForever.Game.PrimalMatrix
                 return;
             }
 
-            // Dispatch reward slots.
-            // TODO: implement full per-slot type dispatch once PrimalMatrixRewardTypeEnum values are known.
-            // Current best-guess: slot 0 = item, slot 1 = spell.
-            if (reward.ObjectId0 > 0)
-                player.Inventory.ItemCreate(InventoryLocation.Inventory, reward.ObjectId0, 1, ItemUpdateReason.PrimalMatrix);
+            DispatchRewardSlot(reward.PrimalMatrixRewardTypeEnum0, reward.ObjectId0, reward.SubObjectId0, reward.Value0, nodeEntry.Id, 0);
+            DispatchRewardSlot(reward.PrimalMatrixRewardTypeEnum1, reward.ObjectId1, reward.SubObjectId1, reward.Value1, nodeEntry.Id, 1);
+            DispatchRewardSlot(reward.PrimalMatrixRewardTypeEnum2, reward.ObjectId2, reward.SubObjectId2, reward.Value2, nodeEntry.Id, 2);
+            DispatchRewardSlot(reward.PrimalMatrixRewardTypeEnum3, reward.ObjectId3, reward.SubObjectId3, reward.Value3, nodeEntry.Id, 3);
+        }
 
-            if (reward.ObjectId1 > 0)
-                player.SpellManager.AddSpell(reward.ObjectId1);
+        private void DispatchRewardSlot(uint rewardType, uint objectId, uint subObjectId, float value, uint nodeId, int slotIndex)
+        {
+            if (objectId == 0u)
+                return;
+
+            uint amount = ResolveRewardAmount(subObjectId, value);
+
+            bool handled = rewardType switch
+            {
+                0u => TryDispatchByHeuristic(objectId, amount),
+                1u => DispatchItem(objectId, amount),
+                2u => DispatchSpell(objectId),
+                3u => DispatchCurrency(objectId, amount),
+                4u => DispatchTitle(objectId),
+                _  => false
+            };
+
+            if (handled)
+                return;
+
+            if (TryDispatchByHeuristic(objectId, amount))
+                return;
+
+            log.Warn($"Unhandled primal matrix reward slot: node={nodeId}, slot={slotIndex}, type={rewardType}, objectId={objectId}, subObjectId={subObjectId}, value={value}.");
+        }
+
+        private static uint ResolveRewardAmount(uint subObjectId, float value)
+        {
+            if (subObjectId > 0u)
+                return subObjectId;
+
+            if (value > 0f)
+                return Math.Max(1u, (uint)MathF.Round(value));
+
+            return 1u;
+        }
+
+        private bool TryDispatchByHeuristic(uint objectId, uint amount)
+        {
+            if (DispatchSpell(objectId))
+                return true;
+
+            if (DispatchItem(objectId, amount))
+                return true;
+
+            if (DispatchCurrency(objectId, amount))
+                return true;
+
+            if (DispatchTitle(objectId))
+                return true;
+
+            return false;
+        }
+
+        private bool DispatchSpell(uint objectId)
+        {
+            Spell4Entry spell4Entry = GameTableManager.Instance.Spell4.GetEntry(objectId);
+            if (spell4Entry != null)
+            {
+                player.SpellManager.AddSpell(spell4Entry.Spell4BaseIdBaseSpell);
+                return true;
+            }
+
+            Spell4BaseEntry baseEntry = GameTableManager.Instance.Spell4Base.GetEntry(objectId);
+            if (baseEntry != null)
+            {
+                player.SpellManager.AddSpell(baseEntry.Id);
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool DispatchItem(uint objectId, uint amount)
+        {
+            if (GameTableManager.Instance.Item.GetEntry(objectId) == null)
+                return false;
+
+            player.Inventory.ItemCreate(InventoryLocation.Inventory, objectId, amount, ItemUpdateReason.PrimalMatrix);
+            return true;
+        }
+
+        private bool DispatchCurrency(uint objectId, uint amount)
+        {
+            if (GameTableManager.Instance.CurrencyType.GetEntry(objectId) == null)
+                return false;
+
+            player.CurrencyManager.CurrencyAddAmount((CurrencyType)objectId, amount);
+            return true;
+        }
+
+        private bool DispatchTitle(uint objectId)
+        {
+            if (GameTableManager.Instance.CharacterTitle.GetEntry(objectId) == null)
+                return false;
+
+            player.TitleManager.AddTitle((ushort)objectId);
+            return true;
         }
 
         private void CheckUnlockThresholds()

@@ -204,6 +204,15 @@ namespace NexusForever.Game.Entity
             return FriendshipResult.Ok;
         }
 
+        public bool IsBlocked(ulong characterId)
+        {
+            if (!friends.TryGetValue(characterId, out CharacterFriendModel friendModel))
+                return false;
+
+            FriendshipType type = (FriendshipType)friendModel.Type;
+            return type is FriendshipType.Ignore or FriendshipType.FriendAndRival;
+        }
+
         public void SendInitialPackets()
         {
             SendFriendList();

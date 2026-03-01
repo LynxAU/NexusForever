@@ -8,6 +8,7 @@ namespace NexusForever.Game.Abstract.Guild
     public interface IGuildManager : IDatabaseCharacter, IEnumerable<IGuildBase>
     {
         IGuild Guild { get; }
+        void Update(double lastTick);
 
         /// <summary>
         /// Current <see cref="IGuildBase"/> affiliation.

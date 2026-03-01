@@ -15,6 +15,7 @@ namespace NexusForever.Game.Abstract.Entity
         FriendshipResult AddFriend(string name, string note);
         FriendshipResult RemoveFriend(ulong friendCharacterId);
         FriendshipResult SetFriendNote(ulong friendCharacterId, string note);
+        bool IsBlocked(ulong characterId);
 
         void SendInitialPackets();
     }

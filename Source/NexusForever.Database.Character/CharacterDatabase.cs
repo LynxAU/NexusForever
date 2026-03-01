@@ -213,6 +213,24 @@ namespace NexusForever.Database.Character
             return context.CharacterCreate.ToList();
         }
 
+        public bool IsCharacterIgnoring(ulong characterId, ulong ignoredCharacterId)
+        {
+            using var context = new CharacterContext(config);
+            return context.CharacterFriend.Any(f =>
+                f.CharacterId == characterId
+                && f.FriendCharacterId == ignoredCharacterId
+                && f.Type == 1); // FriendshipType.Ignore
+        }
+
+        public bool HasCompletedCharacterAchievement(ushort achievementId, ulong excludedCharacterId = 0ul)
+        {
+            using var context = new CharacterContext(config);
+            return context.CharacterAchievement.Any(a =>
+                a.AchievementId == achievementId
+                && a.DateCompleted != null
+                && (excludedCharacterId == 0ul || a.Id != excludedCharacterId));
+        }
+
         public List<PropertyBaseModel> GetProperties(uint type)
         {
             using var context = new CharacterContext(config);

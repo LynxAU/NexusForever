@@ -29,6 +29,7 @@ namespace NexusForever.Game.Abstract.Entity
         /// Add XP to the current <see cref="Static.Entity.Path"/>.
         /// </summary>
         void AddXp(uint xp);
+        void HandleSettlerBuildEvent(uint pathSettlerImprovementGroupId, uint buildTier);
 
         void SendInitialPackets();
         void SendSetUnitPathTypePacket();

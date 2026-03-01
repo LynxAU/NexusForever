@@ -18,5 +18,6 @@ namespace NexusForever.Game.Abstract.Chat
         void HandleWhisperChat(IPlayer player, ClientChatWhisper whisper);
 
         void SendMessage(IGameSession session, string message, string name = "", ChatChannelType type = ChatChannelType.System);
+        void BroadcastMessage(string message, string name = "", ChatChannelType type = ChatChannelType.Realm);
     }
 }

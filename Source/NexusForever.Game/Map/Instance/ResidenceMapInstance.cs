@@ -1,3 +1,4 @@
+using System;
 using System.Numerics;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Entity;
@@ -203,14 +204,24 @@ namespace NexusForever.Game.Map.Instance
 
             foreach (IPlot plot in residence.GetPlots())
             {
-                housingPlots.Plots.Add(new ServerHousingPlots.Plot
+                var networkPlot = new ServerHousingPlots.Plot
                 {
                     PlotPropertyIndex = plot.Index,
                     PlotInfoId        = plot.PlotInfoEntry.Id,
                     PlugFacing        = plot.PlugFacing,
                     PlugItemId        = plot.PlugItemEntry?.Id ?? 0u,
                     BuildState        = plot.BuildState
-                });
+                };
+
+                if (plot is NexusForever.Game.Housing.Plot runtimePlot)
+                {
+                    networkPlot.HousingUpkeepCharges = runtimePlot.UpkeepCharges;
+                    networkPlot.HousingUpkeepTime    = runtimePlot.UpkeepTime;
+                    for (int i = 0; i < runtimePlot.ContributionTotals.Length && i < networkPlot.HousingContributionTotals.Length; i++)
+                        networkPlot.HousingContributionTotals[i] = runtimePlot.ContributionTotals[i];
+                }
+
+                housingPlots.Plots.Add(networkPlot);
             }
 
             if (player != null)
@@ -331,6 +342,65 @@ namespace NexusForever.Game.Map.Instance
                         throw new InvalidPacketValueException();
                 }
             }
+        }
+
+        /// <summary>
+        /// Handle housing plug placement/removal updates.
+        /// </summary>
+        public void PlugUpdate(IPlayer player, ClientHousingPlugUpdate housingPlugUpdate)
+        {
+            if (!residences.TryGetValue(housingPlugUpdate.Identity.Id, out IResidence residence)
+                || !residence.CanModifyResidence(player))
+            {
+                throw new InvalidPacketValueException();
+            }
+
+            IPlot plot = residence.GetPlot((byte)housingPlugUpdate.PlotPropertyIndex);
+            if (plot == null)
+                throw new InvalidPacketValueException();
+
+            if (housingPlugUpdate.PlotInfoId != 0u && plot.PlotInfoEntry?.Id != housingPlugUpdate.PlotInfoId)
+            {
+                HousingPlotInfoEntry plotInfo = gameTableManager.HousingPlotInfo.GetEntry(housingPlugUpdate.PlotInfoId);
+                if (plotInfo == null)
+                    throw new InvalidPacketValueException();
+
+                plot.PlotInfoEntry = plotInfo;
+            }
+
+            if (!Enum.IsDefined(typeof(HousingPlugFacing), (int)housingPlugUpdate.PlugFacing))
+                throw new InvalidPacketValueException();
+
+            if (plot.PlugEntity != null)
+            {
+                plot.PlugEntity.RemoveFromMap();
+                plot.PlugEntity = null;
+            }
+
+            if (housingPlugUpdate.PlugItemId == 0u)
+            {
+                plot.PlugItemEntry = null;
+                plot.BuildState    = 0;
+            }
+            else
+            {
+                HousingPlugItemEntry plugEntry = gameTableManager.HousingPlugItem.GetEntry(housingPlugUpdate.PlugItemId);
+                if (plugEntry == null)
+                    throw new InvalidPacketValueException();
+
+                plot.SetPlug((ushort)housingPlugUpdate.PlugItemId);
+                plot.PlugFacing = housingPlugUpdate.PlugFacing;
+
+                if (plot is NexusForever.Game.Housing.Plot runtimePlot)
+                {
+                    for (int i = 0; i < runtimePlot.ContributionTotals.Length && i < housingPlugUpdate.ContributionTotals.Length; i++)
+                        runtimePlot.SetContribution(i, housingPlugUpdate.ContributionTotals[i]);
+                }
+
+                AddPlugEntity(plot);
+            }
+
+            SendResidencePlots(residence);
         }
 
         /// <summary>

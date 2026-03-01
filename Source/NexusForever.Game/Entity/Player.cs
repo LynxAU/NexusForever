@@ -409,6 +409,9 @@ namespace NexusForever.Game.Entity
             TitleManager.Update(lastTick);
             SpellManager.Update(lastTick);
             CostumeManager.Update(lastTick);
+            MailManager.Update(lastTick);
+            FriendManager.Update(lastTick);
+            GuildManager.Update(lastTick);
             QuestManager.Update(lastTick);
             ChallengeManager.Update(lastTick);
 

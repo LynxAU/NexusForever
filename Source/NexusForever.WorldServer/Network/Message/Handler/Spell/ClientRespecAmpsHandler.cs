@@ -45,6 +45,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Spell
                         throw new InvalidPacketValueException();
                     break;
                 case AmpRespecType.Single:
+                    if (requestAmpReset.Value > ushort.MaxValue)
+                        throw new InvalidPacketValueException();
                     if (gameTableManager.EldanAugmentation.GetEntry(requestAmpReset.Value) == null)
                         throw new InvalidPacketValueException();
                     break;
@@ -55,6 +57,9 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Spell
             // Respec cost handling is deferred; no cost currently charged.
             actionSet.RemoveAmp(requestAmpReset.RespecType, requestAmpReset.Value);
             session.EnqueueMessageEncrypted(actionSet.BuildServerAmpList());
+
+            if (requestAmpReset.SpecIndex == session.Player.SpellManager.ActiveActionSet)
+                session.Player.SpellManager.SendServerAbilityPoints();
         }
     }
 }

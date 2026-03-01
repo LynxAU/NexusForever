@@ -39,6 +39,7 @@ namespace NexusForever.Database.Character.Model
         public uint RestBonusXp { get; set; }
         public ulong? GuildAffiliation { get; set; }
         public uint Flags { get; set; }
+        public uint ItemProficiencies { get; set; }
         public bool IsOnline { get; set; }
 
         public ResidenceModel Residence { get; set; }

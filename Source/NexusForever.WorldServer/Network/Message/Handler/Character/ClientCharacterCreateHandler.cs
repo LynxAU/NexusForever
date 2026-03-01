@@ -129,7 +129,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
                     Class      = (byte)creationEntry.ClassId,
                     FactionId  = (ushort)creationEntry.FactionId,
                     ActivePath = characterCreate.Path,
-                    TotalXp    = creationEntry.Xp
+                    TotalXp    = creationEntry.Xp,
+                    ItemProficiencies = gameTableManager.Class.GetEntry(creationEntry.ClassId)?.StartingItemProficiencies ?? 0u
                 };
 
                 uint startingLevel = gameTableManager.XpPerLevel.Entries.First(l => l.MinXpForLevel >= creationEntry.Xp).Id;

@@ -80,6 +80,7 @@ namespace NexusForever.Game.Entity
             Innate      = 0x0080,
             Sex         = 0x0100,
             Race        = 0x0200,
+            Proficiency = 0x0400,
         }
 
         private static readonly ILogger log = LogManager.GetCurrentClassLogger();
@@ -126,6 +127,7 @@ namespace NexusForever.Game.Entity
         private Race race;
 
         public Class Class { get; private set; }
+        private ItemProficiency itemProficiencies;
 
         public CharacterFlag Flags
         {
@@ -321,6 +323,14 @@ namespace NexusForever.Game.Entity
             Faction2          = (Faction)model.FactionId;
             innateIndex       = model.InnateIndex;
             flags             = (CharacterFlag)model.Flags;
+            itemProficiencies = (ItemProficiency)model.ItemProficiencies;
+
+            if (itemProficiencies == 0)
+            {
+                itemProficiencies = GetStartingItemProficiencies();
+                if (itemProficiencies != 0)
+                    saveMask |= PlayerSaveMask.Proficiency;
+            }
 
             CreateTime        = model.CreateTime;
             lastOnline        = model.LastOnline;
@@ -603,6 +613,12 @@ namespace NexusForever.Game.Entity
                     entity.Property(p => p.Race).IsModified = true;
                 }
 
+                if ((saveMask & PlayerSaveMask.Proficiency) != 0)
+                {
+                    model.ItemProficiencies = (uint)itemProficiencies;
+                    entity.Property(p => p.ItemProficiencies).IsModified = true;
+                }
+
                 saveMask = PlayerSaveMask.None;
             }
 
@@ -878,11 +894,15 @@ namespace NexusForever.Game.Entity
 
         public ItemProficiency GetItemProficiencies()
         {
-            //TODO: Store proficiencies in DB table and load from there. Do they change ever after creation? Perhaps something for use on custom servers?
+            return itemProficiencies;
+        }
+
+        private ItemProficiency GetStartingItemProficiencies()
+        {
             ClassEntry classEntry = GameTableManager.Instance.Class.GetEntry((ulong)Class);
-            if (classEntry == null)
-                return (ItemProficiency)0;
-            return (ItemProficiency)classEntry.StartingItemProficiencies;
+            return classEntry == null
+                ? (ItemProficiency)0
+                : (ItemProficiency)classEntry.StartingItemProficiencies;
         }
 
         public IEnumerable<TradeskillType> GetLearnedTradeskills() => learnedTradeskills;

@@ -140,6 +140,11 @@ namespace NexusForever.Database.Character
                     .HasColumnName("flags")
                     .HasDefaultValue(0);
 
+                entity.Property(e => e.ItemProficiencies)
+                    .HasColumnName("itemProficiencies")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
                 entity.Property(e => e.InnateIndex)
                     .HasColumnName("innateIndex")
                     .HasColumnType("tinyint(3) unsigned")

@@ -830,58 +830,58 @@ namespace NexusForever.Game.Entity
                 ? desc.AdjustedDamage - healthBefore
                 : 0u;
 
-            bool isMultiHit = desc.MultiHitAmount != 0u;
-            if (isMultiHit)
+            bool hasMultiHit = desc.MultiHitDamage != 0u;
+            bool targetVulnerable = target.IsVulnerable;
+            var meleeCastData = new CombatLogCastData
+            {
+                CasterId     = Guid,
+                TargetId     = target.Guid,
+                SpellId      = 0u,
+                CombatResult = desc.CombatResult
+            };
+
+            // Compute base-hit damage (excluding the multi-hit bonus) for the primary log entry.
+            uint baseDamage = hasMultiHit && desc.AdjustedDamage >= desc.MultiHitDamage
+                ? desc.AdjustedDamage - desc.MultiHitDamage
+                : desc.AdjustedDamage;
+
+            EnqueueToVisible(new ServerCombatLog
+            {
+                CombatLog = new CombatLogDamage
+                {
+                    MitigatedDamage   = baseDamage,
+                    RawDamage         = desc.RawDamage,
+                    Shield            = desc.ShieldAbsorbAmount,
+                    Absorption        = desc.AbsorbedAmount,
+                    Overkill          = overkill,
+                    Glance            = desc.GlanceAmount,
+                    BTargetVulnerable = targetVulnerable,
+                    BKilled           = !target.IsAlive,
+                    BPeriodic         = false,
+                    DamageType        = desc.DamageType,
+                    EffectType        = SpellEffectType.Damage,
+                    CastData          = meleeCastData
+                }
+            }, true);
+
+            if (hasMultiHit)
             {
                 EnqueueToVisible(new ServerCombatLog
                 {
                     CombatLog = new CombatLogMultiHit
                     {
-                        DamageAmount      = desc.AdjustedDamage,
-                        RawDamage         = desc.RawDamage,
-                        Shield            = desc.ShieldAbsorbAmount,
-                        Absorption        = desc.AbsorbedAmount,
-                        Overkill          = overkill,
-                        GlanceAmount      = desc.GlanceAmount,
-                        BTargetVulnerable = false,
+                        DamageAmount      = desc.MultiHitDamage,
+                        RawDamage         = desc.MultiHitDamage,
+                        Shield            = 0u,
+                        Absorption        = 0u,
+                        Overkill          = 0u,
+                        GlanceAmount      = 0u,
+                        BTargetVulnerable = targetVulnerable,
                         BKilled           = !target.IsAlive,
                         BPeriodic         = false,
                         DamageType        = desc.DamageType,
                         EffectType        = SpellEffectType.Damage,
-                        CastData          = new CombatLogCastData
-                        {
-                            CasterId     = Guid,
-                            TargetId     = target.Guid,
-                            SpellId      = 0u,
-                            CombatResult = desc.CombatResult
-                        }
-                    }
-                }, true);
-            }
-            else
-            {
-                EnqueueToVisible(new ServerCombatLog
-                {
-                    CombatLog = new CombatLogDamage
-                    {
-                        MitigatedDamage   = desc.AdjustedDamage,
-                        RawDamage         = desc.RawDamage,
-                        Shield            = desc.ShieldAbsorbAmount,
-                        Absorption        = desc.AbsorbedAmount,
-                        Overkill          = overkill,
-                        Glance            = desc.GlanceAmount,
-                        BTargetVulnerable = false,
-                        BKilled           = !target.IsAlive,
-                        BPeriodic         = false,
-                        DamageType        = desc.DamageType,
-                        EffectType        = SpellEffectType.Damage,
-                        CastData          = new CombatLogCastData
-                        {
-                            CasterId     = Guid,
-                            TargetId     = target.Guid,
-                            SpellId      = 0u,
-                            CombatResult = desc.CombatResult
-                        }
+                        CastData          = meleeCastData
                     }
                 }, true);
             }

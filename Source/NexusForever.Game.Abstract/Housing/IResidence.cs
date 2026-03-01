@@ -96,6 +96,18 @@ namespace NexusForever.Game.Abstract.Housing
         bool CanModifyResidence(IPlayer player);
 
         /// <summary>
+        /// Returns true if <see cref="IPlayer"/> can access resource nodes on this <see cref="IResidence"/>.
+        /// Controlled by the <see cref="ResourceSharing"/> field set by the owner.
+        /// </summary>
+        bool CanAccessResources(IPlayer player);
+
+        /// <summary>
+        /// Returns true if <see cref="IPlayer"/> can access garden plots on this <see cref="IResidence"/>.
+        /// Controlled by the <see cref="GardenSharing"/> field set by the owner.
+        /// </summary>
+        bool CanAccessGarden(IPlayer player);
+
+        /// <summary>
         /// Return all <see cref="IPlot"/>'s for the <see cref="IResidence"/>.
         /// </summary>
         IEnumerable<IPlot> GetPlots();

@@ -131,6 +131,12 @@ namespace NexusForever.Game.Abstract.Entity
         ISpell GetActiveSpell(Func<ISpell, bool> func);
 
         /// <summary>
+        /// Returns whether this <see cref="IUnitEntity"/> is currently in the Moment of Opportunity
+        /// (Vulnerable) state, i.e. has an active Vulnerability or VulnerabilityWithAct CC state.
+        /// </summary>
+        bool IsVulnerable { get; }
+
+        /// <summary>
         /// Returns whether or not this <see cref="IUnitEntity"/> is an attackable target.
         /// </summary>
         bool IsValidAttackTarget();

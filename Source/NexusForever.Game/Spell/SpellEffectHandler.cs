@@ -2866,95 +2866,100 @@ namespace NexusForever.Game.Spell
                 return;
 
             SpellEffectType effectType = (SpellEffectType)info.Entry.EffectType;
-            bool isMultiHit = info.Damage.MultiHitAmount != 0u;
+            bool hasMultiHit = info.Damage.MultiHitDamage != 0u;
+            bool targetVulnerable = target.IsVulnerable;
+            bool isPeriodic = info.Entry.TickTime > 0u;
+            CombatLogCastData castData = BuildCastData(spell, target, info);
+
+            // Compute base-hit damage (excluding the multi-hit bonus) for the primary log entry.
+            uint baseDamage = hasMultiHit && info.Damage.AdjustedDamage >= info.Damage.MultiHitDamage
+                ? info.Damage.AdjustedDamage - info.Damage.MultiHitDamage
+                : info.Damage.AdjustedDamage;
+
             switch (effectType)
             {
                 case SpellEffectType.DamageShields:
-                    if (isMultiHit)
+                    info.AddCombatLog(new CombatLogDamageShield
+                    {
+                        MitigatedDamage   = baseDamage,
+                        RawDamage         = info.Damage.RawDamage,
+                        Shield            = info.Damage.ShieldAbsorbAmount,
+                        Absorption        = info.Damage.AbsorbedAmount,
+                        Overkill          = info.Damage.OverkillAmount,
+                        Glance            = info.Damage.GlanceAmount,
+                        BTargetVulnerable = targetVulnerable,
+                        BKilled           = info.Damage.KilledTarget,
+                        BPeriodic         = isPeriodic,
+                        DamageType        = info.Damage.DamageType,
+                        EffectType        = effectType,
+                        CastData          = castData
+                    });
+
+                    if (hasMultiHit)
                     {
                         info.AddCombatLog(new CombatLogMultiHitShields
                         {
-                            DamageAmount      = info.Damage.AdjustedDamage,
-                            RawDamage         = info.Damage.RawDamage,
-                            Shield            = info.Damage.ShieldAbsorbAmount,
-                            Absorption        = info.Damage.AbsorbedAmount,
-                            Overkill          = info.Damage.OverkillAmount,
-                            GlanceAmount      = info.Damage.GlanceAmount,
-                            BTargetVulnerable = false,
+                            DamageAmount      = info.Damage.MultiHitDamage,
+                            RawDamage         = info.Damage.MultiHitDamage,
+                            Shield            = 0u,
+                            Absorption        = 0u,
+                            Overkill          = 0u,
+                            GlanceAmount      = 0u,
+                            BTargetVulnerable = targetVulnerable,
                             BKilled           = info.Damage.KilledTarget,
-                            BPeriodic         = info.Entry.TickTime > 0u,
+                            BPeriodic         = isPeriodic,
                             DamageType        = info.Damage.DamageType,
                             EffectType        = effectType,
-                            CastData          = BuildCastData(spell, target, info)
-                        });
-                    }
-                    else
-                    {
-                        info.AddCombatLog(new CombatLogDamageShield
-                        {
-                            MitigatedDamage   = info.Damage.AdjustedDamage,
-                            RawDamage         = info.Damage.RawDamage,
-                            Shield            = info.Damage.ShieldAbsorbAmount,
-                            Absorption        = info.Damage.AbsorbedAmount,
-                            Overkill          = info.Damage.OverkillAmount,
-                            Glance            = info.Damage.GlanceAmount,
-                            BTargetVulnerable = false,
-                            BKilled           = info.Damage.KilledTarget,
-                            BPeriodic         = info.Entry.TickTime > 0u,
-                            DamageType        = info.Damage.DamageType,
-                            EffectType        = effectType,
-                            CastData          = BuildCastData(spell, target, info)
+                            CastData          = castData
                         });
                     }
                     break;
                 case SpellEffectType.Transference:
                     info.AddCombatLog(new CombatLogTransference
                     {
-                        DamageAmount      = info.Damage.AdjustedDamage,
+                        DamageAmount      = baseDamage,
                         DamageType        = info.Damage.DamageType,
                         Shield            = info.Damage.ShieldAbsorbAmount,
                         Absorption        = info.Damage.AbsorbedAmount,
                         Overkill          = info.Damage.OverkillAmount,
                         GlanceAmount      = info.Damage.GlanceAmount,
-                        BTargetVulnerable = false,
+                        BTargetVulnerable = targetVulnerable,
                         HealedUnits       = transferenceHealedUnits ?? []
                     });
                     break;
                 default:
-                    if (isMultiHit)
+                    info.AddCombatLog(new CombatLogDamage
+                    {
+                        MitigatedDamage   = baseDamage,
+                        RawDamage         = info.Damage.RawDamage,
+                        Shield            = info.Damage.ShieldAbsorbAmount,
+                        Absorption        = info.Damage.AbsorbedAmount,
+                        Overkill          = info.Damage.OverkillAmount,
+                        Glance            = info.Damage.GlanceAmount,
+                        BTargetVulnerable = targetVulnerable,
+                        BKilled           = info.Damage.KilledTarget,
+                        BPeriodic         = isPeriodic,
+                        DamageType        = info.Damage.DamageType,
+                        EffectType        = effectType,
+                        CastData          = castData
+                    });
+
+                    if (hasMultiHit)
                     {
                         info.AddCombatLog(new CombatLogMultiHit
                         {
-                            DamageAmount      = info.Damage.AdjustedDamage,
-                            RawDamage         = info.Damage.RawDamage,
-                            Shield            = info.Damage.ShieldAbsorbAmount,
-                            Absorption        = info.Damage.AbsorbedAmount,
-                            Overkill          = info.Damage.OverkillAmount,
-                            GlanceAmount      = info.Damage.GlanceAmount,
-                            BTargetVulnerable = false,
+                            DamageAmount      = info.Damage.MultiHitDamage,
+                            RawDamage         = info.Damage.MultiHitDamage,
+                            Shield            = 0u,
+                            Absorption        = 0u,
+                            Overkill          = 0u,
+                            GlanceAmount      = 0u,
+                            BTargetVulnerable = targetVulnerable,
                             BKilled           = info.Damage.KilledTarget,
-                            BPeriodic         = info.Entry.TickTime > 0u,
+                            BPeriodic         = isPeriodic,
                             DamageType        = info.Damage.DamageType,
                             EffectType        = effectType,
-                            CastData          = BuildCastData(spell, target, info)
-                        });
-                    }
-                    else
-                    {
-                        info.AddCombatLog(new CombatLogDamage
-                        {
-                            MitigatedDamage   = info.Damage.AdjustedDamage,
-                            RawDamage         = info.Damage.RawDamage,
-                            Shield            = info.Damage.ShieldAbsorbAmount,
-                            Absorption        = info.Damage.AbsorbedAmount,
-                            Overkill          = info.Damage.OverkillAmount,
-                            Glance            = info.Damage.GlanceAmount,
-                            BTargetVulnerable = false,
-                            BKilled           = info.Damage.KilledTarget,
-                            BPeriodic         = info.Entry.TickTime > 0u,
-                            DamageType        = info.Damage.DamageType,
-                            EffectType        = effectType,
-                            CastData          = BuildCastData(spell, target, info)
+                            CastData          = castData
                         });
                     }
                     break;

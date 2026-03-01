@@ -89,6 +89,17 @@ namespace NexusForever.Game.Entity
 
         public uint CrowdControlStateMask => crowdControlStateMask;
 
+        /// <inheritdoc />
+        public bool IsVulnerable
+        {
+            get
+            {
+                const uint vulnerabilityBit        = 1u << (int)Static.Combat.CrowdControl.CCState.Vulnerability;
+                const uint vulnerabilityWithActBit = 1u << (int)Static.Combat.CrowdControl.CCState.VulnerabilityWithAct;
+                return (crowdControlStateMask & (vulnerabilityBit | vulnerabilityWithActBit)) != 0u;
+            }
+        }
+
         public IThreatManager ThreatManager { get; private set; }
 
         /// <summary>
@@ -1010,11 +1021,16 @@ namespace NexusForever.Game.Entity
                 damageDescription.AdjustedDamage -= absorbedAmount;
             }
 
-            uint threatAmount = (uint)Math.Min((ulong)int.MaxValue, (ulong)damageDescription.ShieldAbsorbAmount + damageDescription.AdjustedDamage);
-            if (threatAmount != 0u)
+            uint baseThreat = (uint)Math.Min((ulong)int.MaxValue, (ulong)damageDescription.ShieldAbsorbAmount + damageDescription.AdjustedDamage);
+            if (baseThreat != 0u)
             {
-                // TODO: Calculate Threat properly
-                ThreatManager.UpdateThreat(attacker, (int)threatAmount);
+                // Apply attacker's ThreatMultiplier property (tanks spec into high values, DPS/healers may have < 1.0).
+                float threatMultiplier = attacker.GetPropertyValue(Property.ThreatMultiplier);
+                if (threatMultiplier <= 0f)
+                    threatMultiplier = 1.0f;
+
+                int threatAmount = (int)Math.Min(int.MaxValue, (long)(baseThreat * threatMultiplier));
+                ThreatManager.UpdateThreat(attacker, threatAmount);
             }
 
             Shield = Shield > damageDescription.ShieldAbsorbAmount ? Shield - damageDescription.ShieldAbsorbAmount : 0u;

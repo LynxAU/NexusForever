@@ -1102,6 +1102,18 @@ namespace NexusForever.Game.Entity
 
             Health = (uint)Math.Clamp(newHealth, 0u, MaxHealth);
 
+            // Healing threat: healer inherits 50% of the healed amount as threat from every enemy
+            // currently targeting the heal recipient.  Only fires for external heals (source != null, source != self).
+            if (type == DamageType.Heal && source != null && !ReferenceEquals(source, this) && amount > 0u)
+            {
+                int healThreat = Math.Max(1, (int)(amount >> 1));
+                foreach (IHostileEntity hostile in ThreatManager)
+                {
+                    IUnitEntity enemy = GetVisible<IUnitEntity>(hostile.HatedUnitId);
+                    enemy?.ThreatManager.UpdateThreat(source, healThreat);
+                }
+            }
+
             if (Health == 0 && type != DamageType.Heal && HasTimedAuraEffect(SpellEffectType.DelayDeath))
             {
                 // DelayDeath baseline: do not allow fatal health transition while the aura is active.

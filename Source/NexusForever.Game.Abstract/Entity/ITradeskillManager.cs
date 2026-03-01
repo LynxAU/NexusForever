@@ -53,9 +53,13 @@ namespace NexusForever.Game.Abstract.Entity
         uint GetCraftRewardXp(uint schematicId);
 
         /// <summary>
-        /// Craft an item with optional crit, returning the crafted item id and XP earned.
-        /// Used by the complex craft handler to select between normal and crit output.
+        /// Craft an item with optional crit or failure, returning the crafted item id and XP earned.
+        /// <para>
+        /// When <paramref name="isFail"/> is true the schematic's <c>Item2IdOutputFail</c> is produced instead
+        /// of the normal output. This maps to a failed complex-craft minigame (no circuits completed).
+        /// XP is not awarded on failure.
+        /// </para>
         /// </summary>
-        CraftingResult CraftItemWithResult(uint schematicId, bool isCrit, out uint craftedItemId, out uint earnedXp);
+        CraftingResult CraftItemWithResult(uint schematicId, bool isCrit, bool isFail, out uint craftedItemId, out uint earnedXp);
     }
 }

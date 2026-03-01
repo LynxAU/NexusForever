@@ -855,18 +855,42 @@ namespace NexusForever.Game.Entity
         /// </summary>
         protected virtual void LoadFamilyBehavior()
         {
-            if (CreatureEntry == null || CreatureEntry.Creature2FamilyId == 0u)
+            if (CreatureEntry == null)
                 return;
 
-            // Derive a broad behavioral class from the family ID.
-            // Values without verified game-table data use conservative defaults.
-            // Subclasses should override this method with family-specific logic.
-            switch (CreatureEntry.Creature2FamilyId)
+            // Derive behavioral class from the creature's spell set and difficulty tier.
+            // This avoids a dependency on unverified Creature2Family table IDs while still
+            // producing sensible defaults for common creature archetypes.
+            // Subclasses and scripts can override this method for finer tuning.
+
+            // Healer/Support: creature has at least one heal spell.
+            // Healers don't flee on low HP — they heal themselves — and stay back from melee range.
+            bool isHealer = spellActions?.Any(a => IsFriendlySpell(a.ActionData00)) ?? false;
+            if (isHealer)
             {
-                // Unknown / no special tuning for unrecognised families.
-                default:
-                    break;
+                fleeHealthThreshold = 0f;
+                AggroRadius         = Math.Min(AggroRadius, 8f);
+                return;
             }
+
+            // Ranged-only: all spells are ranged — creature needs extended threat awareness.
+            if (IsRangedCreature())
+            {
+                AggroRadius         = Math.Max(AggroRadius, 14f);
+                fleeHealthThreshold = 0.2f;
+                return;
+            }
+
+            // Pure melee (no spells): aggressive brute — fights until very low HP.
+            if (spellActions == null || spellActions.Count == 0)
+            {
+                fleeHealthThreshold = 0.1f;
+                return;
+            }
+
+            // Difficulty-tier bonus: elite/champion+ creatures patrol a wider radius.
+            if (CreatureEntry.Creature2DifficultyId >= 2u)
+                AggroRadius = Math.Max(AggroRadius, 13f);
         }
 
         /// <summary>

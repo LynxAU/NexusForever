@@ -300,10 +300,11 @@ namespace NexusForever.Game.Tradeskill
         }
 
         /// <summary>
-        /// Craft an item with optional crit selection, returning the crafted item id and XP earned.
-        /// When <paramref name="isCrit"/> is true and the schematic has a crit output item, that item is produced instead.
+        /// Craft an item with optional crit or failure, returning the crafted item id and XP earned.
+        /// When <paramref name="isFail"/> is true the schematic's <c>Item2IdOutputFail</c> is produced
+        /// instead of the normal output (minigame failure). XP is not awarded on failure.
         /// </summary>
-        public CraftingResult CraftItemWithResult(uint schematicId, bool isCrit, out uint craftedItemId, out uint earnedXp)
+        public CraftingResult CraftItemWithResult(uint schematicId, bool isCrit, bool isFail, out uint craftedItemId, out uint earnedXp)
         {
             craftedItemId = 0u;
             earnedXp      = 0u;
@@ -322,6 +323,23 @@ namespace NexusForever.Game.Tradeskill
                 return CraftingResult.InsufficientMaterials;
 
             ConsumeMaterials(schematic, 1);
+
+            // Failure path: give the fail item if the schematic defines one; otherwise produce nothing.
+            if (isFail)
+            {
+                if (schematic.Item2IdOutputFail != 0)
+                {
+                    var failItemInfo = ItemManager.Instance.GetItemInfo(schematic.Item2IdOutputFail);
+                    if (failItemInfo != null)
+                    {
+                        var failItem = new NexusForever.Game.Entity.Item(player.CharacterId, failItemInfo, 1u);
+                        try { player.Inventory.AddItem(failItem, InventoryLocation.Inventory, ItemUpdateReason.Crafting); }
+                        catch (Exception) { /* inventory full — fail item lost, craft still counted as failed */ }
+                        craftedItemId = schematic.Item2IdOutputFail;
+                    }
+                }
+                return CraftingResult.CraftFailed;
+            }
 
             // Select crit vs normal output.
             uint outputItemId = (isCrit && schematic.Item2IdOutputCrit != 0)

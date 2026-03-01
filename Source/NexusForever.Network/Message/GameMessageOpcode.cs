@@ -802,6 +802,7 @@ namespace NexusForever.Network.Message
         ServerWarPartyBossTokens        = 0x0951,
         ServerWarPartyMatchResults      = 0x0954,
         ClientWarPartyBossTokensRequest = 0x0956,
+        ClientWarPlotPlugSet              = 0x0957,
         ServerWarPlotPlugState          = 0x0958,
         ClientWhoRequest                = 0x0959,
         ServerWhoResponse               = 0x095A,

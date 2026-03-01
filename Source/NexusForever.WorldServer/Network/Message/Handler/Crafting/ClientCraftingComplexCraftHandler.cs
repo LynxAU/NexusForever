@@ -49,15 +49,16 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Crafting
                 return;
             }
 
-            // Determine crit: requires the schematic to have a crit output, at least one circuit
-            // completed by the player, and a random roll within the crit chance window.
+            // Determine outcome: no circuits = failure; circuits met + roll = crit; otherwise normal.
             bool hasCritOutput = schematic.Item2IdOutputCrit != 0;
             bool circuitsMet   = craftRequest.CraftStats.CircuitComplete > 0;
-            bool isCrit        = hasCritOutput && circuitsMet && rng.Next(100) < CritChancePercent;
+            bool isFail        = !circuitsMet;
+            bool isCrit        = !isFail && hasCritOutput && rng.Next(100) < CritChancePercent;
 
             var result = player.TradeskillManager.CraftItemWithResult(
                 craftRequest.TradeskillSchematic2Id,
                 isCrit,
+                isFail,
                 out uint craftedItemId,
                 out uint earnedXp);
 
@@ -72,9 +73,14 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Crafting
                 EarnedXp                      = result == CraftingResult.Success ? earnedXp : 0u
             });
 
-            if (result != CraftingResult.Success)
+            if (result == CraftingResult.CraftFailed)
             {
-                log.LogWarning("Player {CharacterId} failed complex craft of schematic {SchematicId}: {Result}",
+                log.LogDebug("Player {CharacterId} failed complex craft of schematic {SchematicId} (no circuits); fail item: {FailItem}",
+                    player.CharacterId, craftRequest.TradeskillSchematic2Id, craftedItemId);
+            }
+            else if (result != CraftingResult.Success)
+            {
+                log.LogWarning("Player {CharacterId} complex craft error for schematic {SchematicId}: {Result}",
                     player.CharacterId, craftRequest.TradeskillSchematic2Id, result);
             }
             else

@@ -1,6 +1,8 @@
 ﻿using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Matching.Queue;
+using NexusForever.Game.Static.Guild;
 using NexusForever.Game.Static.Matching;
 using NexusForever.Network.Message;
 
@@ -45,6 +47,46 @@ namespace NexusForever.Game.Matching.Queue
         {
             IPlayer player = playerManager.GetPlayer(Identity);
             player?.Session.EnqueueMessageEncrypted(message);
+        }
+
+        /// <summary>
+        /// Return the player's current PvP rating for the given match context.
+        /// Returns 1500 (default ELO baseline) when the player has no relevant team.
+        /// </summary>
+        public int GetPvpRating(NexusForever.Game.Static.Matching.MatchType matchType, int teamSize)
+        {
+            IPlayer player = playerManager.GetPlayer(Identity);
+            if (player == null)
+                return 1500;
+
+            if (matchType == NexusForever.Game.Static.Matching.MatchType.Warplot)
+            {
+                var warParty = player.GuildManager.GetGuild<IWarParty>(GuildType.WarParty);
+                return warParty?.Rating ?? 1500;
+            }
+
+            if (matchType == NexusForever.Game.Static.Matching.MatchType.Arena)
+            {
+                GuildType arenaType = teamSize switch
+                {
+                    2 => GuildType.ArenaTeam2v2,
+                    3 => GuildType.ArenaTeam3v3,
+                    _ => GuildType.ArenaTeam5v5
+                };
+                var arenaTeam = player.GuildManager.GetGuild<IArenaTeam>(arenaType);
+                return arenaTeam?.Rating ?? 1500;
+            }
+
+            return 1500;
+        }
+
+        /// <summary>
+        /// Return true if this member has the specified identity on their ignore/block list.
+        /// </summary>
+        public bool HasIgnored(Identity other)
+        {
+            IPlayer player = playerManager.GetPlayer(Identity);
+            return player?.FriendManager.IsBlocked(other.Id) ?? false;
         }
     }
 }

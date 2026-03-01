@@ -183,7 +183,11 @@ namespace NexusForever.Game.Achievement
             if (entry.PrerequisiteId != 0u && !PrerequisiteManager.Instance.Meets(player, entry.PrerequisiteId))
                 return false;
 
-            // TODO: research PrerequisiteIdObjective and PrerequisiteIdObjectiveAlt
+            if (entry.PrerequisiteIdObjective != 0u && !PrerequisiteManager.Instance.Meets(player, entry.PrerequisiteIdObjective))
+                return false;
+
+            if (entry.PrerequisiteIdObjectiveAlt != 0u && !PrerequisiteManager.Instance.Meets(player, entry.PrerequisiteIdObjectiveAlt))
+                return false;
 
             if (entry.ObjectId != 0u && entry.ObjectId != objectId)
                 return false;

@@ -1,5 +1,7 @@
 ﻿using NexusForever.Game.Abstract.Cinematic;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Spell;
+using NexusForever.Game.Spell;
 using NexusForever.Game.Static.Cinematic;
 using NLog;
 
@@ -54,11 +56,14 @@ namespace NexusForever.Game.Entity
             {
                 case CinematicState.Initalising:
                     // Cast Spell: Generic - Cinematic Player State - Tier 1 (Spell4 ID: 49887)
-                    // Make the Player invisible/immune from aggro
+                    // Makes the player invisible and immune to aggro during the cinematic.
+                    owner.CastSpell(49887u, new SpellParameters());
                     break;
                 case CinematicState.Finishing:
-                    // End Cinematic Player State spell
-                    // Make the Player visible/remove immunity
+                    // Remove the Cinematic Player State buff to restore visibility and aggro.
+                    ISpell stateSpell = owner.GetActiveSpell(s => !s.IsFinished && s.Parameters.SpellInfo?.Entry.Id == 49887u);
+                    if (stateSpell != null)
+                        owner.CancelSpellCast(stateSpell.CastingId);
                     break;
                 case CinematicState.Ended:
                     // Player is back in the world. Continue any scripts that may've been paused.

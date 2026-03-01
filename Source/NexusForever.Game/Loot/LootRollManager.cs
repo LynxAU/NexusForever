@@ -284,6 +284,92 @@ namespace NexusForever.Game.Loot
         }
 
         /// <summary>
+        /// Auto-roll Need on all pending loot items the player has not yet rolled on.
+        /// Used when the player clicks the "Loot All" (vacuum) button.
+        /// </summary>
+        public void HandleVacuum(IPlayer player)
+        {
+            lock (sessionLock)
+            {
+                foreach (LootRollSession session in sessions.Values.ToList())
+                {
+                    if (session.IsResolved || !session.ParticipantIds.Contains(player.CharacterId))
+                        continue;
+
+                    foreach (PendingLootItem item in session.Items.Where(i => !i.IsResolved))
+                    {
+                        if (!item.Rolls.ContainsKey(player.CharacterId) || item.Rolls[player.CharacterId] != null)
+                            continue;
+
+                        LootRollAction action = LootRollAction.Need;
+
+                        // Downgrade Need to Greed for BoP items the player's class cannot use.
+                        const uint BindOnPickup = 0x01u;
+                        var itemEntry = GameTableManager.Instance.Item.GetEntry(item.ItemId);
+                        if (itemEntry != null
+                            && (itemEntry.BindFlags & BindOnPickup) != 0
+                            && itemEntry.ClassRequired != 0
+                            && itemEntry.ClassRequired != (uint)player.Class)
+                        {
+                            action = LootRollAction.Greed;
+                        }
+
+                        item.Rolls[player.CharacterId] = action;
+
+                        BroadcastToParticipants(session.ParticipantIds, new ServerLootRoll
+                        {
+                            LootUnitId = item.LootUnitId,
+                            Roller     = MakeNetworkIdentity(player),
+                            ItemId     = item.ItemId,
+                            Action     = action
+                        });
+
+                        if (item.Rolls.Values.All(r => r != null))
+                            ResolveItem(session, item);
+                    }
+
+                    if (session.Items.All(i => i.IsResolved))
+                    {
+                        session.IsResolved = true;
+                        sessions.Remove(session.OwnerUnitId);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Directly assign a pending loot item to a specific player (master-loot mode).
+        /// The caller must be a participant in the session.
+        /// </summary>
+        public void HandleAssignMaster(IPlayer player, uint ownerUnitId, uint lootUnitId, ulong assigneeCharacterId)
+        {
+            lock (sessionLock)
+            {
+                if (!sessions.TryGetValue(ownerUnitId, out LootRollSession session) || session.IsResolved)
+                    return;
+
+                if (!session.ParticipantIds.Contains(player.CharacterId))
+                    return;
+
+                PendingLootItem item = session.Items.FirstOrDefault(i => i.LootUnitId == lootUnitId && !i.IsResolved);
+                if (item == null)
+                    return;
+
+                // Force the assignee to Need, everyone else to Pass, so ResolveItem picks the assignee.
+                foreach (ulong charId in item.Rolls.Keys.ToList())
+                    item.Rolls[charId] = charId == assigneeCharacterId ? LootRollAction.Need : LootRollAction.Pass;
+
+                ResolveItem(session, item);
+
+                if (session.Items.All(i => i.IsResolved))
+                {
+                    session.IsResolved = true;
+                    sessions.Remove(session.OwnerUnitId);
+                }
+            }
+        }
+
+        /// <summary>
         /// Mail loot item to an offline winner.
         /// </summary>
         private void MailItemToOfflineWinner(ulong winnerId, uint itemId, uint count)

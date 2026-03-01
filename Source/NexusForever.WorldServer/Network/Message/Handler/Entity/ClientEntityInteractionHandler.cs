@@ -120,7 +120,9 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                 case 68: // "MailboxActivate"
                     var mailboxEntity = session.Player.Map.GetEntity<IMailboxEntity>(entityInteraction.Guid);
                     break;
-                case 8: // "HousingGuildNeighborhoodBrokerOpen"
+                // Client-side UI interactions — the client opens the window autonomously;
+                // the server has no additional response to send for these events.
+                case 8:  // "HousingGuildNeighborhoodBrokerOpen"
                 case 40:
                 case 41: // "ResourceConversionOpen"
                 case 42: // "ToggleAbilitiesWindow"
@@ -142,11 +144,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Entity
                 case 79: // "TradeskillEngravingStationOpen"
                 case 80: // "HousingMannequinOpen"
                 case 81: // "CityDirectionsList"
-                case 82: // "ToggleCREDDExchangeWindow"
+                case 82: // "ToggleCREDDExchangeWindow" — CREDD exchange UI is client-side; transaction requires billing-server integration
                 case 84: // "CommunityRegistrarOpen"
                 case 85: // "ContractBoardOpen"
                 case 86: // "BarberOpen"
                 case 87: // "MasterCraftsmanOpen"
+                    break;
                 default:
                     log.LogWarning($"Received unhandled interaction event {entityInteraction.Event} from Entity {entityInteraction.Guid}");
                     break;

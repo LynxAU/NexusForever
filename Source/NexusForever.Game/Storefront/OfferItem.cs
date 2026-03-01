@@ -61,6 +61,11 @@ namespace NexusForever.Game.Storefront
             return prices.TryGetValue(currencyId, out IOfferItemPrice itemPrice) ? itemPrice : null;
         }
 
+        /// <summary>
+        /// Return all <see cref="IOfferItemData"/> entries describing what is delivered on purchase.
+        /// </summary>
+        public IEnumerable<IOfferItemData> GetItemData() => items;
+
         public ServerStoreOffers.OfferGroup.Offer Build()
         {
             float pricePremium = 0f;

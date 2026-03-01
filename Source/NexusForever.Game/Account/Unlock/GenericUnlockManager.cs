@@ -86,6 +86,60 @@ namespace NexusForever.Game.Account.Unlock
         }
 
         /// <summary>
+        /// Unlock all <see cref="IGenericUnlock"/> entries contained in the supplied set id.
+        /// Sends a single combined result: Granted, PartialUnlock, or AlreadyUnlocked.
+        /// </summary>
+        public void UnlockSet(uint genericUnlockSetId)
+        {
+            GenericUnlockSetEntry setEntry = GameTableManager.Instance.GenericUnlockSet.GetEntry(genericUnlockSetId);
+            if (setEntry == null)
+            {
+                SendUnlockResult(GenericUnlockResult.Invalid);
+                return;
+            }
+
+            uint[] entryIds =
+            {
+                setEntry.GenericUnlockEntryId00,
+                setEntry.GenericUnlockEntryId01,
+                setEntry.GenericUnlockEntryId02,
+                setEntry.GenericUnlockEntryId03,
+                setEntry.GenericUnlockEntryId04,
+                setEntry.GenericUnlockEntryId05,
+            };
+
+            int granted      = 0;
+            int alreadyOwned = 0;
+
+            foreach (uint entryId in entryIds)
+            {
+                if (entryId == 0)
+                    continue;
+
+                GenericUnlockEntryEntry entryEntry = GameTableManager.Instance.GenericUnlockEntry.GetEntry(entryId);
+                if (entryEntry == null)
+                    continue;
+
+                if (unlocks.ContainsKey(entryId))
+                {
+                    alreadyOwned++;
+                    continue;
+                }
+
+                unlocks.Add(entryId, new GenericUnlock(account, entryEntry));
+                SendUnlock((ushort)entryId);
+                granted++;
+            }
+
+            if (granted == 0)
+                SendUnlockResult(GenericUnlockResult.AlreadyUnlocked);
+            else if (alreadyOwned > 0)
+                SendUnlockResult(GenericUnlockResult.PartialUnlock);
+            else
+                SendUnlockResult(GenericUnlockResult.Granted);
+        }
+
+        /// <summary>
         /// Send <see cref="IGenericUnlock"/> with supplied id to client.
         /// </summary>
         public void SendUnlock(ushort genericUnlockEntryId)

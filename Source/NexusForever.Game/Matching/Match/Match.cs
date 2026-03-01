@@ -37,8 +37,8 @@ namespace NexusForever.Game.Matching.Match
         private readonly IMatchManager matchManager;
         private readonly IMatchingDataManager matchingDataManager;
         private readonly IFactory<IMatchTeam> matchTeamFactory;
-        private readonly IGameTableManager gameTableManager;
-        private readonly IPlayerManager playerManager;
+        protected readonly IGameTableManager gameTableManager;
+        protected readonly IPlayerManager playerManager;
         private readonly IInternalMessagePublisher messagePublisher;
 
         public Match(

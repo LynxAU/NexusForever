@@ -47,6 +47,7 @@ namespace NexusForever.Game.Quest
         }
 
         private uint? timer;
+        private bool timerExpired;
 
         private QuestObjectiveSaveMask saveMask;
 
@@ -64,6 +65,7 @@ namespace NexusForever.Game.Quest
             Index         = model.Index;
             progress      = model.Progress;
             timer         = model.Timer;
+            timerExpired  = false;
         }
 
         /// <summary>
@@ -81,6 +83,7 @@ namespace NexusForever.Game.Quest
             {
                 Timer = objectiveInfo.Entry.MaxTimeAllowedMS;
             }
+            timerExpired = false;
 
             saveMask = QuestObjectiveSaveMask.Create;
         }
@@ -132,6 +135,8 @@ namespace NexusForever.Game.Quest
             // Update quest objective timer
             if (timer.HasValue && timer > 0)
             {
+                uint previousTimer = timer.Value;
+
                 // Convert delta time from seconds to milliseconds
                 uint deltaMs = (uint)(lastTick * 1000);
                 if (timer > deltaMs)
@@ -140,7 +145,17 @@ namespace NexusForever.Game.Quest
                     timer = 0;
 
                 saveMask |= QuestObjectiveSaveMask.Timer;
+
+                if (previousTimer > 0u && timer == 0u)
+                    timerExpired = true;
             }
+        }
+
+        public bool ConsumeTimerExpired()
+        {
+            bool expired = timerExpired;
+            timerExpired = false;
+            return expired;
         }
 
         private bool IsDynamic()

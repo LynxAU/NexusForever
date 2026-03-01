@@ -186,6 +186,7 @@ namespace NexusForever.Game.Entity
         }
 
         public DateTime CreateTime { get; private set; }
+        private DateTime? lastOnline;
         public double TimePlayedTotal { get; private set; }
         public double TimePlayedLevel { get; private set; }
         public double TimePlayedSession { get; private set; }
@@ -234,6 +235,7 @@ namespace NexusForever.Game.Entity
         public IMailManager MailManager { get; private set; }
         public IZoneMapManager ZoneMapManager { get; private set; }
         public IQuestManager QuestManager { get; private set; }
+        public IChallengeManager ChallengeManager { get; private set; }
         public ICharacterAchievementManager AchievementManager { get; private set; }
         public ISupplySatchelManager SupplySatchelManager { get; private set; }
         public IXpManager XpManager { get; private set; }
@@ -263,6 +265,7 @@ namespace NexusForever.Game.Entity
         private PlayerSaveMask saveMask;
 
         private Dictionary<Property, Dictionary<ItemSlot, /*value*/float>> itemProperties = new();
+        private readonly Dictionary<Property, float> primalMatrixProperties = new();
         private readonly HashSet<TradeskillType> learnedTradeskills = [];
         private readonly HashSet<uint> learnedSchematicIds = [];
 
@@ -319,6 +322,7 @@ namespace NexusForever.Game.Entity
             flags             = (CharacterFlag)model.Flags;
 
             CreateTime        = model.CreateTime;
+            lastOnline        = model.LastOnline;
             TimePlayedTotal   = model.TimePlayedTotal;
             TimePlayedLevel   = model.TimePlayedLevel;
 
@@ -357,6 +361,7 @@ namespace NexusForever.Game.Entity
             FriendManager            = new FriendManager(this, model);
             ZoneMapManager          = new ZoneMapManager(this, model);
             QuestManager            = new QuestManager(this, model);
+            ChallengeManager        = new ChallengeManager(this);
             AchievementManager      = new CharacterAchievementManager(this, model);
             SupplySatchelManager    = new SupplySatchelManager(this, model);
             XpManager               = new XpManager(this, model);
@@ -365,6 +370,7 @@ namespace NexusForever.Game.Entity
             ResidenceManager        = new ResidenceManager(this);
             CinematicManager        = new CinematicManager(this);
             PrimalMatrixManager.Load(model);
+            TradeskillManager.Load(model.Tradeskill);
 
             LogoutManager           = new LogoutManager(this);
             LogoutManager.OnTimerFinished += Logout;
@@ -407,7 +413,12 @@ namespace NexusForever.Game.Entity
             TitleManager.Update(lastTick);
             SpellManager.Update(lastTick);
             CostumeManager.Update(lastTick);
+            MailManager.Update(lastTick);
+            FriendManager.Update(lastTick);
+            GuildManager.Update(lastTick);
             QuestManager.Update(lastTick);
+            ChallengeManager.Update(lastTick);
+            ResidenceManager.Update(lastTick);
 
             relocationTimer.Update(lastTick);
             if (relocationTimer.HasElapsed)
@@ -455,6 +466,7 @@ namespace NexusForever.Game.Entity
         {
             base.Dispose();
             QuestManager.Dispose();
+            ChallengeManager.Dispose();
         }
 
         /// <summary>
@@ -628,6 +640,7 @@ namespace NexusForever.Game.Entity
             XpManager.Save(context);
             ReputationManager.Save(context);
             GuildManager.Save(context);
+            TradeskillManager.Save(context);
             EntitlementManager.Save(context);
             AppearanceManager.Save(context);
             InstanceManager.Save(context);
@@ -817,6 +830,7 @@ namespace NexusForever.Game.Entity
             }
 
             playerCreate.SpecIndex = SpellManager.ActiveActionSet;
+            playerCreate.BonusPower = SpellManager.PrimalMatrixAmpPower;
             Session.EnqueueMessageEncrypted(playerCreate);
             Session.EnqueueMessageEncrypted(new ServerProfessionsLoad
             {
@@ -824,7 +838,8 @@ namespace NexusForever.Game.Entity
                     .Select(t => new TradeskillInfo
                     {
                         TradeskillId = t,
-                        IsActive     = 1u
+                        IsActive     = 1u,
+                        TradeskillXp = TradeskillManager.GetTradeskillXp((uint)t)
                     })
                     .ToList(),
                 LearnedSchematics = learnedSchematicIds.ToList()
@@ -840,6 +855,7 @@ namespace NexusForever.Game.Entity
             ZoneMapManager.SendInitialPackets();
             Account.CurrencyManager.SendInitialPackets();
             QuestManager.SendInitialPackets();
+            ChallengeManager.SendInitialPackets();
             AchievementManager.SendInitialPackets(null);
             Account.RewardPropertyManager.SendInitialPackets();
             ResurrectionManager.SendInitialPackets();
@@ -875,12 +891,18 @@ namespace NexusForever.Game.Entity
 
         public bool TryLearnTradeskill(TradeskillType tradeskillId)
         {
-            return learnedTradeskills.Add(tradeskillId);
+            if (!learnedTradeskills.Add(tradeskillId))
+                return false;
+            TradeskillManager.InitializeTradeskill((uint)tradeskillId);
+            return true;
         }
 
         public bool TryDropTradeskill(TradeskillType tradeskillId)
         {
-            return learnedTradeskills.Remove(tradeskillId);
+            if (!learnedTradeskills.Remove(tradeskillId))
+                return false;
+            TradeskillManager.RemoveTradeskill((uint)tradeskillId);
+            return true;
         }
 
         public bool TryLearnSchematic(uint schematicId)
@@ -1036,6 +1058,7 @@ namespace NexusForever.Game.Entity
                 GlobalChatManager.Instance.SendMessage(Session, motd, "MOTD", ChatChannelType.Realm);
 
             GuildManager.OnLogin();
+            ResidenceManager.OnLogin(lastOnline);
 
             ShutdownManager.Instance.OnLogin(this);
 
@@ -1475,6 +1498,19 @@ namespace NexusForever.Game.Entity
         }
 
         /// <summary>
+        /// Set the absolute Primal Matrix contribution for a <see cref="Property"/>.
+        /// </summary>
+        public void SetPrimalMatrixProperty(Property property, float value)
+        {
+            if (Math.Abs(value) < 0.0001f)
+                primalMatrixProperties.Remove(property);
+            else
+                primalMatrixProperties[property] = value;
+
+            CalculateProperty(property);
+        }
+
+        /// <summary>
         /// Calculate the primary value for <see cref="Property"/>.
         /// </summary>
         protected override void CalculatePropertyValue(IPropertyValue propertyValue)
@@ -1484,6 +1520,9 @@ namespace NexusForever.Game.Entity
             if (itemProperties.TryGetValue(propertyValue.Property, out Dictionary<ItemSlot, float> properties))
                 foreach (float values in properties.Values)
                     propertyValue.Value += values;
+
+            if (primalMatrixProperties.TryGetValue(propertyValue.Property, out float matrixValue))
+                propertyValue.Value += matrixValue;
         }
 
         /// <summary>

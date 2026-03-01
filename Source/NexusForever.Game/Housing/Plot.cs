@@ -302,9 +302,18 @@ namespace NexusForever.Game.Housing
 
         public void SetPlug(ushort plugItemId)
         {
-            // TODO
             PlugItemEntry  = GameTableManager.Instance.HousingPlugItem.GetEntry(plugItemId);
-            BuildState = 4;
+            if (PlugItemEntry == null)
+            {
+                BuildState    = 0;
+                UpkeepCharges = 0;
+                UpkeepTime    = 0f;
+                return;
+            }
+
+            BuildState     = 4;
+            UpkeepCharges  = PlugItemEntry.UpkeepCharges;
+            UpkeepTime     = PlugItemEntry.UpkeepTime;
         }
 
         /// <summary>

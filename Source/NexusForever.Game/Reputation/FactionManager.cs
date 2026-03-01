@@ -19,6 +19,16 @@ namespace NexusForever.Game.Reputation
             DateTime start = DateTime.Now;
             log.Info("Initialising factions...");
 
+            // Validate Faction2Relationship for duplicate (FactionId0, FactionId1) pairs.
+            // FactionNode deduplicates these via GroupBy, but logging the concrete IDs helps
+            // identify whether the duplicates are a data error or intentional table redundancy.
+            var duplicates = GameTableManager.Instance.Faction2Relationship.Entries
+                .Where(e => e != null)
+                .GroupBy(e => (e.FactionId0, e.FactionId1))
+                .Where(g => g.Count() > 1);
+            foreach (var group in duplicates)
+                log.Warn($"Faction2Relationship has {group.Count()} duplicate entries for (FactionId0={group.Key.FactionId0}, FactionId1={group.Key.FactionId1}) — first entry (Id={group.First().Id}) will be used.");
+
             var builder = ImmutableDictionary.CreateBuilder<Faction, IFactionNode>();
             foreach (Faction2Entry entry in GameTableManager.Instance.Faction2.Entries)
                 builder.Add((Faction)entry.Id, new FactionNode(entry));

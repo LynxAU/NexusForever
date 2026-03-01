@@ -83,6 +83,16 @@ namespace NexusForever.Game.Abstract.Guild
         IGuildBase RegisterGuild(GuildType type, string name, string leaderRankName, string councilRankName, string memberRankName, IGuildStandard standard = null);
 
         /// <summary>
+        /// Returns all arena teams of every bracket size.
+        /// </summary>
+        IEnumerable<IArenaTeam> GetArenaTeams();
+
+        /// <summary>
+        /// Returns all war parties.
+        /// </summary>
+        IEnumerable<IWarParty> GetWarParties();
+
+        /// <summary>
         /// Invoke operation delegate to handle <see cref="GuildOperation"/>.
         /// </summary>
         void HandleGuildOperation(IPlayer player, ClientGuildOperation operation);

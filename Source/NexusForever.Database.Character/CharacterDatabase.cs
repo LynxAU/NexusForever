@@ -142,6 +142,7 @@ namespace NexusForever.Database.Character
                     .ThenInclude(c => c.QuestObjective)
                 .Include(c => c.Entitlement)
                 .Include(c => c.Achievement)
+                .Include(c => c.Tradeskill)
                 .Include(c => c.TradeskillMaterials)
                 .Include(c => c.Reputation)
                 .ToListAsync();
@@ -192,6 +193,8 @@ namespace NexusForever.Database.Character
                 .Include(g => g.GuildRank)
                 .Include(g => g.GuildMember)
                 .Include(g => g.GuildData)
+                .Include(g => g.ArenaTeamData)
+                .Include(g => g.WarPartyData)
                 .Include(g => g.Achievement)
                 .ToList();
         }
@@ -209,6 +212,24 @@ namespace NexusForever.Database.Character
             using var context = new CharacterContext(config);
 
             return context.CharacterCreate.ToList();
+        }
+
+        public bool IsCharacterIgnoring(ulong characterId, ulong ignoredCharacterId)
+        {
+            using var context = new CharacterContext(config);
+            return context.CharacterFriend.Any(f =>
+                f.CharacterId == characterId
+                && f.FriendCharacterId == ignoredCharacterId
+                && f.Type == 1); // FriendshipType.Ignore
+        }
+
+        public bool HasCompletedCharacterAchievement(ushort achievementId, ulong excludedCharacterId = 0ul)
+        {
+            using var context = new CharacterContext(config);
+            return context.CharacterAchievement.Any(a =>
+                a.AchievementId == achievementId
+                && a.DateCompleted != null
+                && (excludedCharacterId == 0ul || a.Id != excludedCharacterId));
         }
 
         public List<PropertyBaseModel> GetProperties(uint type)

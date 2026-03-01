@@ -532,6 +532,9 @@ namespace NexusForever.Game.Spell
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess2, Parameters.SpellInfo.Entry.Id, 1u);
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess3, Parameters.SpellInfo.Entry.Id, 1u);
                 player.QuestManager.ObjectiveUpdate(QuestObjectiveType.SpellSuccess4, Parameters.SpellInfo.Entry.Id, 1u);
+
+                // Advance Ability-type challenges that match this spell
+                player.ChallengeManager.OnSpellCast(Parameters.SpellInfo.Entry.Id);
             }
 
             SelectTargets();

@@ -2,6 +2,7 @@
 using NexusForever.Game.Abstract.Chat;
 using NexusForever.Game.Abstract.Chat.Format;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Entity;
 using NexusForever.Game.Static.RBAC;
 using NexusForever.Game.Static.Chat;
 using NexusForever.GameTable.Text.Filter;
@@ -166,6 +167,12 @@ namespace NexusForever.Game.Chat
                 Text     = message
             };
             session.EnqueueMessageEncrypted(builder.Build());
+        }
+
+        public void BroadcastMessage(string message, string name = "", ChatChannelType type = ChatChannelType.Realm)
+        {
+            foreach (IPlayer player in PlayerManager.Instance)
+                SendMessage(player.Session, message, name, type);
         }
     }
 }

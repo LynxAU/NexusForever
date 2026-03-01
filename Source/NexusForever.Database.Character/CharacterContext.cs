@@ -33,6 +33,7 @@ namespace NexusForever.Database.Character
         public DbSet<CharacterSpellModel> CharacterSpell { get; set; }
         public DbSet<CharacterStatModel> CharacterStat { get; set; }
         public DbSet<CharacterTitleModel> CharacterTitle { get; set; }
+        public DbSet<CharacterTradeskillModel> CharacterTradeskill { get; set; }
         public DbSet<CharacterTradeskillMaterialModel> CharacterTradeskillMaterial { get; set; }
         public DbSet<CharacterVirtualItemModel> CharacterVirtualItem { get; set; }
         public DbSet<CharacterPrimalMatrixModel> CharacterPrimalMatrix { get; set; }
@@ -45,6 +46,8 @@ namespace NexusForever.Database.Character
         public DbSet<GuildMemberModel> GuildMember { get; set; }
         public DbSet<GuildAchievementModel> GuildAchievement { get; set; }
         public DbSet<GuildDataModel> GuildData { get; set; }
+        public DbSet<ArenaTeamModel> ArenaTeam { get; set; }
+        public DbSet<WarPartyModel> WarParty { get; set; }
         public DbSet<ItemModel> Item { get; set; }
         public DbSet<PropertyBaseModel> PropertyBase { get; set; }
         public DbSet<ResidenceModel> Residence { get; set; }
@@ -1551,6 +1554,39 @@ namespace NexusForever.Database.Character
                     .HasConstraintName("FK__character_tradeskill_material_id__character_id");
             });
 
+            modelBuilder.Entity<CharacterTradeskillModel>(entity =>
+            {
+                entity.ToTable("character_tradeskill");
+
+                entity.HasKey(e => new { e.Id, e.TradeskillId })
+                    .HasName("PRIMARY");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.TradeskillId)
+                    .HasColumnName("tradeskillId")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CurrentXp)
+                    .HasColumnName("currentXp")
+                    .HasColumnType("int(10) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.CurrentTier)
+                    .HasColumnName("currentTier")
+                    .HasColumnType("tinyint(3) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Character)
+                    .WithMany(p => p.Tradeskill)
+                    .HasForeignKey(d => d.Id)
+                    .HasConstraintName("FK__character_tradeskill_id__character_id");
+            });
+
             modelBuilder.Entity<CharacterZonemapHexgroupModel>(entity =>
             {
                 entity.ToTable("character_zonemap_hexgroup");
@@ -1831,6 +1867,72 @@ namespace NexusForever.Database.Character
                     .WithOne(p => p.GuildData)
                     .HasForeignKey<GuildDataModel>(d => d.Id)
                     .HasConstraintName("FK__guild_guild_data_id__guild_id");
+            });
+
+            modelBuilder.Entity<ArenaTeamModel>(entity =>
+            {
+                entity.HasKey(e => e.Id)
+                    .HasName("PRIMARY");
+
+                entity.ToTable("guild_arena_team");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Rating)
+                    .HasColumnName("rating")
+                    .HasColumnType("int(11)")
+                    .HasDefaultValue(1500);
+
+                entity.Property(e => e.SeasonWins)
+                    .HasColumnName("seasonWins")
+                    .HasColumnType("int(11)")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.SeasonLosses)
+                    .HasColumnName("seasonLosses")
+                    .HasColumnType("int(11)")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Guild)
+                    .WithOne(p => p.ArenaTeamData)
+                    .HasForeignKey<ArenaTeamModel>(d => d.Id)
+                    .HasConstraintName("FK__guild_arena_team_id__guild_id");
+            });
+
+            modelBuilder.Entity<WarPartyModel>(entity =>
+            {
+                entity.HasKey(e => e.Id)
+                    .HasName("PRIMARY");
+
+                entity.ToTable("guild_war_party");
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id")
+                    .HasColumnType("bigint(20) unsigned")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.Rating)
+                    .HasColumnName("rating")
+                    .HasColumnType("int(11)")
+                    .HasDefaultValue(1500);
+
+                entity.Property(e => e.SeasonWins)
+                    .HasColumnName("seasonWins")
+                    .HasColumnType("int(11)")
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.SeasonLosses)
+                    .HasColumnName("seasonLosses")
+                    .HasColumnType("int(11)")
+                    .HasDefaultValue(0);
+
+                entity.HasOne(d => d.Guild)
+                    .WithOne(p => p.WarPartyData)
+                    .HasForeignKey<WarPartyModel>(d => d.Id)
+                    .HasConstraintName("FK__guild_war_party_id__guild_id");
             });
 
             modelBuilder.Entity<GuildRankModel>(entity =>

@@ -1,8 +1,13 @@
-﻿using NexusForever.Database.Character.Model;
+using NexusForever.Database;
+using NexusForever.Database.Character;
+using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Achievement;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Guild;
+using NexusForever.Game.Chat;
 using NexusForever.Game.Static.Achievement;
+using NexusForever.Game.Static.Chat;
+using NexusForever.GameTable;
 
 namespace NexusForever.Game.Achievement
 {
@@ -53,15 +58,24 @@ namespace NexusForever.Game.Achievement
             if (achievement.Info.Entry.CharacterTitleId != 0u)
                 owner.TitleManager.AddTitle((ushort)achievement.Info.Entry.CharacterTitleId);
 
-            // TODO
-            /*if (isRealmFirst)
-            {
-                MapManager.BroadcastMessage(new ServerRealmFirstAchievement
-                {
-                    AchievementId = achievement.Id,
-                    Player        = owner.Name
-                });
-            }*/
+            if (!IsRealmFirstAchievement(achievement))
+                return;
+
+            CharacterDatabase characterDb = DatabaseManager.Instance.GetDatabase<CharacterDatabase>();
+            if (characterDb == null || characterDb.HasCompletedCharacterAchievement(achievement.Id, owner.CharacterId))
+                return;
+
+            string achievementName = GameTableManager.Instance.TextEnglish.GetEntry(achievement.Info.Entry.LocalizedTextIdTitle);
+            if (string.IsNullOrWhiteSpace(achievementName))
+                achievementName = $"Achievement {achievement.Id}";
+
+            string message = $"{owner.Name} earned realm first: {achievementName}";
+            GlobalChatManager.Instance.BroadcastMessage(message, "Realm", ChatChannelType.Realm);
+        }
+
+        private static bool IsRealmFirstAchievement(IAchievement achievement)
+        {
+            return ((AchievementFlags)achievement.Info.Entry.Flags & AchievementFlags.RealmFirst) != 0;
         }
     }
 }

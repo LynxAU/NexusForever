@@ -5,7 +5,9 @@ using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Housing;
+using NexusForever.Game.Entity;
 using NexusForever.Game.Abstract.Map.Instance;
+using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Guild;
 using NexusForever.Game.Static.Housing;
 using NexusForever.GameTable;
@@ -282,6 +284,7 @@ namespace NexusForever.Game.Housing
 
         private readonly Dictionary<ulong, IDecor> decors = new();
         private readonly List<IPlot> plots = new();
+        private const ulong MinimumUpkeepCost = 100ul;
 
         /// <summary>
         /// Create a new <see cref="IResidence"/> from an existing database model.
@@ -671,6 +674,9 @@ namespace NexusForever.Game.Housing
         /// </remarks>
         public bool CanModifyResidence(IPlayer player)
         {
+            if ((Flags & ResidenceFlags.UpkeepLocked) != 0)
+                return false;
+
             switch (Type)
             {
                 case ResidenceType.Community:
@@ -868,10 +874,99 @@ namespace NexusForever.Game.Housing
         /// </summary>
         public void UpdateUpkeep(double deltaTime)
         {
+            bool paidAny = false;
+            bool unpaidAny = false;
+
             foreach (IPlot plot in plots)
             {
                 plot.UpdateUpkeep(deltaTime);
+
+                if (plot is not Plot runtimePlot || plot.PlugItemEntry == null || plot.PlugItemEntry.UpkeepTime <= 0f)
+                    continue;
+
+                if (runtimePlot.UpkeepCharges > 0u)
+                    continue;
+
+                ulong upkeepCost = CalculateUpkeepCost(plot);
+                if (!TryDeductUpkeepCurrency(upkeepCost))
+                {
+                    unpaidAny = true;
+                    continue;
+                }
+
+                runtimePlot.UpkeepCharges = Math.Max(1u, plot.PlugItemEntry.UpkeepCharges);
+                runtimePlot.UpkeepTime    = plot.PlugItemEntry.UpkeepTime;
+                paidAny = true;
             }
+
+            if (unpaidAny)
+            {
+                ApplyUpkeepLock();
+                return;
+            }
+
+            if (paidAny)
+                ClearUpkeepLock();
+        }
+
+        private ulong CalculateUpkeepCost(IPlot plot)
+        {
+            if (plot?.PlugItemEntry == null)
+                return 0ul;
+
+            uint[] upkeepContributionIds =
+            {
+                plot.PlugItemEntry.HousingContributionInfoIdUpkeepCost00,
+                plot.PlugItemEntry.HousingContributionInfoIdUpkeepCost01,
+                plot.PlugItemEntry.HousingContributionInfoIdUpkeepCost02,
+                plot.PlugItemEntry.HousingContributionInfoIdUpkeepCost03,
+                plot.PlugItemEntry.HousingContributionInfoIdUpkeepCost04
+            };
+
+            ulong total = 0ul;
+            foreach (uint contributionInfoId in upkeepContributionIds.Where(id => id != 0u))
+            {
+                HousingContributionInfoEntry contribution = GameTableManager.Instance.HousingContributionInfo.GetEntry(contributionInfoId);
+                if (contribution == null)
+                    continue;
+
+                total += contribution.ContributionPointRequirement;
+            }
+
+            return total > 0ul ? total : MinimumUpkeepCost;
+        }
+
+        private bool TryDeductUpkeepCurrency(ulong upkeepCost)
+        {
+            if (!OwnerId.HasValue || upkeepCost == 0ul)
+                return false;
+
+            IPlayer ownerPlayer = PlayerManager.Instance.GetPlayer(OwnerId.Value);
+            if (ownerPlayer == null)
+                return false;
+
+            if (!ownerPlayer.CurrencyManager.CanAfford(CurrencyType.Credits, upkeepCost))
+                return false;
+
+            ownerPlayer.CurrencyManager.CurrencySubtractAmount(CurrencyType.Credits, upkeepCost);
+            return true;
+        }
+
+        private void ApplyUpkeepLock()
+        {
+            if ((Flags & ResidenceFlags.UpkeepLocked) != 0)
+                return;
+
+            Flags |= ResidenceFlags.UpkeepLocked;
+            PrivacyLevel = ResidencePrivacyLevel.Private;
+        }
+
+        private void ClearUpkeepLock()
+        {
+            if ((Flags & ResidenceFlags.UpkeepLocked) == 0)
+                return;
+
+            Flags &= ~ResidenceFlags.UpkeepLocked;
         }
 
         private class Neighbor : INeighbor

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using NexusForever.Database;
@@ -258,6 +259,22 @@ namespace NexusForever.Game.Guild
             guildMemberCache.TryGetValue(characterId, out List<ulong> characterGuilds);
             foreach (ulong guildId in characterGuilds ?? Enumerable.Empty<ulong>())
                 yield return GetGuild(guildId);
+        }
+
+        /// <summary>
+        /// Returns all arena teams of every bracket size.
+        /// </summary>
+        public IEnumerable<IArenaTeam> GetArenaTeams()
+        {
+            return guilds.Values.OfType<IArenaTeam>();
+        }
+
+        /// <summary>
+        /// Returns all war parties.
+        /// </summary>
+        public IEnumerable<IWarParty> GetWarParties()
+        {
+            return guilds.Values.OfType<IWarParty>();
         }
 
         /// <summary>

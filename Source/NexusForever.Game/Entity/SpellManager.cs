@@ -45,12 +45,15 @@ namespace NexusForever.Game.Entity
         }
 
         private byte activeActionSet;
+        public byte PrimalMatrixAmpPower => primalMatrixAmpPower;
 
         private readonly IPlayer player;
 
         private readonly Dictionary<uint /*spell4BaseId*/, ICharacterSpell> spells = new();
         private readonly Dictionary<uint /*spell4Id*/, double /*cooldown*/> spellCooldowns = new();
         private double globalSpellCooldown;
+        private byte primalMatrixAbilityPoints;
+        private byte primalMatrixAmpPower;
 
         private readonly IActionSet[] actionSets = new ActionSet[ActionSet.MaxActionSets];
 
@@ -371,6 +374,7 @@ namespace NexusForever.Game.Entity
             SendServerAbilities();
             SendServerSpellList();
             SendServerAbilityPoints();
+            SendServerAmpPowerUpdate();
             SendServerActionSets();
             SendServerAmpLists();
 
@@ -433,11 +437,30 @@ namespace NexusForever.Game.Entity
 
         public void SendServerAbilityPoints()
         {
+            IActionSet activeSet = actionSets[ActiveActionSet];
             player.Session.EnqueueMessageEncrypted(new ServerAbilityPoints
             {
-                AbilityPoints      = actionSets[ActiveActionSet].TierPoints,
-                TotalAbilityPoints = ActionSet.MaxTierPoints
+                AbilityPoints      = activeSet.TierPoints,
+                TotalAbilityPoints = (uint)(ActionSet.MaxTierPoints + activeSet.BonusTierPoints)
             });
+        }
+
+        public void SetPrimalMatrixBonusPoints(byte abilityPoints, byte ampPower)
+        {
+            if (primalMatrixAbilityPoints == abilityPoints && primalMatrixAmpPower == ampPower)
+                return;
+
+            primalMatrixAbilityPoints = abilityPoints;
+            primalMatrixAmpPower = ampPower;
+
+            foreach (IActionSet actionSet in actionSets)
+                actionSet.SetPrimalMatrixBonusPoints(abilityPoints, ampPower);
+
+            if (player.IsLoading)
+                return;
+
+            SendServerAbilityPoints();
+            SendServerAmpPowerUpdate();
         }
 
         private void SendServerActionSets()
@@ -456,6 +479,14 @@ namespace NexusForever.Game.Entity
                 IActionSet actionSet = GetActionSet(i);
                 player.Session.EnqueueMessageEncrypted(actionSet.BuildServerAmpList());
             }
+        }
+
+        private void SendServerAmpPowerUpdate()
+        {
+            player.Session.EnqueueMessageEncrypted(new ServerAmpPowerUpdate
+            {
+                BonusPower = primalMatrixAmpPower
+            });
         }
     }
 }

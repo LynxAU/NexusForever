@@ -324,6 +324,7 @@ namespace NexusForever.Game.Entity
                 if (player != null && !player.IsLoading)
                 {
                     player.QuestManager.ObjectiveUpdate(QuestObjectiveType.CollectItem, info.Entry.Id, item.StackCount);
+                    player.ChallengeManager.OnItemCollected(info.Entry.Id);
                 }
 
                 if (player != null && !player.IsLoading)

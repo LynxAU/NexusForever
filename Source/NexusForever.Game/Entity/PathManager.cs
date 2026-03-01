@@ -4,6 +4,7 @@ using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Prerequisite;
 using NexusForever.Game.Static.Entity;
+using NexusForever.Game.Static.Quest;
 using NexusForever.GameTable;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model;
@@ -19,6 +20,8 @@ namespace NexusForever.Game.Entity
 
         private readonly IPlayer player;
         private readonly Dictionary<Path, IPathEntry> paths = new();
+        private readonly Dictionary<uint, uint> settlerMissionObjectiveFlags = new();
+        private readonly HashSet<uint> completedSettlerMissions = new();
 
         /// <summary>
         /// Create a new <see cref="IPathManager"/> from <see cref="IPlayer"/> database model.
@@ -178,6 +181,51 @@ namespace NexusForever.Game.Entity
                     entry.TotalXp += xp;
                 }
                 SendServerPathUpdateXp(entry.TotalXp);
+            }
+        }
+
+        public void HandleSettlerBuildEvent(uint pathSettlerImprovementGroupId, uint buildTier)
+        {
+            if (pathSettlerImprovementGroupId == 0u || player.Path != Path.Settler)
+                return;
+
+            PathSettlerImprovementGroupEntry improvementGroup = GameTableManager.Instance.PathSettlerImprovementGroup.GetEntry(pathSettlerImprovementGroupId);
+            if (improvementGroup?.Creature2IdDepot > 0u)
+            {
+                player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateEntity, improvementGroup.Creature2IdDepot, 1u);
+                foreach (uint targetGroupId in AssetManager.Instance.GetTargetGroupsForCreatureId(improvementGroup.Creature2IdDepot) ?? Enumerable.Empty<uint>())
+                    player.QuestManager.ObjectiveUpdate(QuestObjectiveType.ActivateTargetGroup, targetGroupId, 1u);
+            }
+
+            IEnumerable<PathMissionEntry> settlerMissions = GameTableManager.Instance.PathMission.Entries
+                .Where(e => e.PathTypeEnum == (uint)Path.Settler && e.ObjectId == pathSettlerImprovementGroupId);
+
+            foreach (PathMissionEntry mission in settlerMissions)
+            {
+                if (mission.Id > ushort.MaxValue)
+                    continue;
+
+                uint bit = buildTier >= 31u ? 0x80000000u : 1u << (int)buildTier;
+                uint objectiveFlags = settlerMissionObjectiveFlags.TryGetValue(mission.Id, out uint existingFlags)
+                    ? existingFlags | bit
+                    : bit;
+
+                settlerMissionObjectiveFlags[mission.Id] = objectiveFlags;
+                bool completed = completedSettlerMissions.Contains(mission.Id);
+
+                if (!completed)
+                    player.Session.EnqueueMessageEncrypted(new ServerPathMissionAdvanced { PathMissionId = (ushort)mission.Id });
+
+                if (!completed && objectiveFlags != 0u)
+                    completedSettlerMissions.Add(mission.Id);
+
+                player.Session.EnqueueMessageEncrypted(new ServerPathMissionUpdate
+                {
+                    PathMissionId             = (ushort)mission.Id,
+                    Completed                 = completedSettlerMissions.Contains(mission.Id),
+                    ObjectiveCompletionFlags  = objectiveFlags,
+                    StateFlags                = 0u
+                });
             }
         }
 

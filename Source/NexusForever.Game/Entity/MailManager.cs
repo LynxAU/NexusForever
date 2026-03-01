@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+using System.Numerics;
+using NexusForever.Database;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
 using NexusForever.Game.Abstract.Character;
@@ -159,7 +160,8 @@ namespace NexusForever.Game.Entity
                 if (targetCharacter.CharacterId == player.CharacterId)
                     return GenericError.MailCannotMailSelf;
 
-                // TODO: Check that the player is not blocked
+                if (IsRecipientBlockingSender(targetCharacter.CharacterId))
+                    return GenericError.MailSquelched;
 
                 if (mailSend.CashOnDeliveryAmount > 0ul && mailSend.CreditsSent > 0ul)
                     return GenericError.MailCanNotHaveCoDAndGift;
@@ -550,5 +552,16 @@ namespace NexusForever.Game.Entity
             var entity = player.GetVisible<IWorldEntity>(unitId);
             return entity is IMailboxEntity && Vector3.DistanceSquared(player.Position, entity.Position) < entry.Datafloat0 * entry.Datafloat0; // Checking squared distance avoids a slow sqrt operation.
         }
+        private bool IsRecipientBlockingSender(ulong recipientId)
+        {
+            IPlayer recipient = PlayerManager.Instance.GetPlayer(recipientId);
+            if (recipient != null)
+                return recipient.FriendManager.IsBlocked(player.CharacterId);
+
+            CharacterDatabase characterDb = DatabaseManager.Instance.GetDatabase<CharacterDatabase>();
+            return characterDb?.IsCharacterIgnoring(recipientId, player.CharacterId) ?? false;
+        }
     }
 }
+
+

@@ -12,6 +12,8 @@ namespace NexusForever.Game.Abstract.Spell
         byte Index { get; }
         byte TierPoints { get; }
         byte AmpPoints { get; }
+        byte BonusTierPoints { get; }
+        byte BonusAmpPoints { get; }
 
         /// <summary>
         /// Collection of <see cref="IActionSetShortcut"/> contained in the <see cref="IActionSet"/>.
@@ -82,5 +84,10 @@ namespace NexusForever.Game.Abstract.Spell
         /// Build a network representation of the <see cref="IActionSetAmp"/>'s in the <see cref="IActionSet"/>.
         /// </summary>
         ServerAmpList BuildServerAmpList();
+
+        /// <summary>
+        /// Set persistent Primal Matrix bonus points applied to this action set.
+        /// </summary>
+        void SetPrimalMatrixBonusPoints(byte abilityPoints, byte ampPower);
     }
 }

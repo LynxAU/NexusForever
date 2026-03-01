@@ -36,6 +36,8 @@ namespace NexusForever.Game.Spell
         public byte Index { get; }
         public byte TierPoints { get; private set; }
         public byte AmpPoints { get; private set; }
+        public byte BonusTierPoints { get; private set; }
+        public byte BonusAmpPoints { get; private set; }
 
         /// <summary>
         /// Collection of <see cref="IActionSetShortcut"/> contained in the <see cref="IActionSet"/>.
@@ -61,6 +63,8 @@ namespace NexusForever.Game.Spell
             Index      = index;
             TierPoints = MaxTierPoints;
             AmpPoints  = MaxAmpPoints - 10;
+            BonusTierPoints = 0;
+            BonusAmpPoints = 0;
         }
 
         public void Save(CharacterContext context)
@@ -379,6 +383,24 @@ namespace NexusForever.Game.Spell
                 serverAmpList.Amps.Add((ushort)amp.Entry.Id);
 
             return serverAmpList;
+        }
+
+        /// <summary>
+        /// Set persistent Primal Matrix bonus points for this action set.
+        /// </summary>
+        public void SetPrimalMatrixBonusPoints(byte abilityPoints, byte ampPower)
+        {
+            int abilityDelta = abilityPoints - BonusTierPoints;
+            int ampDelta = ampPower - BonusAmpPoints;
+
+            BonusTierPoints = abilityPoints;
+            BonusAmpPoints = ampPower;
+
+            int nextTierPoints = TierPoints + abilityDelta;
+            int nextAmpPoints = AmpPoints + ampDelta;
+
+            TierPoints = (byte)Math.Clamp(nextTierPoints, 0, byte.MaxValue);
+            AmpPoints = (byte)Math.Clamp(nextAmpPoints, 0, byte.MaxValue);
         }
     }
 }

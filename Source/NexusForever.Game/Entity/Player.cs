@@ -234,6 +234,7 @@ namespace NexusForever.Game.Entity
         public IMailManager MailManager { get; private set; }
         public IZoneMapManager ZoneMapManager { get; private set; }
         public IQuestManager QuestManager { get; private set; }
+        public IChallengeManager ChallengeManager { get; private set; }
         public ICharacterAchievementManager AchievementManager { get; private set; }
         public ISupplySatchelManager SupplySatchelManager { get; private set; }
         public IXpManager XpManager { get; private set; }
@@ -357,6 +358,7 @@ namespace NexusForever.Game.Entity
             FriendManager            = new FriendManager(this, model);
             ZoneMapManager          = new ZoneMapManager(this, model);
             QuestManager            = new QuestManager(this, model);
+            ChallengeManager        = new ChallengeManager(this);
             AchievementManager      = new CharacterAchievementManager(this, model);
             SupplySatchelManager    = new SupplySatchelManager(this, model);
             XpManager               = new XpManager(this, model);
@@ -408,6 +410,7 @@ namespace NexusForever.Game.Entity
             SpellManager.Update(lastTick);
             CostumeManager.Update(lastTick);
             QuestManager.Update(lastTick);
+            ChallengeManager.Update(lastTick);
 
             relocationTimer.Update(lastTick);
             if (relocationTimer.HasElapsed)
@@ -455,6 +458,7 @@ namespace NexusForever.Game.Entity
         {
             base.Dispose();
             QuestManager.Dispose();
+            ChallengeManager.Dispose();
         }
 
         /// <summary>
@@ -840,6 +844,7 @@ namespace NexusForever.Game.Entity
             ZoneMapManager.SendInitialPackets();
             Account.CurrencyManager.SendInitialPackets();
             QuestManager.SendInitialPackets();
+            ChallengeManager.SendInitialPackets();
             AchievementManager.SendInitialPackets(null);
             Account.RewardPropertyManager.SendInitialPackets();
             ResurrectionManager.SendInitialPackets();

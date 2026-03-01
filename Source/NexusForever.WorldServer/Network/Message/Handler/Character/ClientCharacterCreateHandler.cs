@@ -175,8 +175,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Character
                 }
 
                 ILocation startingLocation = characterManager.GetStartingLocation(creationEntry.RaceId, creationEntry.FactionId, creationEntry.CharacterCreationStartEnum);
+                // If no dedicated starting location exists for this creation type (e.g. Level50 token with no seeded
+                // entry), fall back to the Normal starting location for the same race/faction combination.
+                if (startingLocation == null && creationEntry.CharacterCreationStartEnum != CharacterCreationStart.Arkship)
+                    startingLocation = characterManager.GetStartingLocation(creationEntry.RaceId, creationEntry.FactionId, CharacterCreationStart.Arkship);
                 if (startingLocation == null)
-                    throw new ArgumentNullException(nameof(startingLocation));
+                    throw new ArgumentNullException(nameof(startingLocation), $"No starting location for Race={creationEntry.RaceId} Faction={creationEntry.FactionId} Start={creationEntry.CharacterCreationStartEnum}");
 
                 character.LocationX = startingLocation.Position.X;
                 character.LocationY = startingLocation.Position.Y;

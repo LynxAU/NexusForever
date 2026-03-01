@@ -1,10 +1,12 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Abstract.Entity;
+using NexusForever.Game.Abstract.Guild;
 using NexusForever.Game.Abstract.Map.Instance;
 using NexusForever.Game.Abstract.Matching;
 using NexusForever.Game.Abstract.Matching.Match;
 using NexusForever.Game.Abstract.Matching.Queue;
+using NexusForever.Game.Static.Guild;
 using NexusForever.Game.Static.Matching;
 using NexusForever.GameTable;
 using NexusForever.Network.Internal;
@@ -192,6 +194,9 @@ namespace NexusForever.Game.Matching.Match
 
             MatchFinish();
 
+            if (MatchingMap.GameTypeEntry.MatchTypeEnum == Static.Matching.MatchType.Arena)
+                UpdateArenaRatings(matchWinner);
+
             SetState(PvpGameState.Finished);
 
             Broadcast(new ServerMatchingMatchPvpFinished
@@ -202,6 +207,94 @@ namespace NexusForever.Game.Matching.Match
 
             if (map is IContentPvpMapInstance pvpMapInstance)
                 pvpMapInstance.OnPvpMatchFinish(matchWinner, matchEndReason);
+        }
+
+        /// <summary>
+        /// Collect arena teams from each match team and apply ELO rating changes.
+        /// </summary>
+        private void UpdateArenaRatings(MatchWinner matchWinner)
+        {
+            IList<IMatchTeam> teams = GetTeams().ToList();
+            if (teams.Count != 2)
+                return;
+
+            // Map MatchTeam colour → arena teams (deduplicated by guild ID)
+            var teamArenaMap = new Dictionary<Static.Matching.MatchTeam, List<IArenaTeam>>();
+            int teamSize = 0;
+
+            foreach (IMatchTeam matchTeam in teams)
+            {
+                var arenaTeams = new List<IArenaTeam>();
+                var seen = new HashSet<ulong>();
+
+                foreach (IMatchTeamMember member in matchTeam.GetMembers())
+                {
+                    teamSize = Math.Max(teamSize, matchTeam.GetMembers().Count());
+                    IPlayer player = playerManager.GetPlayer(member.Identity);
+                    if (player == null)
+                        continue;
+
+                    IArenaTeam arenaTeam = ResolveArenaTeam(player, teamSize);
+                    if (arenaTeam == null || !seen.Add(arenaTeam.Id))
+                        continue;
+
+                    arenaTeams.Add(arenaTeam);
+                }
+
+                teamArenaMap[matchTeam.Team] = arenaTeams;
+            }
+
+            // Use the first found team's rating on each side for ELO calculation
+            int ratingRed  = GetAverageRating(teamArenaMap.GetValueOrDefault(Static.Matching.MatchTeam.Red));
+            int ratingBlue = GetAverageRating(teamArenaMap.GetValueOrDefault(Static.Matching.MatchTeam.Blue));
+
+            int deltaRed  = CalculateEloDelta(ratingRed,  ratingBlue, GetScore(matchWinner, Static.Matching.MatchTeam.Red));
+            int deltaBlue = CalculateEloDelta(ratingBlue, ratingRed,  GetScore(matchWinner, Static.Matching.MatchTeam.Blue));
+
+            ApplyRatingDeltas(teamArenaMap.GetValueOrDefault(Static.Matching.MatchTeam.Red),  deltaRed,  matchWinner == MatchWinner.Red);
+            ApplyRatingDeltas(teamArenaMap.GetValueOrDefault(Static.Matching.MatchTeam.Blue), deltaBlue, matchWinner == MatchWinner.Blue);
+        }
+
+        private IArenaTeam ResolveArenaTeam(IPlayer player, int teamSize)
+        {
+            GuildType arenaType = teamSize switch
+            {
+                2 => GuildType.ArenaTeam2v2,
+                3 => GuildType.ArenaTeam3v3,
+                _ => GuildType.ArenaTeam5v5
+            };
+            return player.GuildManager.GetGuild<IArenaTeam>(arenaType);
+        }
+
+        private static int GetAverageRating(IList<IArenaTeam> teams)
+        {
+            if (teams == null || teams.Count == 0)
+                return 1500;
+            return (int)teams.Average(t => t.Rating);
+        }
+
+        private static float GetScore(MatchWinner winner, Static.Matching.MatchTeam team)
+        {
+            if (winner == MatchWinner.Draw)
+                return 0.5f;
+            return (winner == MatchWinner.Red && team == Static.Matching.MatchTeam.Red)
+                || (winner == MatchWinner.Blue && team == Static.Matching.MatchTeam.Blue)
+                ? 1.0f : 0.0f;
+        }
+
+        private static int CalculateEloDelta(int myRating, int opponentRating, float actualScore)
+        {
+            const int kFactor = 32;
+            double expected = 1.0 / (1.0 + Math.Pow(10.0, (opponentRating - myRating) / 400.0));
+            return (int)Math.Round(kFactor * (actualScore - expected));
+        }
+
+        private static void ApplyRatingDeltas(IList<IArenaTeam> teams, int delta, bool won)
+        {
+            if (teams == null)
+                return;
+            foreach (IArenaTeam team in teams)
+                team.UpdateRating(delta, won);
         }
     }
 }

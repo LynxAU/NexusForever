@@ -19,5 +19,10 @@ namespace NexusForever.Game.Abstract.Storefront
         /// Get the <see cref="IOfferItemPrice"/> associated with this <see cref="IOfferItem"/> for the given account currency ID
         /// </summary>
         IOfferItemPrice GetPriceDataForCurrency(AccountCurrencyType currencyId);
+
+        /// <summary>
+        /// Return all <see cref="IOfferItemData"/> entries describing what is delivered on purchase.
+        /// </summary>
+        IEnumerable<IOfferItemData> GetItemData();
     }
 }

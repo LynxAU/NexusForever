@@ -375,22 +375,23 @@ namespace NexusForever.Game.Combat
         }
 
         /// <summary>
-        /// Returns the defensive damage reduction multiplier.
-        /// </summary>
-        /// <remarks>
-        /// Calculates PvP damage reductions, damage shields, and other defensive effects.
+        /// Returns the defensive damage reduction multiplier to apply after all other calculations.
+        /// Handles PvP damage reduction when both attacker and victim are players.
         /// Returns 1.0f for no reduction, values less than 1.0f for damage reduction.
-        /// </remarks>
+        /// </summary>
         private float GetDefensiveModifier(IUnitEntity attacker, IUnitEntity victim)
         {
             float modifier = 1.0f;
 
-            // Apply PvP damage reduction if attacker and victim are players
-            // This is typically a flat reduction percentage in PvP
-            // TODO: Implement proper PvP damage reduction formula based on game data
-
-            // Apply damage shield effects from victim
-            // TODO: Calculate damage shield modifiers from active effects
+            // Apply PvP damage reduction when both attacker and victim are players.
+            // WildStar applied a global damage reduction in PvP instances.
+            // GameFormula 1275 stores the reduction coefficient; fall back to 30% if missing.
+            if (attacker.Type == EntityType.Player && victim.Type == EntityType.Player)
+            {
+                GameFormulaEntry pvpFormula = gameTableManager.GameFormula.GetEntry(1275);
+                float pvpReduction = pvpFormula?.Datafloat0 ?? 0.30f;
+                modifier *= (1.0f - Math.Clamp(pvpReduction, 0f, 0.90f));
+            }
 
             return modifier;
         }

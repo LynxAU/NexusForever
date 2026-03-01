@@ -83,6 +83,7 @@ namespace NexusForever.Game.Abstract.Entity
         IFriendManager FriendManager { get; }
         IZoneMapManager ZoneMapManager { get; }
         IQuestManager QuestManager { get; }
+        IChallengeManager ChallengeManager { get; }
         ICharacterAchievementManager AchievementManager { get; }
         ISupplySatchelManager SupplySatchelManager { get; }
         IXpManager XpManager { get; }

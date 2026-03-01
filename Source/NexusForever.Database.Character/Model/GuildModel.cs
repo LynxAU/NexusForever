@@ -16,6 +16,8 @@ namespace NexusForever.Database.Character.Model
         public ulong? OriginalLeaderId { get; set; }
 
         public GuildDataModel GuildData { get; set; }
+        public ArenaTeamModel ArenaTeamData { get; set; }
+        public WarPartyModel WarPartyData { get; set; }
         public ICollection<GuildRankModel> GuildRank { get; set; } = new HashSet<GuildRankModel>();
         public ICollection<GuildMemberModel> GuildMember { get; set; } = new HashSet<GuildMemberModel>();
         public ICollection<GuildAchievementModel> Achievement { get; set; } = new HashSet<GuildAchievementModel>();

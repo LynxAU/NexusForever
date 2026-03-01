@@ -19,6 +19,7 @@ using NexusForever.Game.Guild;
 using NexusForever.Game.Housing;
 using NexusForever.Game.Loot;
 using NexusForever.Game.Map;
+using NexusForever.Game.Challenge;
 using NexusForever.Game.Quest;
 using NexusForever.Game.RBAC;
 using NexusForever.Game.Reputation;
@@ -125,6 +126,7 @@ namespace NexusForever.WorldServer.Service
             DatabaseLootSourceProvider.Instance.Initialise();
             GlobalSpellManager.Instance.Initialise();
             GlobalQuestManager.Instance.Initialise();
+            GlobalChallengeManager.Instance.Initialise();
 
             GlobalStorefrontManager.Instance.Initialise();
             ServerManager.Instance.Initialise(RealmContext.Instance.RealmId);

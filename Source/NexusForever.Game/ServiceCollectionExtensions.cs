@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using NexusForever.Game.Abstract;
 using NexusForever.Game.Achievement;
+using NexusForever.Game.Challenge;
 using NexusForever.Game.Character;
 using NexusForever.Game.Chat;
 using NexusForever.Game.Cinematic;
@@ -40,6 +41,7 @@ namespace NexusForever.Game
             sc.AddSingletonLegacy<IDamageCalculator, DamageCalculator>();
 
             sc.AddGameAchievement();
+            sc.AddGameChallenge();
             sc.AddGameCharacter();
             sc.AddGameCinematic();
             sc.AddGameCombat();

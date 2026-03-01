@@ -1336,6 +1336,8 @@ namespace NexusForever.Game.Entity
             {
                 player.AchievementManager.CheckAchievements(player, AchievementType.KillCreatureGroup, targetGroupId);
             }
+
+            player.ChallengeManager.OnEntityKilled(CreatureId);
         }
 
         private void RewardKillLoot(IPlayer player)

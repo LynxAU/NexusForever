@@ -1,4 +1,5 @@
-﻿using NexusForever.Game.Abstract.Entity;
+using System;
+using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Static.Housing;
 using NexusForever.GameTable.Model;
 using NexusForever.Network.World.Message.Model;
@@ -26,5 +27,15 @@ namespace NexusForever.Game.Abstract.Housing
         /// Send <see cref="ServerHousingBasics"/> message to <see cref="IPlayer"/>.
         /// </summary>
         void SendHousingBasics();
+
+        /// <summary>
+        /// Update upkeep state when the owning player logs in.
+        /// </summary>
+        void OnLogin(DateTime? lastOnline);
+
+        /// <summary>
+        /// Update upkeep state from world tick while the owning player is online.
+        /// </summary>
+        void Update(double lastTick);
     }
 }

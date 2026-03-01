@@ -88,6 +88,11 @@ namespace NexusForever.Game.Abstract.Guild
         IEnumerable<IArenaTeam> GetArenaTeams();
 
         /// <summary>
+        /// Returns all war parties.
+        /// </summary>
+        IEnumerable<IWarParty> GetWarParties();
+
+        /// <summary>
         /// Invoke operation delegate to handle <see cref="GuildOperation"/>.
         /// </summary>
         void HandleGuildOperation(IPlayer player, ClientGuildOperation operation);

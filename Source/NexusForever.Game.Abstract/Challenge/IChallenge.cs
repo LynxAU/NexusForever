@@ -42,6 +42,11 @@ namespace NexusForever.Game.Abstract.Challenge
         bool OnSpellCast(uint spell4Id);
 
         /// <summary>
+        /// Notify the challenge that an item was collected. Returns true if progress advanced (Item/Collect type).
+        /// </summary>
+        bool OnItemCollected(uint itemId);
+
+        /// <summary>
         /// Build a network packet representation of the current challenge state.
         /// </summary>
         ServerChallengeUpdate.Challenge Build();

@@ -25,5 +25,10 @@ namespace NexusForever.Game.Abstract.Quest
         /// Complete this <see cref="IQuestObjective"/>.
         /// </summary>
         void Complete();
+
+        /// <summary>
+        /// Returns true once when this objective timer expires, then clears the expired state.
+        /// </summary>
+        bool ConsumeTimerExpired();
     }
 }

@@ -117,6 +117,15 @@ namespace NexusForever.Game.Entity
             }
         }
 
+        public void OnItemCollected(uint itemId)
+        {
+            foreach (IChallenge challenge in challenges.Values.Where(c => c.IsActivated))
+            {
+                if (challenge.OnItemCollected(itemId))
+                    FlushProgressNotifications(challenge);
+            }
+        }
+
         private void FlushProgressNotifications(IChallenge challenge)
         {
             uint? tier = challenge.ConsumePendingTierNotify();
@@ -166,7 +175,7 @@ namespace NexusForever.Game.Entity
                     break;
                 case QuestRewardType.GenericUnlock:
                 case QuestRewardType.AccountGenericUnlock:
-                    log.Trace($"Challenge reward: generic unlock {id} (not yet implemented)");
+                    player.Account.GenericUnlockManager.Unlock((ushort)id);
                     break;
                 default:
                     log.Warn($"Unhandled challenge reward slot type {typeEnum}!");

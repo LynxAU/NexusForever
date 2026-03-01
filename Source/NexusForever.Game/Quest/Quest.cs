@@ -255,6 +255,12 @@ namespace NexusForever.Game.Quest
             foreach (var objective in objectives)
             {
                 objective.Update(lastTick);
+
+                if (State == QuestState.Accepted && objective.ConsumeTimerExpired())
+                {
+                    State = QuestState.Botched;
+                    break;
+                }
             }
         }
 

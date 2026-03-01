@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NexusForever.Database;
 using NexusForever.Database.Character;
 using NexusForever.Database.Character.Model;
@@ -10,7 +11,9 @@ using NexusForever.Game.Entity;
 using NexusForever.Game.Guild;
 using NexusForever.Game.Static.Entity;
 using NexusForever.Game.Static.Mail;
+using NexusForever.Game.Static.Matching;
 using NexusForever.Game.Static.RBAC;
+using NexusForever.GameTable;
 using NexusForever.WorldServer.Command.Context;
 using NexusForever.WorldServer.Command.Static;
 
@@ -25,15 +28,20 @@ namespace NexusForever.WorldServer.Command.Handler
         private const int MinGamesPlayed = 10;
 
         /// <summary>
-        /// Glory currency rewards per rating bracket.
+        /// Reward amounts (Glory) by rank, paired to rating floors from PvPRatingFloor.tbl (Arena2v2).
+        /// Highest floor → highest reward. Hardcoded amounts; floors are data-driven.
         /// </summary>
-        private static readonly (int MinRating, ulong GloryReward)[] Brackets =
+        private static readonly ulong[] RewardsByRank = { 2000uL, 1500uL, 1000uL, 500uL };
+
+        private static (int MinRating, ulong GloryReward)[] GetArenaRewardBrackets()
         {
-            (1800, 2000uL),
-            (1700, 1500uL),
-            (1600, 1000uL),
-            (1500,  500uL),
-        };
+            return GameTableManager.Instance.PvPRatingFloor.Entries
+                .Where(e => e != null && e.PvpRatingTypeEnum == (uint)MatchingGameRatingType.Arena2v2 && e.FloorValue > 0)
+                .OrderByDescending(e => e.FloorValue)
+                .Take(RewardsByRank.Length)
+                .Select((e, i) => ((int)e.FloorValue, RewardsByRank[i]))
+                .ToArray();
+        }
 
         [Command(Permission.ArenaSeasonEnd, "End the current arena season: deliver Glory rewards to qualifying teams and reset season stats.", "seasonend")]
         public void HandleArenaSeasonEnd(ICommandContext context,
@@ -45,6 +53,7 @@ namespace NexusForever.WorldServer.Command.Handler
             int offlineRewarded = 0;
 
             var offlineMails = new List<CharacterMailModel>();
+            var brackets     = GetArenaRewardBrackets();
 
             foreach (IArenaTeam team in GlobalGuildManager.Instance.GetArenaTeams())
             {
@@ -53,7 +62,7 @@ namespace NexusForever.WorldServer.Command.Handler
 
                 if (gamesPlayed >= MinGamesPlayed)
                 {
-                    foreach ((int minRating, ulong reward) in Brackets)
+                    foreach ((int minRating, ulong reward) in brackets)
                     {
                         if (team.Rating >= minRating)
                         {

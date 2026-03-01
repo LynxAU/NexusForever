@@ -28,5 +28,10 @@ namespace NexusForever.Game.Abstract.Entity
         /// Notify the manager that a spell was cast so Ability-type challenges can advance.
         /// </summary>
         void OnSpellCast(uint spell4Id);
+
+        /// <summary>
+        /// Notify the manager that an item was collected so Item/Collect challenges can advance.
+        /// </summary>
+        void OnItemCollected(uint itemId);
     }
 }

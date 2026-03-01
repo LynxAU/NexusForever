@@ -186,6 +186,7 @@ namespace NexusForever.Game.Entity
         }
 
         public DateTime CreateTime { get; private set; }
+        private DateTime? lastOnline;
         public double TimePlayedTotal { get; private set; }
         public double TimePlayedLevel { get; private set; }
         public double TimePlayedSession { get; private set; }
@@ -321,6 +322,7 @@ namespace NexusForever.Game.Entity
             flags             = (CharacterFlag)model.Flags;
 
             CreateTime        = model.CreateTime;
+            lastOnline        = model.LastOnline;
             TimePlayedTotal   = model.TimePlayedTotal;
             TimePlayedLevel   = model.TimePlayedLevel;
 
@@ -416,6 +418,7 @@ namespace NexusForever.Game.Entity
             GuildManager.Update(lastTick);
             QuestManager.Update(lastTick);
             ChallengeManager.Update(lastTick);
+            ResidenceManager.Update(lastTick);
 
             relocationTimer.Update(lastTick);
             if (relocationTimer.HasElapsed)
@@ -1055,6 +1058,7 @@ namespace NexusForever.Game.Entity
                 GlobalChatManager.Instance.SendMessage(Session, motd, "MOTD", ChatChannelType.Realm);
 
             GuildManager.OnLogin();
+            ResidenceManager.OnLogin(lastOnline);
 
             ShutdownManager.Instance.OnLogin(this);
 

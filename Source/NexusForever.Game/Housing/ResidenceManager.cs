@@ -1,4 +1,5 @@
-﻿using NexusForever.Game.Abstract.Entity;
+using System;
+using NexusForever.Game.Abstract.Entity;
 using NexusForever.Game.Abstract.Housing;
 using NexusForever.Game.Static.Housing;
 using NexusForever.GameTable.Model;
@@ -74,6 +75,26 @@ namespace NexusForever.Game.Housing
                 /*NeighbourhoodId = GuildManager.GetGuild<Community>(GuildType.Community)?.Id ?? 0ul,*/
                 PrivacyLevel    = flags
             });
+        }
+
+        public void OnLogin(DateTime? lastOnline)
+        {
+            if (Residence == null)
+                return;
+
+            if (lastOnline.HasValue)
+            {
+                double elapsedSeconds = Math.Max(0d, DateTime.UtcNow.Subtract(lastOnline.Value).TotalSeconds);
+                if (elapsedSeconds > 0d)
+                    Residence.UpdateUpkeep(elapsedSeconds);
+            }
+
+            SendHousingBasics();
+        }
+
+        public void Update(double lastTick)
+        {
+            Residence?.UpdateUpkeep(lastTick);
         }
     }
 }

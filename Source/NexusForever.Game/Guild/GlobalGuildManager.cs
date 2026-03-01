@@ -270,6 +270,14 @@ namespace NexusForever.Game.Guild
         }
 
         /// <summary>
+        /// Returns all war parties.
+        /// </summary>
+        public IEnumerable<IWarParty> GetWarParties()
+        {
+            return guilds.Values.OfType<IWarParty>();
+        }
+
+        /// <summary>
         /// Track a new guild for the supplied character.
         /// </summary>
         /// <remarks>

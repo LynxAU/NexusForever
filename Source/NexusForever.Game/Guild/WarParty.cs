@@ -80,6 +80,19 @@ namespace NexusForever.Game.Guild
             warPartySaveMask |= WarPartySaveMask.Rating;
         }
 
+        /// <summary>
+        /// Reset season wins and losses at the end of a warplot season.
+        /// Optionally resets the rating back to the default starting value.
+        /// </summary>
+        public void ResetSeason(bool resetRating = false)
+        {
+            seasonWins   = 0;
+            seasonLosses = 0;
+            if (resetRating)
+                rating = 1500;
+            warPartySaveMask |= WarPartySaveMask.Rating;
+        }
+
         protected override void Save(CharacterContext context, GuildBaseSaveMask guildSaveMask)
         {
             if (warPartySaveMask == WarPartySaveMask.None)

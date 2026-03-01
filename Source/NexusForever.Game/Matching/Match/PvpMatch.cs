@@ -196,6 +196,8 @@ namespace NexusForever.Game.Matching.Match
 
             if (MatchingMap.GameTypeEntry.MatchTypeEnum == Static.Matching.MatchType.Arena)
                 UpdateArenaRatings(matchWinner);
+            else if (MatchingMap.GameTypeEntry.MatchTypeEnum == Static.Matching.MatchType.Warplot)
+                UpdateWarplotRatings(matchWinner);
 
             SetState(PvpGameState.Finished);
 
@@ -295,6 +297,63 @@ namespace NexusForever.Game.Matching.Match
                 return;
             foreach (IArenaTeam team in teams)
                 team.UpdateRating(delta, won);
+        }
+
+        /// <summary>
+        /// Collect war parties from each match team and apply ELO rating changes.
+        /// </summary>
+        private void UpdateWarplotRatings(MatchWinner matchWinner)
+        {
+            IList<IMatchTeam> teams = GetTeams().ToList();
+            if (teams.Count != 2)
+                return;
+
+            var teamWarPartyMap = new Dictionary<Static.Matching.MatchTeam, List<IWarParty>>();
+
+            foreach (IMatchTeam matchTeam in teams)
+            {
+                var warParties = new List<IWarParty>();
+                var seen = new HashSet<ulong>();
+
+                foreach (IMatchTeamMember member in matchTeam.GetMembers())
+                {
+                    IPlayer player = playerManager.GetPlayer(member.Identity);
+                    if (player == null)
+                        continue;
+
+                    IWarParty warParty = player.GuildManager.GetGuild<IWarParty>(GuildType.WarParty);
+                    if (warParty == null || !seen.Add(warParty.Id))
+                        continue;
+
+                    warParties.Add(warParty);
+                }
+
+                teamWarPartyMap[matchTeam.Team] = warParties;
+            }
+
+            int ratingRed  = GetWarPartyAverageRating(teamWarPartyMap.GetValueOrDefault(Static.Matching.MatchTeam.Red));
+            int ratingBlue = GetWarPartyAverageRating(teamWarPartyMap.GetValueOrDefault(Static.Matching.MatchTeam.Blue));
+
+            int deltaRed  = CalculateEloDelta(ratingRed,  ratingBlue, GetScore(matchWinner, Static.Matching.MatchTeam.Red));
+            int deltaBlue = CalculateEloDelta(ratingBlue, ratingRed,  GetScore(matchWinner, Static.Matching.MatchTeam.Blue));
+
+            ApplyWarplotRatingDeltas(teamWarPartyMap.GetValueOrDefault(Static.Matching.MatchTeam.Red),  deltaRed,  matchWinner == MatchWinner.Red);
+            ApplyWarplotRatingDeltas(teamWarPartyMap.GetValueOrDefault(Static.Matching.MatchTeam.Blue), deltaBlue, matchWinner == MatchWinner.Blue);
+        }
+
+        private static int GetWarPartyAverageRating(IList<IWarParty> parties)
+        {
+            if (parties == null || parties.Count == 0)
+                return 1500;
+            return (int)parties.Average(p => p.Rating);
+        }
+
+        private static void ApplyWarplotRatingDeltas(IList<IWarParty> parties, int delta, bool won)
+        {
+            if (parties == null)
+                return;
+            foreach (IWarParty party in parties)
+                party.UpdateRating(delta, won);
         }
     }
 }

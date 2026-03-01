@@ -124,6 +124,20 @@ namespace NexusForever.Game.Challenge
             return AdvanceCount();
         }
 
+        public bool OnItemCollected(uint itemId)
+        {
+            if (!IsActivated || IsCompleted)
+                return false;
+
+            if (info.Type is not (ChallengeType.Item or ChallengeType.Collect))
+                return false;
+
+            if (info.Target != 0 && info.Target != itemId)
+                return false;
+
+            return AdvanceCount();
+        }
+
         private bool AdvanceCount()
         {
             currentCount++;

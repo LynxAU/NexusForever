@@ -154,6 +154,17 @@ namespace NexusForever.Game.Trade
             if (item == null)
                 return;
 
+            // Block soulbound (BindOnPickup) items from being traded.
+            const uint BindOnPickup = 0x01u;
+            if ((item.Info.Entry.BindFlags & BindOnPickup) != 0)
+            {
+                player.Session.EnqueueMessageEncrypted(new ServerP2PTradeResult
+                {
+                    Result = TradeResult.ErrorAddingItem
+                });
+                return;
+            }
+
             var tradeItem = new TradeItem
             {
                 ItemId   = item.Info.Entry.Id,
@@ -263,18 +274,21 @@ namespace NexusForever.Game.Trade
                 // Transfer items from player to target
                 foreach (var item in session.PlayerItems)
                 {
-                    var location = new ItemLocation 
-                    { 
-                        Location = InventoryLocation.Inventory, 
-                        BagIndex = item.BagIndex 
+                    var location = new ItemLocation
+                    {
+                        Location = InventoryLocation.Inventory,
+                        BagIndex = item.BagIndex
                     };
                     var inventoryItem = session.Player.Inventory.GetItem(location);
                     if (inventoryItem != null)
                     {
-                        // Remove from player
+                        uint remainder = inventoryItem.StackCount - item.Quantity;
                         session.Player.Inventory.ItemDelete(location, ItemUpdateReason.Trade);
 
-                        // Add to target
+                        // If only part of the stack was traded, return the remainder to the source.
+                        if (remainder > 0)
+                            session.Player.Inventory.ItemCreate(InventoryLocation.Inventory, item.ItemId, remainder, ItemUpdateReason.Trade);
+
                         session.Target.Inventory.ItemCreate(InventoryLocation.Inventory, item.ItemId, item.Quantity, ItemUpdateReason.Trade);
                     }
                 }
@@ -282,18 +296,21 @@ namespace NexusForever.Game.Trade
                 // Transfer items from target to player
                 foreach (var item in session.TargetItems)
                 {
-                    var location = new ItemLocation 
-                    { 
-                        Location = InventoryLocation.Inventory, 
-                        BagIndex = item.BagIndex 
+                    var location = new ItemLocation
+                    {
+                        Location = InventoryLocation.Inventory,
+                        BagIndex = item.BagIndex
                     };
                     var inventoryItem = session.Target.Inventory.GetItem(location);
                     if (inventoryItem != null)
                     {
-                        // Remove from target
+                        uint remainder = inventoryItem.StackCount - item.Quantity;
                         session.Target.Inventory.ItemDelete(location, ItemUpdateReason.Trade);
 
-                        // Add to player
+                        // If only part of the stack was traded, return the remainder to the source.
+                        if (remainder > 0)
+                            session.Target.Inventory.ItemCreate(InventoryLocation.Inventory, item.ItemId, remainder, ItemUpdateReason.Trade);
+
                         session.Player.Inventory.ItemCreate(InventoryLocation.Inventory, item.ItemId, item.Quantity, ItemUpdateReason.Trade);
                     }
                 }

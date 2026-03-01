@@ -145,7 +145,11 @@ namespace NexusForever.WorldServer.Network.Message.Handler.Guild
         {
             var response = new ServerWarPartyBossTokens
             {
-                GuildIdentity = warParty.Identity,
+                GuildIdentity = new NexusForever.Network.World.Message.Model.Shared.Identity
+                {
+                    RealmId = 0,
+                    Id = warParty.Id
+                },
                 Tokens = BuildBossTokenList(warParty.BossTokens)
             };
 

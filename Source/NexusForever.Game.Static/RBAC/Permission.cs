@@ -185,6 +185,10 @@
         ScriptInfo                  = 114,
         ScriptAdd                   = 115,
 
+        // arena
+        Arena                       = 121,
+        ArenaSeasonEnd              = 122,
+
         // ban
         Ban                         = 117,
         BanAccount                  = 118,

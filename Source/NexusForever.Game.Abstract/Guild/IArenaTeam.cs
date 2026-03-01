@@ -17,5 +17,11 @@ namespace NexusForever.Game.Abstract.Guild
         /// Apply a rating delta and record a win or loss for the current season.
         /// </summary>
         void UpdateRating(int delta, bool won);
+
+        /// <summary>
+        /// Reset season wins and losses at the end of a PvP season.
+        /// Optionally resets the rating back to the starting value.
+        /// </summary>
+        void ResetSeason(bool resetRating = false);
     }
 }

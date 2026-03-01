@@ -96,6 +96,19 @@ namespace NexusForever.Game.Guild
             arenaTeamSaveMask |= ArenaTeamSaveMask.Rating;
         }
 
+        /// <summary>
+        /// Reset season wins and losses at the end of a PvP season.
+        /// Optionally resets the rating back to the default starting value.
+        /// </summary>
+        public void ResetSeason(bool resetRating = false)
+        {
+            seasonWins   = 0;
+            seasonLosses = 0;
+            if (resetRating)
+                rating = 1500;
+            arenaTeamSaveMask |= ArenaTeamSaveMask.Rating;
+        }
+
         protected override void Save(CharacterContext context, GuildBaseSaveMask guildSaveMask)
         {
             if (arenaTeamSaveMask == ArenaTeamSaveMask.None)

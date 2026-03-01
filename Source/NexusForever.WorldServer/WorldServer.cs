@@ -14,6 +14,7 @@ using NexusForever.Database.Character;
 using NexusForever.Database.Configuration.Model;
 using NexusForever.Game;
 using NexusForever.Game.Configuration.Model;
+using NexusForever.Game.Marketplace;
 using NexusForever.GameTable;
 using NexusForever.Network.Configuration.Model;
 using NexusForever.Network.Internal;
@@ -83,6 +84,7 @@ namespace NexusForever.WorldServer
                     sc.AddDbContextFactory<CharacterContext>(options => options.UseConfiguration(databaseConfig.Character));
                     sc.AddDatabase();
                     sc.AddGame();
+                    sc.AddGameMarketplace();
                     sc.AddGameTable(
                         hb.Configuration.GetSection("GameTable"));
                     sc.AddWorldNetwork();
